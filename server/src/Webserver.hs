@@ -31,6 +31,7 @@ handleRequest req f =
   in
     if | path == "index.html" -> f $ fileToResponse path
        | path == "main.js" -> f $ fileToResponse path
+       | path == "main.css" -> f $ fileToResponse path
        | path == "util.js" -> f $ fileToResponse path
        | path == "" -> f $ fileToResponse "index.html"
        | otherwise -> do

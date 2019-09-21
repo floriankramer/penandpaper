@@ -1,0 +1,24 @@
+body {
+  margin: 0px;
+}
+
+#canvas {
+ float: left;
+}
+
+#right-bar {
+ float: right;
+ height: 100%;
+}
+
+#chat-area {
+  display: flex;
+  flex-direction: column;
+}
+
+#chat-text {
+  flex-grow: 1;
+}
+
+#chat-input {
+}

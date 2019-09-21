@@ -2,6 +2,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Main</title>
+  <link rel="stylesheet" type="text/css" href="main.css">
   <script src="https://unpkg.com/elm-canvas@2.2.3/elm-canvas.js" ></script>
   <script src="util.js"></script>
   <script src="main.js"></script>
@@ -9,7 +10,10 @@
 <body>
   <div id="elm"></div>
   <script>
-    var app = Elm.Main.init({node: document.getElementById('elm')});
+    var app = Elm.Main.init({
+      node: document.getElementById('elm'),
+      flags: [window.innerWidth, window.innerHeight]
+    });
   </script>
 </body>
 </html>
