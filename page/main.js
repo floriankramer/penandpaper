@@ -4310,6 +4310,58 @@ function _Browser_load(url)
 		}
 	}));
 }
+
+
+
+var _Bitwise_and = F2(function(a, b)
+{
+	return a & b;
+});
+
+var _Bitwise_or = F2(function(a, b)
+{
+	return a | b;
+});
+
+var _Bitwise_xor = F2(function(a, b)
+{
+	return a ^ b;
+});
+
+function _Bitwise_complement(a)
+{
+	return ~a;
+};
+
+var _Bitwise_shiftLeftBy = F2(function(offset, a)
+{
+	return a << offset;
+});
+
+var _Bitwise_shiftRightBy = F2(function(offset, a)
+{
+	return a >> offset;
+});
+
+var _Bitwise_shiftRightZfBy = F2(function(offset, a)
+{
+	return a >>> offset;
+});
+var author$project$Main$Creature = function (a) {
+	return {$: 'Creature', a: a};
+};
+var author$project$Main$None = {$: 'None'};
+var avh4$elm_color$Color$RgbaSpace = F4(
+	function (a, b, c, d) {
+		return {$: 'RgbaSpace', a: a, b: b, c: c, d: d};
+	});
+var avh4$elm_color$Color$rgb = F3(
+	function (r, g, b) {
+		return A4(avh4$elm_color$Color$RgbaSpace, r, g, b, 1.0);
+	});
+var elm$core$Basics$negate = function (n) {
+	return -n;
+};
 var elm$core$Basics$False = {$: 'False'};
 var elm$core$Basics$True = {$: 'True'};
 var elm$core$Result$isOk = function (result) {
@@ -4792,10 +4844,23 @@ var author$project$Main$init = function (_n0) {
 	var h = _n0.b;
 	return _Utils_Tuple2(
 		{
+			action: author$project$Main$None,
+			mouse: {x: 0, y: 0},
+			selected: -1,
 			tokens: _List_fromArray(
 				[
-					{radius: 50, x: 70, y: 70}
+					author$project$Main$Creature(
+					{
+						color: A3(avh4$elm_color$Color$rgb, 0.7, 0, 0.7),
+						id: 0,
+						owner: 0,
+						radius: 0.5,
+						x: 0,
+						y: 0
+					})
 				]),
+			user: {id: 0},
+			view: {height: 8, x: 0, y: 0},
 			window: {height: h, width: w}
 		},
 		elm$core$Platform$Cmd$none);
@@ -5540,36 +5605,453 @@ var elm$browser$Browser$Events$onResize = function (func) {
 var author$project$Main$subscriptions = function (_n0) {
 	return elm$browser$Browser$Events$onResize(author$project$Main$onResize);
 };
-var author$project$Main$update = F2(
-	function (msg, model) {
-		if (msg.$ === 'Move') {
-			var _n1 = msg.a;
-			var newx = _n1.a;
-			var newy = _n1.b;
-			return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+var author$project$Main$applyToToken = F3(
+	function (f, i, l) {
+		if (!l.b) {
+			return _List_Nil;
 		} else {
-			var _n2 = msg.a;
-			var w = _n2.a;
-			var h = _n2.b;
-			return _Utils_Tuple2(
-				_Utils_update(
-					model,
-					{
-						window: {height: h, width: w}
-					}),
-				elm$core$Platform$Cmd$none);
+			var h = l.a;
+			var t = l.b;
+			if (h.$ === 'Doodad') {
+				var d = h.a;
+				return _Utils_eq(d.id, i) ? A2(
+					elm$core$List$cons,
+					f(h),
+					A3(author$project$Main$applyToToken, f, i, t)) : A2(
+					elm$core$List$cons,
+					h,
+					A3(author$project$Main$applyToToken, f, i, t));
+			} else {
+				var d = h.a;
+				return _Utils_eq(d.id, i) ? A2(
+					elm$core$List$cons,
+					f(h),
+					A3(author$project$Main$applyToToken, f, i, t)) : A2(
+					elm$core$List$cons,
+					h,
+					A3(author$project$Main$applyToToken, f, i, t));
+			}
 		}
 	});
-var author$project$Main$Move = function (a) {
-	return {$: 'Move', a: a};
+var author$project$Main$DragToken = function (a) {
+	return {$: 'DragToken', a: a};
 };
-var avh4$elm_color$Color$RgbaSpace = F4(
-	function (a, b, c, d) {
-		return {$: 'RgbaSpace', a: a, b: b, c: c, d: d};
+var author$project$Main$DragView = function (a) {
+	return {$: 'DragView', a: a};
+};
+var author$project$Main$screenToWorld = F2(
+	function (m, _n0) {
+		var x = _n0.a;
+		var y = _n0.b;
+		var scale = m.view.height / m.window.height;
+		return _Utils_Tuple2(((x - ((0.8 * 0.5) * m.window.width)) * scale) + m.view.x, ((y - (0.5 * m.window.height)) * scale) + m.view.y);
 	});
-var avh4$elm_color$Color$rgb = F3(
-	function (r, g, b) {
-		return A4(avh4$elm_color$Color$RgbaSpace, r, g, b, 1.0);
+var author$project$Main$Doodad = function (a) {
+	return {$: 'Doodad', a: a};
+};
+var author$project$Main$tokenSetPosition = F3(
+	function (x, y, t) {
+		if (t.$ === 'Doodad') {
+			var d = t.a;
+			return author$project$Main$Doodad(
+				_Utils_update(
+					d,
+					{x: x, y: y}));
+		} else {
+			var c = t.a;
+			return author$project$Main$Creature(
+				_Utils_update(
+					c,
+					{x: x, y: y}));
+		}
+	});
+var author$project$Main$onMouseMotion = F2(
+	function (event, model) {
+		var _n0 = A2(author$project$Main$screenToWorld, model, event.offsetPos);
+		var x = _n0.a;
+		var y = _n0.b;
+		var _n1 = event.offsetPos;
+		var sx = _n1.a;
+		var sy = _n1.b;
+		var _n2 = model.action;
+		switch (_n2.$) {
+			case 'DragToken':
+				var d = _n2.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							action: author$project$Main$DragToken(
+								{startx: d.startx, starty: d.starty, x: x, y: y}),
+							tokens: A3(
+								author$project$Main$applyToToken,
+								A2(author$project$Main$tokenSetPosition, x, y),
+								model.selected,
+								model.tokens)
+						}),
+					elm$core$Platform$Cmd$none);
+			case 'DragView':
+				var d = _n2.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							action: author$project$Main$DragView(
+								{lastX: sx, lastY: sy}),
+							view: {height: model.view.height, x: model.view.x - (((sx - d.lastX) / model.window.height) * model.view.height), y: model.view.y - (((sy - d.lastY) / model.window.height) * model.view.height)}
+						}),
+					elm$core$Platform$Cmd$none);
+			default:
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							mouse: {x: x, y: y}
+						}),
+					elm$core$Platform$Cmd$none);
+		}
+	});
+var elm$core$Basics$pow = _Basics_pow;
+var elm$core$Basics$sqrt = _Basics_sqrt;
+var author$project$Main$tokenIdAt = F3(
+	function (x, y, l) {
+		tokenIdAt:
+		while (true) {
+			if (!l.b) {
+				return -1;
+			} else {
+				var h = l.a;
+				var t = l.b;
+				if (h.$ === 'Doodad') {
+					var d = h.a;
+					if (_Utils_cmp(
+						elm$core$Basics$sqrt(
+							A2(elm$core$Basics$pow, x - d.x, 2) + A2(elm$core$Basics$pow, y - d.y, 2)),
+						d.radius) < 0) {
+						return d.id;
+					} else {
+						var $temp$x = x,
+							$temp$y = y,
+							$temp$l = t;
+						x = $temp$x;
+						y = $temp$y;
+						l = $temp$l;
+						continue tokenIdAt;
+					}
+				} else {
+					var c = h.a;
+					if (_Utils_cmp(
+						elm$core$Basics$sqrt(
+							A2(elm$core$Basics$pow, x - c.x, 2) + A2(elm$core$Basics$pow, y - c.y, 2)),
+						c.radius) < 0) {
+						return c.id;
+					} else {
+						var $temp$x = x,
+							$temp$y = y,
+							$temp$l = t;
+						x = $temp$x;
+						y = $temp$y;
+						l = $temp$l;
+						continue tokenIdAt;
+					}
+				}
+			}
+		}
+	});
+var author$project$Main$creatureIdAt = F3(
+	function (x, y, l) {
+		if (!l.b) {
+			return -1;
+		} else {
+			var h = l.a;
+			var t = l.b;
+			if (h.$ === 'Doodad') {
+				var d = h.a;
+				return A3(author$project$Main$tokenIdAt, x, y, t);
+			} else {
+				var c = h.a;
+				return (_Utils_cmp(
+					elm$core$Basics$sqrt(
+						A2(elm$core$Basics$pow, x - c.x, 2) + A2(elm$core$Basics$pow, y - c.y, 2)),
+					c.radius) < 0) ? c.id : A3(author$project$Main$tokenIdAt, x, y, t);
+			}
+		}
+	});
+var author$project$Main$onMousePress = F2(
+	function (event, model) {
+		var _n0 = A2(author$project$Main$screenToWorld, model, event.offsetPos);
+		var x = _n0.a;
+		var y = _n0.b;
+		var _n1 = event.button;
+		switch (_n1.$) {
+			case 'MainButton':
+				var s = A3(author$project$Main$creatureIdAt, x, y, model.tokens);
+				var _n2 = event.offsetPos;
+				var sx = _n2.a;
+				var sy = _n2.b;
+				var a = (s < 0) ? author$project$Main$DragView(
+					{lastX: sx, lastY: sy}) : author$project$Main$DragToken(
+					{startx: x, starty: y, x: x, y: y});
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{action: a, selected: s}),
+					elm$core$Platform$Cmd$none);
+			case 'MiddleButton':
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							view: {height: 8, x: 0, y: 0}
+						}),
+					elm$core$Platform$Cmd$none);
+			default:
+				return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+		}
+	});
+var author$project$Main$onMouseRelease = F2(
+	function (_n0, model) {
+		return _Utils_Tuple2(
+			_Utils_update(
+				model,
+				{action: author$project$Main$None}),
+			elm$core$Platform$Cmd$none);
+	});
+var author$project$Main$onMouseWheel = F2(
+	function (event, model) {
+		return _Utils_Tuple2(
+			_Utils_update(
+				model,
+				{
+					view: {height: model.view.height * (1 + (0.1 * event.deltaY)), x: model.view.x, y: model.view.y}
+				}),
+			elm$core$Platform$Cmd$none);
+	});
+var author$project$Main$update = F2(
+	function (msg, model) {
+		switch (msg.$) {
+			case 'Move':
+				var id = msg.a;
+				var _n1 = msg.b;
+				var newx = _n1.a;
+				var newy = _n1.b;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							tokens: A3(
+								author$project$Main$applyToToken,
+								A2(author$project$Main$tokenSetPosition, newx, newy),
+								id,
+								model.tokens)
+						}),
+					elm$core$Platform$Cmd$none);
+			case 'OnResize':
+				var _n2 = msg.a;
+				var w = _n2.a;
+				var h = _n2.b;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							window: {height: h, width: w}
+						}),
+					elm$core$Platform$Cmd$none);
+			case 'MousePress':
+				var e = msg.a;
+				return A2(author$project$Main$onMousePress, e, model);
+			case 'MouseMotion':
+				var e = msg.a;
+				return A2(author$project$Main$onMouseMotion, e, model);
+			case 'MouseRelease':
+				var e = msg.a;
+				return A2(author$project$Main$onMouseRelease, e, model);
+			default:
+				var e = msg.a;
+				return A2(author$project$Main$onMouseWheel, e, model);
+		}
+	});
+var author$project$Main$MouseMotion = function (a) {
+	return {$: 'MouseMotion', a: a};
+};
+var author$project$Main$MousePress = function (a) {
+	return {$: 'MousePress', a: a};
+};
+var author$project$Main$MouseRelease = function (a) {
+	return {$: 'MouseRelease', a: a};
+};
+var author$project$Main$MouseWheel = function (a) {
+	return {$: 'MouseWheel', a: a};
+};
+var joakin$elm_canvas$Canvas$Settings$Advanced$Scale = F2(
+	function (a, b) {
+		return {$: 'Scale', a: a, b: b};
+	});
+var joakin$elm_canvas$Canvas$Settings$Advanced$scale = joakin$elm_canvas$Canvas$Settings$Advanced$Scale;
+var joakin$elm_canvas$Canvas$Internal$Canvas$SettingCommands = function (a) {
+	return {$: 'SettingCommands', a: a};
+};
+var elm$json$Json$Encode$float = _Json_wrap;
+var elm$json$Json$Encode$list = F2(
+	function (func, entries) {
+		return _Json_wrap(
+			A3(
+				elm$core$List$foldl,
+				_Json_addEntry(func),
+				_Json_emptyArray(_Utils_Tuple0),
+				entries));
+	});
+var elm$json$Json$Encode$object = function (pairs) {
+	return _Json_wrap(
+		A3(
+			elm$core$List$foldl,
+			F2(
+				function (_n0, obj) {
+					var k = _n0.a;
+					var v = _n0.b;
+					return A3(_Json_addField, k, v, obj);
+				}),
+			_Json_emptyObject(_Utils_Tuple0),
+			pairs));
+};
+var elm$json$Json$Encode$string = _Json_wrap;
+var joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$fn = F2(
+	function (name, args) {
+		return elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'type',
+					elm$json$Json$Encode$string('function')),
+					_Utils_Tuple2(
+					'name',
+					elm$json$Json$Encode$string(name)),
+					_Utils_Tuple2(
+					'args',
+					A2(elm$json$Json$Encode$list, elm$core$Basics$identity, args))
+				]));
+	});
+var joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$rotate = function (angle) {
+	return A2(
+		joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$fn,
+		'rotate',
+		_List_fromArray(
+			[
+				elm$json$Json$Encode$float(angle)
+			]));
+};
+var joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$scale = F2(
+	function (x, y) {
+		return A2(
+			joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$fn,
+			'scale',
+			_List_fromArray(
+				[
+					elm$json$Json$Encode$float(x),
+					elm$json$Json$Encode$float(y)
+				]));
+	});
+var joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$transform = F6(
+	function (a, b, c, d, e, f) {
+		return A2(
+			joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$fn,
+			'transform',
+			_List_fromArray(
+				[
+					elm$json$Json$Encode$float(a),
+					elm$json$Json$Encode$float(b),
+					elm$json$Json$Encode$float(c),
+					elm$json$Json$Encode$float(d),
+					elm$json$Json$Encode$float(e),
+					elm$json$Json$Encode$float(f)
+				]));
+	});
+var joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$translate = F2(
+	function (x, y) {
+		return A2(
+			joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$fn,
+			'translate',
+			_List_fromArray(
+				[
+					elm$json$Json$Encode$float(x),
+					elm$json$Json$Encode$float(y)
+				]));
+	});
+var joakin$elm_canvas$Canvas$Settings$Advanced$transform = function (transforms) {
+	return joakin$elm_canvas$Canvas$Internal$Canvas$SettingCommands(
+		A2(
+			elm$core$List$map,
+			function (t) {
+				switch (t.$) {
+					case 'Rotate':
+						var angle = t.a;
+						return joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$rotate(angle);
+					case 'Scale':
+						var x = t.a;
+						var y = t.b;
+						return A2(joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$scale, x, y);
+					case 'Translate':
+						var x = t.a;
+						var y = t.b;
+						return A2(joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$translate, x, y);
+					default:
+						var m11 = t.a.m11;
+						var m12 = t.a.m12;
+						var m21 = t.a.m21;
+						var m22 = t.a.m22;
+						var dx = t.a.dx;
+						var dy = t.a.dy;
+						return A6(joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$transform, m11, m12, m21, m22, dx, dy);
+				}
+			},
+			transforms));
+};
+var joakin$elm_canvas$Canvas$Settings$Advanced$Translate = F2(
+	function (a, b) {
+		return {$: 'Translate', a: a, b: b};
+	});
+var joakin$elm_canvas$Canvas$Settings$Advanced$translate = joakin$elm_canvas$Canvas$Settings$Advanced$Translate;
+var joakin$elm_canvas$Canvas$Internal$Canvas$SettingCommand = function (a) {
+	return {$: 'SettingCommand', a: a};
+};
+var joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$field = F2(
+	function (name, value) {
+		return elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'type',
+					elm$json$Json$Encode$string('field')),
+					_Utils_Tuple2(
+					'name',
+					elm$json$Json$Encode$string(name)),
+					_Utils_Tuple2('value', value)
+				]));
+	});
+var joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$lineWidth = function (value) {
+	return A2(
+		joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$field,
+		'lineWidth',
+		elm$json$Json$Encode$float(value));
+};
+var joakin$elm_canvas$Canvas$Settings$Line$lineWidth = function (width) {
+	return joakin$elm_canvas$Canvas$Internal$Canvas$SettingCommand(
+		joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$lineWidth(width));
+};
+var author$project$Main$canvasTransform = F2(
+	function (d, m) {
+		var scale = d.canvasHeight / m.view.height;
+		return _List_fromArray(
+			[
+				joakin$elm_canvas$Canvas$Settings$Advanced$transform(
+				_List_fromArray(
+					[
+						A2(joakin$elm_canvas$Canvas$Settings$Advanced$translate, d.canvasWidth / 2, d.canvasHeight / 2),
+						A2(joakin$elm_canvas$Canvas$Settings$Advanced$scale, scale, scale),
+						A2(joakin$elm_canvas$Canvas$Settings$Advanced$translate, -m.view.x, -m.view.y)
+					])),
+				joakin$elm_canvas$Canvas$Settings$Line$lineWidth(2 / scale)
+			]);
 	});
 var joakin$elm_canvas$Canvas$Internal$Canvas$Rect = F3(
 	function (a, b, c) {
@@ -5745,6 +6227,545 @@ var author$project$Main$dimensionsFromModel = function (m) {
 		toolsWidth: elm$core$Basics$floor(0.2 * m.window.width)
 	};
 };
+var author$project$Main$worldToScreen = F2(
+	function (m, _n0) {
+		var x = _n0.a;
+		var y = _n0.b;
+		var scale = m.window.height / m.view.height;
+		return _Utils_Tuple2(((x - m.view.x) * scale) + ((0.8 * 0.5) * m.window.width), ((y - m.view.y) * scale) + (0.5 * m.window.height));
+	});
+var joakin$elm_canvas$Canvas$Internal$Canvas$LineTo = function (a) {
+	return {$: 'LineTo', a: a};
+};
+var joakin$elm_canvas$Canvas$lineTo = function (point) {
+	return joakin$elm_canvas$Canvas$Internal$Canvas$LineTo(point);
+};
+var joakin$elm_canvas$Canvas$Internal$Canvas$Path = F2(
+	function (a, b) {
+		return {$: 'Path', a: a, b: b};
+	});
+var joakin$elm_canvas$Canvas$path = F2(
+	function (startingPoint, segments) {
+		return A2(joakin$elm_canvas$Canvas$Internal$Canvas$Path, startingPoint, segments);
+	});
+var joakin$elm_canvas$Canvas$Internal$Canvas$DrawableText = function (a) {
+	return {$: 'DrawableText', a: a};
+};
+var joakin$elm_canvas$Canvas$text = F3(
+	function (settings, point, str) {
+		return A2(
+			joakin$elm_canvas$Canvas$addSettingsToRenderable,
+			settings,
+			joakin$elm_canvas$Canvas$Renderable(
+				{
+					commands: _List_Nil,
+					drawOp: joakin$elm_canvas$Canvas$Internal$Canvas$NotSpecified,
+					drawable: joakin$elm_canvas$Canvas$Internal$Canvas$DrawableText(
+						{maxWidth: elm$core$Maybe$Nothing, point: point, text: str})
+				}));
+	});
+var joakin$elm_canvas$Canvas$Settings$stroke = function (color) {
+	return joakin$elm_canvas$Canvas$Internal$Canvas$SettingDrawOp(
+		joakin$elm_canvas$Canvas$Internal$Canvas$Stroke(color));
+};
+var elm$core$Basics$ge = _Utils_ge;
+var elm$core$Basics$not = _Basics_not;
+var elm$core$Basics$abs = function (n) {
+	return (n < 0) ? (-n) : n;
+};
+var elm$core$Basics$isInfinite = _Basics_isInfinite;
+var elm$core$Basics$isNaN = _Basics_isNaN;
+var elm$core$Maybe$map = F2(
+	function (f, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return elm$core$Maybe$Just(
+				f(value));
+		} else {
+			return elm$core$Maybe$Nothing;
+		}
+	});
+var elm$core$Maybe$withDefault = F2(
+	function (_default, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return value;
+		} else {
+			return _default;
+		}
+	});
+var elm$core$String$fromFloat = _String_fromNumber;
+var elm$core$String$cons = _String_cons;
+var elm$core$String$fromChar = function (_char) {
+	return A2(elm$core$String$cons, _char, '');
+};
+var elm$core$Bitwise$and = _Bitwise_and;
+var elm$core$Bitwise$shiftRightBy = _Bitwise_shiftRightBy;
+var elm$core$String$repeatHelp = F3(
+	function (n, chunk, result) {
+		return (n <= 0) ? result : A3(
+			elm$core$String$repeatHelp,
+			n >> 1,
+			_Utils_ap(chunk, chunk),
+			(!(n & 1)) ? result : _Utils_ap(result, chunk));
+	});
+var elm$core$String$repeat = F2(
+	function (n, chunk) {
+		return A3(elm$core$String$repeatHelp, n, chunk, '');
+	});
+var elm$core$String$padRight = F3(
+	function (n, _char, string) {
+		return _Utils_ap(
+			string,
+			A2(
+				elm$core$String$repeat,
+				n - elm$core$String$length(string),
+				elm$core$String$fromChar(_char)));
+	});
+var elm$core$String$reverse = _String_reverse;
+var elm$core$Basics$neq = _Utils_notEqual;
+var elm$core$List$any = F2(
+	function (isOkay, list) {
+		any:
+		while (true) {
+			if (!list.b) {
+				return false;
+			} else {
+				var x = list.a;
+				var xs = list.b;
+				if (isOkay(x)) {
+					return true;
+				} else {
+					var $temp$isOkay = isOkay,
+						$temp$list = xs;
+					isOkay = $temp$isOkay;
+					list = $temp$list;
+					continue any;
+				}
+			}
+		}
+	});
+var elm$core$String$foldr = _String_foldr;
+var elm$core$String$toList = function (string) {
+	return A3(elm$core$String$foldr, elm$core$List$cons, _List_Nil, string);
+};
+var myrho$elm_round$Round$addSign = F2(
+	function (signed, str) {
+		var isNotZero = A2(
+			elm$core$List$any,
+			function (c) {
+				return (!_Utils_eq(
+					c,
+					_Utils_chr('0'))) && (!_Utils_eq(
+					c,
+					_Utils_chr('.')));
+			},
+			elm$core$String$toList(str));
+		return _Utils_ap(
+			(signed && isNotZero) ? '-' : '',
+			str);
+	});
+var elm$core$Char$fromCode = _Char_fromCode;
+var myrho$elm_round$Round$increaseNum = function (_n0) {
+	var head = _n0.a;
+	var tail = _n0.b;
+	if (_Utils_eq(
+		head,
+		_Utils_chr('9'))) {
+		var _n1 = elm$core$String$uncons(tail);
+		if (_n1.$ === 'Nothing') {
+			return '01';
+		} else {
+			var headtail = _n1.a;
+			return A2(
+				elm$core$String$cons,
+				_Utils_chr('0'),
+				myrho$elm_round$Round$increaseNum(headtail));
+		}
+	} else {
+		var c = elm$core$Char$toCode(head);
+		return ((c >= 48) && (c < 57)) ? A2(
+			elm$core$String$cons,
+			elm$core$Char$fromCode(c + 1),
+			tail) : '0';
+	}
+};
+var myrho$elm_round$Round$splitComma = function (str) {
+	var _n0 = A2(elm$core$String$split, '.', str);
+	if (_n0.b) {
+		if (_n0.b.b) {
+			var before = _n0.a;
+			var _n1 = _n0.b;
+			var after = _n1.a;
+			return _Utils_Tuple2(before, after);
+		} else {
+			var before = _n0.a;
+			return _Utils_Tuple2(before, '0');
+		}
+	} else {
+		return _Utils_Tuple2('0', '0');
+	}
+};
+var elm$core$Tuple$mapFirst = F2(
+	function (func, _n0) {
+		var x = _n0.a;
+		var y = _n0.b;
+		return _Utils_Tuple2(
+			func(x),
+			y);
+	});
+var myrho$elm_round$Round$toDecimal = function (fl) {
+	var _n0 = A2(
+		elm$core$String$split,
+		'e',
+		elm$core$String$fromFloat(
+			elm$core$Basics$abs(fl)));
+	if (_n0.b) {
+		if (_n0.b.b) {
+			var num = _n0.a;
+			var _n1 = _n0.b;
+			var exp = _n1.a;
+			var e = A2(
+				elm$core$Maybe$withDefault,
+				0,
+				elm$core$String$toInt(
+					A2(elm$core$String$startsWith, '+', exp) ? A2(elm$core$String$dropLeft, 1, exp) : exp));
+			var _n2 = myrho$elm_round$Round$splitComma(num);
+			var before = _n2.a;
+			var after = _n2.b;
+			var total = _Utils_ap(before, after);
+			var zeroed = (e < 0) ? A2(
+				elm$core$Maybe$withDefault,
+				'0',
+				A2(
+					elm$core$Maybe$map,
+					function (_n3) {
+						var a = _n3.a;
+						var b = _n3.b;
+						return a + ('.' + b);
+					},
+					A2(
+						elm$core$Maybe$map,
+						elm$core$Tuple$mapFirst(elm$core$String$fromChar),
+						elm$core$String$uncons(
+							_Utils_ap(
+								A2(
+									elm$core$String$repeat,
+									elm$core$Basics$abs(e),
+									'0'),
+								total))))) : A3(
+				elm$core$String$padRight,
+				e + 1,
+				_Utils_chr('0'),
+				total);
+			return _Utils_ap(
+				(fl < 0) ? '-' : '',
+				zeroed);
+		} else {
+			var num = _n0.a;
+			return _Utils_ap(
+				(fl < 0) ? '-' : '',
+				num);
+		}
+	} else {
+		return '';
+	}
+};
+var myrho$elm_round$Round$roundFun = F3(
+	function (functor, s, fl) {
+		if (elm$core$Basics$isInfinite(fl) || elm$core$Basics$isNaN(fl)) {
+			return elm$core$String$fromFloat(fl);
+		} else {
+			var signed = fl < 0;
+			var _n0 = myrho$elm_round$Round$splitComma(
+				myrho$elm_round$Round$toDecimal(
+					elm$core$Basics$abs(fl)));
+			var before = _n0.a;
+			var after = _n0.b;
+			var r = elm$core$String$length(before) + s;
+			var normalized = _Utils_ap(
+				A2(elm$core$String$repeat, (-r) + 1, '0'),
+				A3(
+					elm$core$String$padRight,
+					r,
+					_Utils_chr('0'),
+					_Utils_ap(before, after)));
+			var totalLen = elm$core$String$length(normalized);
+			var roundDigitIndex = A2(elm$core$Basics$max, 1, r);
+			var increase = A2(
+				functor,
+				signed,
+				A3(elm$core$String$slice, roundDigitIndex, totalLen, normalized));
+			var remains = A3(elm$core$String$slice, 0, roundDigitIndex, normalized);
+			var num = increase ? elm$core$String$reverse(
+				A2(
+					elm$core$Maybe$withDefault,
+					'1',
+					A2(
+						elm$core$Maybe$map,
+						myrho$elm_round$Round$increaseNum,
+						elm$core$String$uncons(
+							elm$core$String$reverse(remains))))) : remains;
+			var numLen = elm$core$String$length(num);
+			var numZeroed = (num === '0') ? num : ((s <= 0) ? _Utils_ap(
+				num,
+				A2(
+					elm$core$String$repeat,
+					elm$core$Basics$abs(s),
+					'0')) : ((_Utils_cmp(
+				s,
+				elm$core$String$length(after)) < 0) ? (A3(elm$core$String$slice, 0, numLen - s, num) + ('.' + A3(elm$core$String$slice, numLen - s, numLen, num))) : _Utils_ap(
+				before + '.',
+				A3(
+					elm$core$String$padRight,
+					s,
+					_Utils_chr('0'),
+					after))));
+			return A2(myrho$elm_round$Round$addSign, signed, numZeroed);
+		}
+	});
+var myrho$elm_round$Round$round = myrho$elm_round$Round$roundFun(
+	F2(
+		function (signed, str) {
+			var _n0 = elm$core$String$uncons(str);
+			if (_n0.$ === 'Nothing') {
+				return false;
+			} else {
+				if ('5' === _n0.a.a.valueOf()) {
+					if (_n0.a.b === '') {
+						var _n1 = _n0.a;
+						return !signed;
+					} else {
+						var _n2 = _n0.a;
+						return true;
+					}
+				} else {
+					var _n3 = _n0.a;
+					var _int = _n3.a;
+					return function (i) {
+						return ((i > 53) && signed) || ((i >= 53) && (!signed));
+					}(
+						elm$core$Char$toCode(_int));
+				}
+			}
+		}));
+var author$project$Main$distanceLineRenderable = F5(
+	function (_n0, _n1, m, d, trans) {
+		var sx = _n0.a;
+		var sy = _n0.b;
+		var ex = _n1.a;
+		var ey = _n1.b;
+		var length = elm$core$Basics$sqrt(
+			A2(elm$core$Basics$pow, sx - ex, 2) + A2(elm$core$Basics$pow, sy - ey, 2));
+		var _n2 = A2(
+			author$project$Main$worldToScreen,
+			m,
+			_Utils_Tuple2(sx, sy));
+		var ssx = _n2.a;
+		var ssy = _n2.b;
+		var _n3 = A2(
+			author$project$Main$worldToScreen,
+			m,
+			_Utils_Tuple2(ex, ey));
+		var sex = _n3.a;
+		var sey = _n3.b;
+		return _List_fromArray(
+			[
+				A2(
+				joakin$elm_canvas$Canvas$shapes,
+				_List_fromArray(
+					[
+						joakin$elm_canvas$Canvas$Settings$stroke(
+						A3(avh4$elm_color$Color$rgb, 0.5, 0.5, 0.5))
+					]),
+				_List_fromArray(
+					[
+						A2(
+						joakin$elm_canvas$Canvas$path,
+						_Utils_Tuple2(ssx, ssy),
+						_List_fromArray(
+							[
+								joakin$elm_canvas$Canvas$lineTo(
+								_Utils_Tuple2(sex, sey))
+							]))
+					])),
+				A3(
+				joakin$elm_canvas$Canvas$text,
+				_List_fromArray(
+					[
+						joakin$elm_canvas$Canvas$Settings$stroke(
+						A3(avh4$elm_color$Color$rgb, 0.7, 0.7, 0.7))
+					]),
+				_Utils_Tuple2(sex + 10, sey),
+				A2(myrho$elm_round$Round$round, 2, length) + 'm')
+			]);
+	});
+var author$project$Main$getToken = F2(
+	function (i, l) {
+		getToken:
+		while (true) {
+			if (!l.b) {
+				return elm$core$Maybe$Nothing;
+			} else {
+				var h = l.a;
+				var t = l.b;
+				if (h.$ === 'Doodad') {
+					var d = h.a;
+					if (_Utils_eq(d.id, i)) {
+						return elm$core$Maybe$Just(
+							author$project$Main$Doodad(d));
+					} else {
+						var $temp$i = i,
+							$temp$l = t;
+						i = $temp$i;
+						l = $temp$l;
+						continue getToken;
+					}
+				} else {
+					var d = h.a;
+					if (_Utils_eq(d.id, i)) {
+						return elm$core$Maybe$Just(
+							author$project$Main$Creature(d));
+					} else {
+						var $temp$i = i,
+							$temp$l = t;
+						i = $temp$i;
+						l = $temp$l;
+						continue getToken;
+					}
+				}
+			}
+		}
+	});
+var author$project$Main$getSelectedPos = function (m) {
+	var t = A2(author$project$Main$getToken, m.selected, m.tokens);
+	if (t.$ === 'Just') {
+		var a = t.a;
+		if (a.$ === 'Doodad') {
+			var b = a.a;
+			return _Utils_Tuple2(b.x, b.y);
+		} else {
+			var b = a.a;
+			return _Utils_Tuple2(b.x, b.y);
+		}
+	} else {
+		return _Utils_Tuple2(0, 0);
+	}
+};
+var author$project$Main$viewDistanceLine = F3(
+	function (m, d, trans) {
+		if (m.selected < 0) {
+			return _List_Nil;
+		} else {
+			var _n0 = m.action;
+			if (_n0.$ === 'DragToken') {
+				var a = _n0.a;
+				return A5(
+					author$project$Main$distanceLineRenderable,
+					_Utils_Tuple2(a.startx, a.starty),
+					_Utils_Tuple2(a.x, a.y),
+					m,
+					d,
+					trans);
+			} else {
+				var _n1 = author$project$Main$getSelectedPos(m);
+				var x = _n1.a;
+				var y = _n1.b;
+				return A5(
+					author$project$Main$distanceLineRenderable,
+					_Utils_Tuple2(x, y),
+					_Utils_Tuple2(m.mouse.x, m.mouse.y),
+					m,
+					d,
+					trans);
+			}
+		}
+	});
+var author$project$Main$nextHighestMult = F2(
+	function (a, mul) {
+		return elm$core$Basics$ceiling(a / mul) * mul;
+	});
+var elm$core$List$append = F2(
+	function (xs, ys) {
+		if (!ys.b) {
+			return xs;
+		} else {
+			return A3(elm$core$List$foldr, elm$core$List$cons, ys, xs);
+		}
+	});
+var elm$core$List$concat = function (lists) {
+	return A3(elm$core$List$foldr, elm$core$List$append, _List_Nil, lists);
+};
+var joakin$elm_canvas$Canvas$Internal$Canvas$MoveTo = function (a) {
+	return {$: 'MoveTo', a: a};
+};
+var joakin$elm_canvas$Canvas$moveTo = function (point) {
+	return joakin$elm_canvas$Canvas$Internal$Canvas$MoveTo(point);
+};
+var author$project$Main$viewGrid = F3(
+	function (s, m, d) {
+		var step = (s * d.canvasHeight) / m.view.height;
+		var numy = elm$core$Basics$ceiling(d.canvasHeight / step);
+		var numx = elm$core$Basics$ceiling(d.canvasWidth / step);
+		var _n0 = A2(
+			author$project$Main$screenToWorld,
+			m,
+			_Utils_Tuple2(0, 0));
+		var minx = _n0.a;
+		var miny = _n0.b;
+		var minxg = A2(author$project$Main$nextHighestMult, minx, s);
+		var minyg = A2(author$project$Main$nextHighestMult, miny, s);
+		var _n1 = A2(
+			author$project$Main$worldToScreen,
+			m,
+			_Utils_Tuple2(minxg, minyg));
+		var offxn = _n1.a;
+		var offyn = _n1.b;
+		var offx = offxn;
+		var offy = offyn;
+		return A2(
+			joakin$elm_canvas$Canvas$shapes,
+			_List_fromArray(
+				[
+					joakin$elm_canvas$Canvas$Settings$stroke(
+					A3(avh4$elm_color$Color$rgb, 0.3, 0.3, 0.3))
+				]),
+			_List_fromArray(
+				[
+					A2(
+					joakin$elm_canvas$Canvas$path,
+					_Utils_Tuple2(0, 0),
+					elm$core$List$concat(
+						A2(
+							elm$core$List$map,
+							function (i) {
+								return _List_fromArray(
+									[
+										joakin$elm_canvas$Canvas$moveTo(
+										_Utils_Tuple2(offx + (i * step), 0.0)),
+										joakin$elm_canvas$Canvas$lineTo(
+										_Utils_Tuple2(offx + (i * step), d.canvasHeight))
+									]);
+							},
+							A2(elm$core$List$range, 0, numx)))),
+					A2(
+					joakin$elm_canvas$Canvas$path,
+					_Utils_Tuple2(0, 0),
+					elm$core$List$concat(
+						A2(
+							elm$core$List$map,
+							function (i) {
+								return _List_fromArray(
+									[
+										joakin$elm_canvas$Canvas$moveTo(
+										_Utils_Tuple2(0.0, offy + (i * step))),
+										joakin$elm_canvas$Canvas$lineTo(
+										_Utils_Tuple2(d.canvasWidth, offy + (i * step)))
+									]);
+							},
+							A2(elm$core$List$range, 0, numx))))
+				]));
+	});
 var joakin$elm_canvas$Canvas$Internal$Canvas$Circle = F2(
 	function (a, b) {
 		return {$: 'Circle', a: a, b: b};
@@ -5753,25 +6774,78 @@ var joakin$elm_canvas$Canvas$circle = F2(
 	function (pos, radius) {
 		return A2(joakin$elm_canvas$Canvas$Internal$Canvas$Circle, pos, radius);
 	});
-var author$project$Main$viewCircle = function (c) {
-	return A2(
-		joakin$elm_canvas$Canvas$shapes,
-		_List_fromArray(
-			[
-				joakin$elm_canvas$Canvas$Settings$fill(
-				A3(avh4$elm_color$Color$rgb, 0.4, 0, 0.7))
-			]),
-		_List_fromArray(
-			[
-				A2(
-				joakin$elm_canvas$Canvas$circle,
-				_Utils_Tuple2(c.x, c.y),
-				c.radius)
-			]));
-};
+var author$project$Main$viewToken = F3(
+	function (highlighted, trans, t) {
+		if (t.$ === 'Doodad') {
+			var d = t.a;
+			return _Utils_eq(highlighted, d.id) ? A2(
+				joakin$elm_canvas$Canvas$shapes,
+				_Utils_ap(
+					trans,
+					_List_fromArray(
+						[
+							joakin$elm_canvas$Canvas$Settings$fill(d.color),
+							joakin$elm_canvas$Canvas$Settings$stroke(
+							A3(avh4$elm_color$Color$rgb, 1, 1, 1))
+						])),
+				_List_fromArray(
+					[
+						A2(
+						joakin$elm_canvas$Canvas$circle,
+						_Utils_Tuple2(d.x, d.y),
+						d.radius)
+					])) : A2(
+				joakin$elm_canvas$Canvas$shapes,
+				_Utils_ap(
+					trans,
+					_List_fromArray(
+						[
+							joakin$elm_canvas$Canvas$Settings$fill(d.color)
+						])),
+				_List_fromArray(
+					[
+						A2(
+						joakin$elm_canvas$Canvas$circle,
+						_Utils_Tuple2(d.x, d.y),
+						d.radius)
+					]));
+		} else {
+			var d = t.a;
+			return _Utils_eq(highlighted, d.id) ? A2(
+				joakin$elm_canvas$Canvas$shapes,
+				_Utils_ap(
+					trans,
+					_List_fromArray(
+						[
+							joakin$elm_canvas$Canvas$Settings$fill(d.color),
+							joakin$elm_canvas$Canvas$Settings$stroke(
+							A3(avh4$elm_color$Color$rgb, 1, 1, 1))
+						])),
+				_List_fromArray(
+					[
+						A2(
+						joakin$elm_canvas$Canvas$circle,
+						_Utils_Tuple2(d.x, d.y),
+						d.radius)
+					])) : A2(
+				joakin$elm_canvas$Canvas$shapes,
+				_Utils_ap(
+					trans,
+					_List_fromArray(
+						[
+							joakin$elm_canvas$Canvas$Settings$fill(d.color)
+						])),
+				_List_fromArray(
+					[
+						A2(
+						joakin$elm_canvas$Canvas$circle,
+						_Utils_Tuple2(d.x, d.y),
+						d.radius)
+					]));
+		}
+	});
 var elm$html$Html$div = _VirtualDom_node('div');
 var elm$html$Html$input = _VirtualDom_node('input');
-var elm$json$Json$Encode$string = _Json_wrap;
 var elm$html$Html$Attributes$stringProperty = F2(
 	function (key, string) {
 		return A2(
@@ -5803,45 +6877,6 @@ var elm$html$Html$canvas = _VirtualDom_node('canvas');
 var joakin$elm_canvas$Canvas$cnvs = A2(elm$html$Html$canvas, _List_Nil, _List_Nil);
 var elm$core$Basics$cos = _Basics_cos;
 var elm$core$Basics$sin = _Basics_sin;
-var elm$json$Json$Encode$float = _Json_wrap;
-var elm$json$Json$Encode$list = F2(
-	function (func, entries) {
-		return _Json_wrap(
-			A3(
-				elm$core$List$foldl,
-				_Json_addEntry(func),
-				_Json_emptyArray(_Utils_Tuple0),
-				entries));
-	});
-var elm$json$Json$Encode$object = function (pairs) {
-	return _Json_wrap(
-		A3(
-			elm$core$List$foldl,
-			F2(
-				function (_n0, obj) {
-					var k = _n0.a;
-					var v = _n0.b;
-					return A3(_Json_addField, k, v, obj);
-				}),
-			_Json_emptyObject(_Utils_Tuple0),
-			pairs));
-};
-var joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$fn = F2(
-	function (name, args) {
-		return elm$json$Json$Encode$object(
-			_List_fromArray(
-				[
-					_Utils_Tuple2(
-					'type',
-					elm$json$Json$Encode$string('function')),
-					_Utils_Tuple2(
-					'name',
-					elm$json$Json$Encode$string(name)),
-					_Utils_Tuple2(
-					'args',
-					A2(elm$json$Json$Encode$list, elm$core$Basics$identity, args))
-				]));
-	});
 var joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$arcTo = F5(
 	function (x1, y1, x2, y2, radius) {
 		return A2(
@@ -6082,7 +7117,6 @@ var elm$core$Basics$round = _Basics_round;
 var elm$core$String$concat = function (strings) {
 	return A2(elm$core$String$join, '', strings);
 };
-var elm$core$String$fromFloat = _String_fromNumber;
 var avh4$elm_color$Color$toCssString = function (_n0) {
 	var r = _n0.a;
 	var g = _n0.b;
@@ -6112,20 +7146,6 @@ var avh4$elm_color$Color$toCssString = function (_n0) {
 				')'
 			]));
 };
-var joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$field = F2(
-	function (name, value) {
-		return elm$json$Json$Encode$object(
-			_List_fromArray(
-				[
-					_Utils_Tuple2(
-					'type',
-					elm$json$Json$Encode$string('field')),
-					_Utils_Tuple2(
-					'name',
-					elm$json$Json$Encode$string(name)),
-					_Utils_Tuple2('value', value)
-				]));
-	});
 var joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$fillStyle = function (color) {
 	return A2(
 		joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$field,
@@ -6601,8 +7621,55 @@ var mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onWithOptions = F3(
 				mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$eventDecoder));
 	});
 var mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onDown = A2(mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onWithOptions, 'mousedown', mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$defaultOptions);
+var mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onMove = A2(mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onWithOptions, 'mousemove', mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$defaultOptions);
+var mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onUp = A2(mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onWithOptions, 'mouseup', mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$defaultOptions);
+var mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$defaultOptions = {preventDefault: true, stopPropagation: false};
+var mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$Event = F3(
+	function (mouseEvent, deltaY, deltaMode) {
+		return {deltaMode: deltaMode, deltaY: deltaY, mouseEvent: mouseEvent};
+	});
+var mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$DeltaLine = {$: 'DeltaLine'};
+var mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$DeltaPage = {$: 'DeltaPage'};
+var mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$DeltaPixel = {$: 'DeltaPixel'};
+var mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$deltaModeDecoder = function () {
+	var intToMode = function (_int) {
+		switch (_int) {
+			case 1:
+				return mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$DeltaLine;
+			case 2:
+				return mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$DeltaPage;
+			default:
+				return mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$DeltaPixel;
+		}
+	};
+	return A2(elm$json$Json$Decode$map, intToMode, elm$json$Json$Decode$int);
+}();
+var mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$eventDecoder = A4(
+	elm$json$Json$Decode$map3,
+	mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$Event,
+	mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$eventDecoder,
+	A2(elm$json$Json$Decode$field, 'deltaY', elm$json$Json$Decode$float),
+	A2(elm$json$Json$Decode$field, 'deltaMode', mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$deltaModeDecoder));
+var mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$onWithOptions = F2(
+	function (options, tag) {
+		return A2(
+			elm$html$Html$Events$custom,
+			'wheel',
+			A2(
+				elm$json$Json$Decode$map,
+				function (ev) {
+					return {
+						message: tag(ev),
+						preventDefault: options.preventDefault,
+						stopPropagation: options.stopPropagation
+					};
+				},
+				mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$eventDecoder));
+	});
+var mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$onWheel = mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$onWithOptions(mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$defaultOptions);
 var author$project$Main$view = function (model) {
 	var dim = author$project$Main$dimensionsFromModel(model);
+	var trans = A2(author$project$Main$canvasTransform, dim, model);
 	return {
 		body: _List_fromArray(
 			[
@@ -6613,14 +7680,39 @@ var author$project$Main$view = function (model) {
 					[
 						mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onDown(
 						function (event) {
-							return author$project$Main$Move(event.offsetPos);
+							return author$project$Main$MousePress(event);
+						}),
+						mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onMove(
+						function (event) {
+							return author$project$Main$MouseMotion(event);
+						}),
+						mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onUp(
+						function (event) {
+							return author$project$Main$MouseRelease(event);
+						}),
+						mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$onWheel(
+						function (event) {
+							return author$project$Main$MouseWheel(event);
 						}),
 						elm$html$Html$Attributes$id('canvas')
 					]),
-				A2(
-					elm$core$List$cons,
-					A2(author$project$Main$clearCanvas, dim.canvasWidth, dim.canvasHeight),
-					A2(elm$core$List$map, author$project$Main$viewCircle, model.tokens))),
+				elm$core$List$concat(
+					_List_fromArray(
+						[
+							_List_fromArray(
+							[
+								A2(author$project$Main$clearCanvas, dim.canvasWidth, dim.canvasHeight)
+							]),
+							_List_fromArray(
+							[
+								A3(author$project$Main$viewGrid, 5, model, dim)
+							]),
+							A2(
+							elm$core$List$map,
+							A2(author$project$Main$viewToken, model.selected, trans),
+							model.tokens),
+							A3(author$project$Main$viewDistanceLine, model, dim, trans)
+						]))),
 				A2(
 				elm$html$Html$div,
 				_List_fromArray(
