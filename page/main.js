@@ -4347,18 +4347,7 @@ var _Bitwise_shiftRightZfBy = F2(function(offset, a)
 {
 	return a >>> offset;
 });
-var author$project$Main$Creature = function (a) {
-	return {$: 'Creature', a: a};
-};
 var author$project$Main$None = {$: 'None'};
-var avh4$elm_color$Color$RgbaSpace = F4(
-	function (a, b, c, d) {
-		return {$: 'RgbaSpace', a: a, b: b, c: c, d: d};
-	});
-var avh4$elm_color$Color$rgb = F3(
-	function (r, g, b) {
-		return A4(avh4$elm_color$Color$RgbaSpace, r, g, b, 1.0);
-	});
 var elm$core$Basics$negate = function (n) {
 	return -n;
 };
@@ -4846,19 +4835,9 @@ var author$project$Main$init = function (_n0) {
 		{
 			action: author$project$Main$None,
 			mouse: {x: 0, y: 0},
+			nextId: 0,
 			selected: -1,
-			tokens: _List_fromArray(
-				[
-					author$project$Main$Creature(
-					{
-						color: A3(avh4$elm_color$Color$rgb, 0.7, 0, 0.7),
-						id: 0,
-						owner: 0,
-						radius: 0.5,
-						x: 0,
-						y: 0
-					})
-				]),
+			tokens: _List_Nil,
 			user: {id: 0},
 			view: {height: 8, x: 0, y: 0},
 			window: {height: h, width: w}
@@ -5633,6 +5612,41 @@ var author$project$Main$applyToToken = F3(
 			}
 		}
 	});
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Delete = {$: 'Delete'};
+var author$project$Main$deleteToken = F2(
+	function (i, l) {
+		if (!l.b) {
+			return _List_Nil;
+		} else {
+			var h = l.a;
+			var t = l.b;
+			if (h.$ === 'Doodad') {
+				var d = h.a;
+				return _Utils_eq(d.id, i) ? t : A2(
+					elm$core$List$cons,
+					h,
+					A2(author$project$Main$deleteToken, i, t));
+			} else {
+				var d = h.a;
+				return _Utils_eq(d.id, i) ? t : A2(
+					elm$core$List$cons,
+					h,
+					A2(author$project$Main$deleteToken, i, t));
+			}
+		}
+	});
+var elm$core$Basics$ge = _Utils_ge;
+var author$project$Main$onKeyDown = F2(
+	function (event, model) {
+		return (_Utils_eq(event.keyCode, SwiftsNamesake$proper_keyboard$Keyboard$Key$Delete) && (model.selected >= 0)) ? _Utils_Tuple2(
+			_Utils_update(
+				model,
+				{
+					selected: -1,
+					tokens: A2(author$project$Main$deleteToken, model.selected, model.tokens)
+				}),
+			elm$core$Platform$Cmd$none) : _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+	});
 var author$project$Main$DragToken = function (a) {
 	return {$: 'DragToken', a: a};
 };
@@ -5646,6 +5660,9 @@ var author$project$Main$screenToWorld = F2(
 		var scale = m.view.height / m.window.height;
 		return _Utils_Tuple2(((x - ((0.8 * 0.5) * m.window.width)) * scale) + m.view.x, ((y - (0.5 * m.window.height)) * scale) + m.view.y);
 	});
+var author$project$Main$Creature = function (a) {
+	return {$: 'Creature', a: a};
+};
 var author$project$Main$Doodad = function (a) {
 	return {$: 'Doodad', a: a};
 };
@@ -5711,6 +5728,76 @@ var author$project$Main$onMouseMotion = F2(
 					elm$core$Platform$Cmd$none);
 		}
 	});
+var author$project$Main$ChangedFocus = function (a) {
+	return {$: 'ChangedFocus', a: a};
+};
+var avh4$elm_color$Color$RgbaSpace = F4(
+	function (a, b, c, d) {
+		return {$: 'RgbaSpace', a: a, b: b, c: c, d: d};
+	});
+var avh4$elm_color$Color$scaleFrom255 = function (c) {
+	return c / 255;
+};
+var avh4$elm_color$Color$rgb255 = F3(
+	function (r, g, b) {
+		return A4(
+			avh4$elm_color$Color$RgbaSpace,
+			avh4$elm_color$Color$scaleFrom255(r),
+			avh4$elm_color$Color$scaleFrom255(g),
+			avh4$elm_color$Color$scaleFrom255(b),
+			1.0);
+	});
+var elm$core$Array$fromListHelp = F3(
+	function (list, nodeList, nodeListSize) {
+		fromListHelp:
+		while (true) {
+			var _n0 = A2(elm$core$Elm$JsArray$initializeFromList, elm$core$Array$branchFactor, list);
+			var jsArray = _n0.a;
+			var remainingItems = _n0.b;
+			if (_Utils_cmp(
+				elm$core$Elm$JsArray$length(jsArray),
+				elm$core$Array$branchFactor) < 0) {
+				return A2(
+					elm$core$Array$builderToArray,
+					true,
+					{nodeList: nodeList, nodeListSize: nodeListSize, tail: jsArray});
+			} else {
+				var $temp$list = remainingItems,
+					$temp$nodeList = A2(
+					elm$core$List$cons,
+					elm$core$Array$Leaf(jsArray),
+					nodeList),
+					$temp$nodeListSize = nodeListSize + 1;
+				list = $temp$list;
+				nodeList = $temp$nodeList;
+				nodeListSize = $temp$nodeListSize;
+				continue fromListHelp;
+			}
+		}
+	});
+var elm$core$Array$fromList = function (list) {
+	if (!list.b) {
+		return elm$core$Array$empty;
+	} else {
+		return A3(elm$core$Array$fromListHelp, list, _List_Nil, 0);
+	}
+};
+var author$project$Main$baseColors = elm$core$Array$fromList(
+	_List_fromArray(
+		[
+			A3(avh4$elm_color$Color$rgb255, 201, 42, 42),
+			A3(avh4$elm_color$Color$rgb255, 166, 30, 77),
+			A3(avh4$elm_color$Color$rgb255, 134, 46, 156),
+			A3(avh4$elm_color$Color$rgb255, 95, 61, 196),
+			A3(avh4$elm_color$Color$rgb255, 54, 79, 199),
+			A3(avh4$elm_color$Color$rgb255, 24, 100, 171),
+			A3(avh4$elm_color$Color$rgb255, 11, 114, 133),
+			A3(avh4$elm_color$Color$rgb255, 8, 127, 91),
+			A3(avh4$elm_color$Color$rgb255, 43, 138, 62),
+			A3(avh4$elm_color$Color$rgb255, 92, 148, 13),
+			A3(avh4$elm_color$Color$rgb255, 230, 119, 0),
+			A3(avh4$elm_color$Color$rgb255, 217, 72, 15)
+		]));
 var elm$core$Basics$pow = _Basics_pow;
 var elm$core$Basics$sqrt = _Basics_sqrt;
 var author$project$Main$tokenIdAt = F3(
@@ -5777,6 +5864,86 @@ var author$project$Main$creatureIdAt = F3(
 			}
 		}
 	});
+var author$project$Main$numBaseColors = 12;
+var avh4$elm_color$Color$rgb = F3(
+	function (r, g, b) {
+		return A4(avh4$elm_color$Color$RgbaSpace, r, g, b, 1.0);
+	});
+var elm$browser$Browser$Dom$focus = _Browser_call('focus');
+var elm$core$Bitwise$shiftRightZfBy = _Bitwise_shiftRightZfBy;
+var elm$core$Array$bitMask = 4294967295 >>> (32 - elm$core$Array$shiftStep);
+var elm$core$Bitwise$and = _Bitwise_and;
+var elm$core$Elm$JsArray$unsafeGet = _JsArray_unsafeGet;
+var elm$core$Array$getHelp = F3(
+	function (shift, index, tree) {
+		getHelp:
+		while (true) {
+			var pos = elm$core$Array$bitMask & (index >>> shift);
+			var _n0 = A2(elm$core$Elm$JsArray$unsafeGet, pos, tree);
+			if (_n0.$ === 'SubTree') {
+				var subTree = _n0.a;
+				var $temp$shift = shift - elm$core$Array$shiftStep,
+					$temp$index = index,
+					$temp$tree = subTree;
+				shift = $temp$shift;
+				index = $temp$index;
+				tree = $temp$tree;
+				continue getHelp;
+			} else {
+				var values = _n0.a;
+				return A2(elm$core$Elm$JsArray$unsafeGet, elm$core$Array$bitMask & index, values);
+			}
+		}
+	});
+var elm$core$Bitwise$shiftLeftBy = _Bitwise_shiftLeftBy;
+var elm$core$Array$tailIndex = function (len) {
+	return (len >>> 5) << 5;
+};
+var elm$core$Array$get = F2(
+	function (index, _n0) {
+		var len = _n0.a;
+		var startShift = _n0.b;
+		var tree = _n0.c;
+		var tail = _n0.d;
+		return ((index < 0) || (_Utils_cmp(index, len) > -1)) ? elm$core$Maybe$Nothing : ((_Utils_cmp(
+			index,
+			elm$core$Array$tailIndex(len)) > -1) ? elm$core$Maybe$Just(
+			A2(elm$core$Elm$JsArray$unsafeGet, elm$core$Array$bitMask & index, tail)) : elm$core$Maybe$Just(
+			A3(elm$core$Array$getHelp, startShift, index, tree)));
+	});
+var elm$core$Maybe$withDefault = F2(
+	function (_default, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return value;
+		} else {
+			return _default;
+		}
+	});
+var elm$core$Basics$composeL = F3(
+	function (g, f, x) {
+		return g(
+			f(x));
+	});
+var elm$core$Task$onError = _Scheduler_onError;
+var elm$core$Task$attempt = F2(
+	function (resultToMessage, task) {
+		return elm$core$Task$command(
+			elm$core$Task$Perform(
+				A2(
+					elm$core$Task$onError,
+					A2(
+						elm$core$Basics$composeL,
+						A2(elm$core$Basics$composeL, elm$core$Task$succeed, resultToMessage),
+						elm$core$Result$Err),
+					A2(
+						elm$core$Task$andThen,
+						A2(
+							elm$core$Basics$composeL,
+							A2(elm$core$Basics$composeL, elm$core$Task$succeed, resultToMessage),
+							elm$core$Result$Ok),
+						task))));
+	});
 var author$project$Main$onMousePress = F2(
 	function (event, model) {
 		var _n0 = A2(author$project$Main$screenToWorld, model, event.offsetPos);
@@ -5785,6 +5952,10 @@ var author$project$Main$onMousePress = F2(
 		var _n1 = event.button;
 		switch (_n1.$) {
 			case 'MainButton':
+				var task = A2(
+					elm$core$Task$attempt,
+					author$project$Main$ChangedFocus,
+					elm$browser$Browser$Dom$focus('canvas'));
 				var s = A3(author$project$Main$creatureIdAt, x, y, model.tokens);
 				var _n2 = event.offsetPos;
 				var sx = _n2.a;
@@ -5792,11 +5963,34 @@ var author$project$Main$onMousePress = F2(
 				var a = (s < 0) ? author$project$Main$DragView(
 					{lastX: sx, lastY: sy}) : author$project$Main$DragToken(
 					{startx: x, starty: y, x: x, y: y});
-				return _Utils_Tuple2(
+				return ((s < 0) && event.keys.ctrl) ? _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							action: author$project$Main$None,
+							nextId: model.nextId + 1,
+							selected: -1,
+							tokens: A2(
+								elm$core$List$cons,
+								author$project$Main$Creature(
+									{
+										color: A2(
+											elm$core$Maybe$withDefault,
+											A3(avh4$elm_color$Color$rgb, 0.7, 0, 0.7),
+											A2(elm$core$Array$get, model.nextId % author$project$Main$numBaseColors, author$project$Main$baseColors)),
+										id: model.nextId,
+										owner: 0,
+										radius: 0.25,
+										x: x,
+										y: y
+									}),
+								model.tokens)
+						}),
+					task) : _Utils_Tuple2(
 					_Utils_update(
 						model,
 						{action: a, selected: s}),
-					elm$core$Platform$Cmd$none);
+					task);
 			case 'MiddleButton':
 				return _Utils_Tuple2(
 					_Utils_update(
@@ -5866,11 +6060,348 @@ var author$project$Main$update = F2(
 			case 'MouseRelease':
 				var e = msg.a;
 				return A2(author$project$Main$onMouseRelease, e, model);
-			default:
+			case 'MouseWheel':
 				var e = msg.a;
 				return A2(author$project$Main$onMouseWheel, e, model);
+			case 'KeyDown':
+				var e = msg.a;
+				return A2(author$project$Main$onKeyDown, e, model);
+			default:
+				return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 		}
 	});
+var Gizra$elm_keyboard_event$Keyboard$Event$KeyboardEvent = F7(
+	function (altKey, ctrlKey, key, keyCode, metaKey, repeat, shiftKey) {
+		return {altKey: altKey, ctrlKey: ctrlKey, key: key, keyCode: keyCode, metaKey: metaKey, repeat: repeat, shiftKey: shiftKey};
+	});
+var elm$json$Json$Decode$andThen = _Json_andThen;
+var elm$json$Json$Decode$fail = _Json_fail;
+var elm$json$Json$Decode$oneOf = _Json_oneOf;
+var elm$json$Json$Decode$maybe = function (decoder) {
+	return elm$json$Json$Decode$oneOf(
+		_List_fromArray(
+			[
+				A2(elm$json$Json$Decode$map, elm$core$Maybe$Just, decoder),
+				elm$json$Json$Decode$succeed(elm$core$Maybe$Nothing)
+			]));
+};
+var elm$json$Json$Decode$string = _Json_decodeString;
+var Gizra$elm_keyboard_event$Keyboard$Event$decodeKey = elm$json$Json$Decode$maybe(
+	A2(
+		elm$json$Json$Decode$andThen,
+		function (key) {
+			return elm$core$String$isEmpty(key) ? elm$json$Json$Decode$fail('empty key') : elm$json$Json$Decode$succeed(key);
+		},
+		A2(elm$json$Json$Decode$field, 'key', elm$json$Json$Decode$string)));
+var Gizra$elm_keyboard_event$Keyboard$Event$decodeNonZero = A2(
+	elm$json$Json$Decode$andThen,
+	function (code) {
+		return (!code) ? elm$json$Json$Decode$fail('code was zero') : elm$json$Json$Decode$succeed(code);
+	},
+	elm$json$Json$Decode$int);
+var Gizra$elm_keyboard_event$Keyboard$Event$decodeKeyCode = elm$json$Json$Decode$oneOf(
+	_List_fromArray(
+		[
+			A2(elm$json$Json$Decode$field, 'keyCode', Gizra$elm_keyboard_event$Keyboard$Event$decodeNonZero),
+			A2(elm$json$Json$Decode$field, 'which', Gizra$elm_keyboard_event$Keyboard$Event$decodeNonZero),
+			A2(elm$json$Json$Decode$field, 'charCode', Gizra$elm_keyboard_event$Keyboard$Event$decodeNonZero),
+			elm$json$Json$Decode$succeed(0)
+		]));
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$A = {$: 'A'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Add = {$: 'Add'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Alt = {$: 'Alt'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Ambiguous = function (a) {
+	return {$: 'Ambiguous', a: a};
+};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$B = {$: 'B'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Backspace = {$: 'Backspace'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$C = {$: 'C'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$CapsLock = {$: 'CapsLock'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$ChromeSearch = {$: 'ChromeSearch'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Command = {$: 'Command'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Ctrl = function (a) {
+	return {$: 'Ctrl', a: a};
+};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$D = {$: 'D'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Decimal = {$: 'Decimal'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Divide = {$: 'Divide'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Down = {$: 'Down'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$E = {$: 'E'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Eight = {$: 'Eight'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$End = {$: 'End'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Enter = {$: 'Enter'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Escape = {$: 'Escape'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$F = {$: 'F'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$F1 = {$: 'F1'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$F10 = {$: 'F10'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$F11 = {$: 'F11'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$F12 = {$: 'F12'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$F2 = {$: 'F2'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$F3 = {$: 'F3'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$F4 = {$: 'F4'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$F5 = {$: 'F5'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$F6 = {$: 'F6'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$F7 = {$: 'F7'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$F8 = {$: 'F8'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$F9 = {$: 'F9'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Five = {$: 'Five'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Four = {$: 'Four'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$G = {$: 'G'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$H = {$: 'H'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Home = {$: 'Home'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$I = {$: 'I'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Insert = {$: 'Insert'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$J = {$: 'J'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$K = {$: 'K'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$L = {$: 'L'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Left = {$: 'Left'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$M = {$: 'M'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Multiply = {$: 'Multiply'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$N = {$: 'N'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Nine = {$: 'Nine'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$NumLock = {$: 'NumLock'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$NumpadEight = {$: 'NumpadEight'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$NumpadFive = {$: 'NumpadFive'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$NumpadFour = {$: 'NumpadFour'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$NumpadNine = {$: 'NumpadNine'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$NumpadOne = {$: 'NumpadOne'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$NumpadSeven = {$: 'NumpadSeven'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$NumpadSix = {$: 'NumpadSix'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$NumpadThree = {$: 'NumpadThree'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$NumpadTwo = {$: 'NumpadTwo'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$NumpadZero = {$: 'NumpadZero'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$O = {$: 'O'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$One = {$: 'One'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$P = {$: 'P'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$PageDown = {$: 'PageDown'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$PageUp = {$: 'PageUp'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$PauseBreak = {$: 'PauseBreak'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$PrintScreen = {$: 'PrintScreen'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Q = {$: 'Q'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$R = {$: 'R'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Right = {$: 'Right'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$S = {$: 'S'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$ScrollLock = {$: 'ScrollLock'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Seven = {$: 'Seven'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Shift = function (a) {
+	return {$: 'Shift', a: a};
+};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Six = {$: 'Six'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Spacebar = {$: 'Spacebar'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Subtract = {$: 'Subtract'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$T = {$: 'T'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Tab = {$: 'Tab'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Three = {$: 'Three'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Two = {$: 'Two'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$U = {$: 'U'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Unknown = function (a) {
+	return {$: 'Unknown', a: a};
+};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Up = {$: 'Up'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$V = {$: 'V'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$W = {$: 'W'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Windows = {$: 'Windows'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$X = {$: 'X'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Y = {$: 'Y'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Z = {$: 'Z'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Zero = {$: 'Zero'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$fromCode = function (keyCode) {
+	switch (keyCode) {
+		case 8:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Backspace;
+		case 9:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Tab;
+		case 13:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Enter;
+		case 16:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Shift(elm$core$Maybe$Nothing);
+		case 17:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Ctrl(elm$core$Maybe$Nothing);
+		case 18:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Alt;
+		case 19:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$PauseBreak;
+		case 20:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$CapsLock;
+		case 27:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Escape;
+		case 32:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Spacebar;
+		case 33:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$PageUp;
+		case 34:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$PageDown;
+		case 35:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$End;
+		case 36:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Home;
+		case 37:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Left;
+		case 38:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Up;
+		case 39:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Right;
+		case 40:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Down;
+		case 44:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$PrintScreen;
+		case 45:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Insert;
+		case 46:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Delete;
+		case 48:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Zero;
+		case 49:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$One;
+		case 50:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Two;
+		case 51:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Three;
+		case 52:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Four;
+		case 53:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Five;
+		case 54:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Six;
+		case 55:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Seven;
+		case 56:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Eight;
+		case 57:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Nine;
+		case 65:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$A;
+		case 66:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$B;
+		case 67:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$C;
+		case 68:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$D;
+		case 69:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$E;
+		case 70:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$F;
+		case 71:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$G;
+		case 72:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$H;
+		case 73:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$I;
+		case 74:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$J;
+		case 75:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$K;
+		case 76:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$L;
+		case 77:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$M;
+		case 78:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$N;
+		case 79:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$O;
+		case 80:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$P;
+		case 81:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Q;
+		case 82:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$R;
+		case 83:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$S;
+		case 84:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$T;
+		case 85:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$U;
+		case 86:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$V;
+		case 87:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$W;
+		case 88:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$X;
+		case 89:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Y;
+		case 90:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Z;
+		case 91:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Ambiguous(
+				_List_fromArray(
+					[SwiftsNamesake$proper_keyboard$Keyboard$Key$Windows, SwiftsNamesake$proper_keyboard$Keyboard$Key$Command, SwiftsNamesake$proper_keyboard$Keyboard$Key$ChromeSearch]));
+		case 96:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$NumpadZero;
+		case 97:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$NumpadOne;
+		case 98:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$NumpadTwo;
+		case 99:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$NumpadThree;
+		case 100:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$NumpadFour;
+		case 101:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$NumpadFive;
+		case 102:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$NumpadSix;
+		case 103:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$NumpadSeven;
+		case 104:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$NumpadEight;
+		case 105:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$NumpadNine;
+		case 106:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Multiply;
+		case 107:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Add;
+		case 109:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Subtract;
+		case 110:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Decimal;
+		case 111:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Divide;
+		case 112:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$F1;
+		case 113:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$F2;
+		case 114:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$F3;
+		case 115:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$F4;
+		case 116:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$F5;
+		case 117:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$F6;
+		case 118:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$F7;
+		case 119:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$F8;
+		case 120:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$F9;
+		case 121:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$F10;
+		case 122:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$F11;
+		case 123:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$F12;
+		case 144:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$NumLock;
+		case 145:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$ScrollLock;
+		default:
+			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Unknown(keyCode);
+	}
+};
+var elm$json$Json$Decode$bool = _Json_decodeBool;
+var elm$json$Json$Decode$map7 = _Json_map7;
+var Gizra$elm_keyboard_event$Keyboard$Event$decodeKeyboardEvent = A8(
+	elm$json$Json$Decode$map7,
+	Gizra$elm_keyboard_event$Keyboard$Event$KeyboardEvent,
+	A2(elm$json$Json$Decode$field, 'altKey', elm$json$Json$Decode$bool),
+	A2(elm$json$Json$Decode$field, 'ctrlKey', elm$json$Json$Decode$bool),
+	Gizra$elm_keyboard_event$Keyboard$Event$decodeKey,
+	A2(elm$json$Json$Decode$map, SwiftsNamesake$proper_keyboard$Keyboard$Key$fromCode, Gizra$elm_keyboard_event$Keyboard$Event$decodeKeyCode),
+	A2(elm$json$Json$Decode$field, 'metaKey', elm$json$Json$Decode$bool),
+	A2(elm$json$Json$Decode$field, 'repeat', elm$json$Json$Decode$bool),
+	A2(elm$json$Json$Decode$field, 'shiftKey', elm$json$Json$Decode$bool));
+var author$project$Main$KeyDown = function (a) {
+	return {$: 'KeyDown', a: a};
+};
 var author$project$Main$MouseMotion = function (a) {
 	return {$: 'MouseMotion', a: a};
 };
@@ -6268,7 +6799,6 @@ var joakin$elm_canvas$Canvas$Settings$stroke = function (color) {
 	return joakin$elm_canvas$Canvas$Internal$Canvas$SettingDrawOp(
 		joakin$elm_canvas$Canvas$Internal$Canvas$Stroke(color));
 };
-var elm$core$Basics$ge = _Utils_ge;
 var elm$core$Basics$not = _Basics_not;
 var elm$core$Basics$abs = function (n) {
 	return (n < 0) ? (-n) : n;
@@ -6285,21 +6815,11 @@ var elm$core$Maybe$map = F2(
 			return elm$core$Maybe$Nothing;
 		}
 	});
-var elm$core$Maybe$withDefault = F2(
-	function (_default, maybe) {
-		if (maybe.$ === 'Just') {
-			var value = maybe.a;
-			return value;
-		} else {
-			return _default;
-		}
-	});
 var elm$core$String$fromFloat = _String_fromNumber;
 var elm$core$String$cons = _String_cons;
 var elm$core$String$fromChar = function (_char) {
 	return A2(elm$core$String$cons, _char, '');
 };
-var elm$core$Bitwise$and = _Bitwise_and;
 var elm$core$Bitwise$shiftRightBy = _Bitwise_shiftRightBy;
 var elm$core$String$repeatHelp = F3(
 	function (n, chunk, result) {
@@ -6856,6 +7376,23 @@ var elm$html$Html$Attributes$stringProperty = F2(
 var elm$html$Html$Attributes$id = elm$html$Html$Attributes$stringProperty('id');
 var elm$virtual_dom$VirtualDom$style = _VirtualDom_style;
 var elm$html$Html$Attributes$style = elm$virtual_dom$VirtualDom$style;
+var elm$html$Html$Attributes$tabindex = function (n) {
+	return A2(
+		_VirtualDom_attribute,
+		'tabIndex',
+		elm$core$String$fromInt(n));
+};
+var elm$virtual_dom$VirtualDom$Normal = function (a) {
+	return {$: 'Normal', a: a};
+};
+var elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
+var elm$html$Html$Events$on = F2(
+	function (event, decoder) {
+		return A2(
+			elm$virtual_dom$VirtualDom$on,
+			event,
+			elm$virtual_dom$VirtualDom$Normal(decoder));
+	});
 var elm$html$Html$Attributes$height = function (n) {
 	return A2(
 		_VirtualDom_attribute,
@@ -7401,18 +7938,6 @@ var elm$html$Html$Attributes$src = function (url) {
 		'src',
 		_VirtualDom_noJavaScriptOrHtmlUri(url));
 };
-var elm$virtual_dom$VirtualDom$Normal = function (a) {
-	return {$: 'Normal', a: a};
-};
-var elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
-var elm$html$Html$Events$on = F2(
-	function (event, decoder) {
-		return A2(
-			elm$virtual_dom$VirtualDom$on,
-			event,
-			elm$virtual_dom$VirtualDom$Normal(decoder));
-	});
-var elm$json$Json$Decode$andThen = _Json_andThen;
 var elm$json$Json$Decode$at = F2(
 	function (fields, decoder) {
 		return A3(elm$core$List$foldr, elm$json$Json$Decode$field, decoder, fields);
@@ -7567,7 +8092,6 @@ var mpizenberg$elm_pointer_events$Internal$Decode$clientPos = A3(
 		}),
 	A2(elm$json$Json$Decode$field, 'clientX', elm$json$Json$Decode$float),
 	A2(elm$json$Json$Decode$field, 'clientY', elm$json$Json$Decode$float));
-var elm$json$Json$Decode$bool = _Json_decodeBool;
 var elm$json$Json$Decode$map3 = _Json_map3;
 var mpizenberg$elm_pointer_events$Internal$Decode$Keys = F3(
 	function (alt, ctrl, shift) {
@@ -7694,6 +8218,11 @@ var author$project$Main$view = function (model) {
 						function (event) {
 							return author$project$Main$MouseWheel(event);
 						}),
+						A2(
+						elm$html$Html$Events$on,
+						'keydown',
+						A2(elm$json$Json$Decode$map, author$project$Main$KeyDown, Gizra$elm_keyboard_event$Keyboard$Event$decodeKeyboardEvent)),
+						elm$html$Html$Attributes$tabindex(0),
 						elm$html$Html$Attributes$id('canvas')
 					]),
 				elm$core$List$concat(

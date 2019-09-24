@@ -1,5 +1,5 @@
 import Browser exposing (Document)
-import Browser.Dom exposing (getViewport)
+import Browser.Dom as Dom exposing (getViewport)
 import Browser.Events
 import Html exposing (Html, button, div, text)
 import Html.Events exposing (onClick)
@@ -16,12 +16,33 @@ import String
 import Json.Decode as Json
 import Debug
 import Round as R
+import Keyboard.Event as Keyboard
+import Keyboard.Key as Key
+import Task
+import Array
 
 -- Setup
 main =
   Browser.document { init = init, update = update, subscriptions = subscriptions, view = view }
 
 -- Model
+
+baseColors = Array.fromList
+              [ Color.rgb255 201 42 42 
+              , Color.rgb255 166 30 77 
+              , Color.rgb255 134 46 156 
+              , Color.rgb255 95 61 196 
+              , Color.rgb255 54 79 199 
+              , Color.rgb255 24 100 171 
+              , Color.rgb255 11 114 133 
+              , Color.rgb255 8 127 91 
+              , Color.rgb255 43 138 62 
+              , Color.rgb255 92 148 13 
+              , Color.rgb255 230 119 0 
+              , Color.rgb255 217 72 15 
+              ]
+numBaseColors : Int
+numBaseColors = 12
 
 gmId : Int
 gmId = 0
@@ -57,22 +78,19 @@ type alias Model = { tokens : List Token
                    , action : Action
                    , view : Viewport
                    , mouse : MouseInfo
+                   , nextId : Int
                    }
 
 init : (Int, Int) -> (Model,  Cmd Msg)
 init (w, h) =
-  ({ tokens = [Creature { id = 0
-                        , x = 0
-                        , y = 0
-                        , radius = 0.5
-                        , color = Color.rgb 0.7 0 0.7
-                        , owner = 0 }]
+  ({ tokens = []
    , selected = -1 
    , window = { width = w, height = h } 
    , user = { id = 0 }
    , action = None
    , view = {x = 0, y = 0, height = 8}
    , mouse = {x = 0, y = 0}
+   , nextId = 0
    }, Cmd.none)
 
 screenToWorld : Model -> (Float, Float) -> (Float, Float)
@@ -98,6 +116,8 @@ type Msg = Move Int (Float, Float)
          | MouseMotion Mouse.Event
          | MouseRelease Mouse.Event
          | MouseWheel Wheel.Event
+         | KeyDown Keyboard.KeyboardEvent
+         | ChangedFocus (Result Dom.Error ())
 
 -- Apply the given function to all tokens in the list with the given id
 applyToToken : (Token -> Token) -> Int -> List Token -> List Token
@@ -116,6 +136,23 @@ applyToToken f i l =
             (f h) :: (applyToToken f i t)
           else
             h :: (applyToToken f i t)
+
+deleteToken : Int -> List Token -> List Token
+deleteToken i l =
+  case l of
+    [] -> []
+    (h::t) ->
+      case h of
+        Doodad d ->
+          if d.id == i then
+            t
+          else
+            h :: (deleteToken i t)
+        Creature d ->
+          if d.id == i then
+            t
+          else
+            h :: (deleteToken i t)
 
 getToken : Int -> List Token -> Maybe Token
 getToken i l =
@@ -199,12 +236,32 @@ onMousePress event model =
           s = creatureIdAt x y model.tokens
           a = if s < 0 then DragView {lastX = sx, lastY = sy}
                        else DragToken {startx = x, starty = y, x = x, y = y}
+          task = Task.attempt ChangedFocus (Dom.focus "canvas")
         in
-          ({ model |
-             selected = s,
-             action = a 
-           }
-          , Cmd.none)
+          if s < 0 && event.keys.ctrl then
+            ({ model |
+               selected = -1,
+               action = None,
+               tokens = Creature { id = model.nextId
+                      , x = x 
+                      , y = y
+                      , radius = 0.25
+                      , color = Maybe.withDefault
+                                  (Color.rgb 0.7 0 0.7)
+                                  (Array.get
+                                     (remainderBy numBaseColors model.nextId)
+                                     baseColors)
+                      , owner = 0
+                      } :: model.tokens,
+               nextId = model.nextId + 1 
+             }
+            , task)
+          else
+            ({ model |
+               selected = s,
+               action = a 
+             }
+            , task)
       Mouse.MiddleButton ->
           ({ model |
              view = {x = 0, y = 0, height = 8} 
@@ -259,6 +316,17 @@ onMouseWheel event model =
    }
   , Cmd.none)
 
+onKeyDown: Keyboard.KeyboardEvent-> Model -> (Model, Cmd Msg)
+onKeyDown event model =
+  if event.keyCode == Key.Delete  &&  model.selected >= 0 then
+    ({ model |
+       tokens = deleteToken model.selected model.tokens
+     , selected = -1 
+     }
+    , Cmd.none)
+  else
+    (model, Cmd.none)
+
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model = 
   case msg of
@@ -273,6 +341,8 @@ update msg model =
     MouseMotion e -> onMouseMotion e model
     MouseRelease e -> onMouseRelease e model
     MouseWheel e -> onMouseWheel e model
+    KeyDown e -> onKeyDown e model
+    ChangedFocus _ -> (model, Cmd.none)
 
 
 -- Subscriptions
@@ -432,6 +502,9 @@ view model =
                  , Mouse.onMove (\event -> MouseMotion event)
                  , Mouse.onUp (\event -> MouseRelease event)
                  , Wheel.onWheel (\event -> MouseWheel event)
+                 , Html.Events.on "keydown" <|
+                     Json.map KeyDown Keyboard.decodeKeyboardEvent 
+                 , A.tabindex 0
                  , A.id "canvas"] 
                  (List.concat [ [clearCanvas dim.canvasWidth dim.canvasHeight]
                               , [viewGrid 5 model dim]
