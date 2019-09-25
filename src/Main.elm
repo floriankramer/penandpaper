@@ -1,3 +1,5 @@
+port module Main exposing (..)
+
 import Browser exposing (Document)
 import Browser.Dom as Dom exposing (getViewport)
 import Browser.Events
@@ -8,12 +10,14 @@ import Canvas  as C
 import Canvas.Settings as C
 import Canvas.Settings.Advanced as C
 import Canvas.Settings.Line as C
+import Canvas.Settings.Text as C
 import Color exposing (Color)
 import Html.Events.Extra.Mouse as Mouse
 import Html.Events.Extra.Wheel as Wheel
 import List
 import String
 import Json.Decode as Json
+import Json.Encode as JE
 import Debug
 import Round as R
 import Keyboard.Event as Keyboard
@@ -236,7 +240,7 @@ onMousePress event model =
           s = creatureIdAt x y model.tokens
           a = if s < 0 then DragView {lastX = sx, lastY = sy}
                        else DragToken {startx = x, starty = y, x = x, y = y}
-          task = Task.attempt ChangedFocus (Dom.focus "canvas")
+          setFocus = Task.attempt ChangedFocus (Dom.focus "canvas")
         in
           if s < 0 && event.keys.ctrl then
             ({ model |
@@ -255,13 +259,15 @@ onMousePress event model =
                       } :: model.tokens,
                nextId = model.nextId + 1 
              }
-            , task)
+            , Cmd.batch
+                [ wsSend (JE.int 42)
+                , setFocus])
           else
             ({ model |
                selected = s,
                action = a 
              }
-            , task)
+            , setFocus)
       Mouse.MiddleButton ->
           ({ model |
              view = {x = 0, y = 0, height = 8} 
@@ -308,13 +314,16 @@ onMouseMotion event model =
 
 onMouseWheel : Wheel.Event -> Model -> (Model, Cmd Msg)
 onMouseWheel event model =
-  ({ model |
-     view = { x = model.view.x
-            , y = model.view.y
-            , height = model.view.height * (1 + 0.1 * event.deltaY)
-            }
-   }
-  , Cmd.none)
+  let
+    scrollDir = if event.deltaY > 0 then 1 else -1
+  in
+    ({ model |
+       view = { x = model.view.x
+              , y = model.view.y
+              , height = model.view.height * (1 + 0.3 * scrollDir)
+              }
+     }
+    , Cmd.none)
 
 onKeyDown: Keyboard.KeyboardEvent-> Model -> (Model, Cmd Msg)
 onKeyDown event model =
@@ -346,12 +355,23 @@ update msg model =
 
 
 -- Subscriptions
+onWsReceive : JE.Value -> Msg
+onWsReceive _ =
+  Move 0 (0, 0)
+
 subscriptions : Model -> Sub Msg
 subscriptions _ = 
-  Browser.Events.onResize onResize 
+  Sub.batch
+    [ Browser.Events.onResize onResize 
+    , wsReceive onWsReceive
+    ]
 
 onResize : Int -> Int -> Msg
 onResize w h = OnResize (w, h)
+
+-- Communication
+port wsSend : JE.Value -> Cmd msg
+port wsReceive : (JE.Value -> msg) -> Sub msg
 
 --View
 
@@ -448,7 +468,9 @@ distanceLineRenderable (sx, sy) (ex, ey) m d trans =
   in
     [ C.shapes [Color.rgb 0.5 0.5 0.5 |> C.stroke]
                [ C.path (ssx, ssy) [C.lineTo (sex, sey)]]
-    , C.text [Color.rgb 0.7 0.7 0.7 |> C.stroke]
+    , C.text [ Color.rgb 0.3 0.3 0.3 |> C.stroke
+             , Color.rgb 1 1 1 |> C.fill
+             , C.font {size = 22, family = "sans serif"}]
              (sex + 10, sey) ((R.round 2 length) ++ "m")
     ]
 

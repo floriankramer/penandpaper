@@ -1,10 +1,37 @@
 // Debug code
-(function() {
-  ws = new WebSocket('wss://localhost:8080');
-  ws.onopen = function () {
-    ws.send("A test message.");
+util = (function() {
+  socket = null;
+  onmessage = null;
+
+  function setOnmessage(fn) {
+    onmessage = fn;
+    if (socket != null) {
+      socket.onmessage = fn;
+    }
   }
-  ws.onmessage = function(event) {
-    console.log("received a message: " + event.data);
+
+  function connect() {
+    port = ''
+    if (window.location.port != null) {
+      port = ':' + window.location.port
+    }
+    socket = new WebSocket('wss://' + window.location.hostname + port);
+    socket.onmessage = onmessage;
   }
+
+  function send(data) {
+    socket.send(data);
+  }
+
+  function disconnect() {
+    socket.close();
+    socket = null;
+  }
+
+  return {
+    connect : connect,
+    disconnect : disconnect,
+    send : send,
+    setOnmessage : setOnmessage
+  };
 })();

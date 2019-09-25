@@ -4852,6 +4852,18 @@ var author$project$Main$onResize = F2(
 		return author$project$Main$OnResize(
 			_Utils_Tuple2(w, h));
 	});
+var author$project$Main$Move = F2(
+	function (a, b) {
+		return {$: 'Move', a: a, b: b};
+	});
+var author$project$Main$onWsReceive = function (_n0) {
+	return A2(
+		author$project$Main$Move,
+		0,
+		_Utils_Tuple2(0, 0));
+};
+var elm$json$Json$Decode$value = _Json_decodeValue;
+var author$project$Main$wsReceive = _Platform_incomingPort('wsReceive', elm$json$Json$Decode$value);
 var elm$browser$Browser$Events$Window = {$: 'Window'};
 var elm$browser$Browser$Events$MySub = F3(
 	function (a, b, c) {
@@ -5581,8 +5593,14 @@ var elm$browser$Browser$Events$onResize = function (func) {
 				A2(elm$json$Json$Decode$field, 'innerWidth', elm$json$Json$Decode$int),
 				A2(elm$json$Json$Decode$field, 'innerHeight', elm$json$Json$Decode$int))));
 };
+var elm$core$Platform$Sub$batch = _Platform_batch;
 var author$project$Main$subscriptions = function (_n0) {
-	return elm$browser$Browser$Events$onResize(author$project$Main$onResize);
+	return elm$core$Platform$Sub$batch(
+		_List_fromArray(
+			[
+				elm$browser$Browser$Events$onResize(author$project$Main$onResize),
+				author$project$Main$wsReceive(author$project$Main$onWsReceive)
+			]));
 };
 var author$project$Main$applyToToken = F3(
 	function (f, i, l) {
@@ -5865,6 +5883,7 @@ var author$project$Main$creatureIdAt = F3(
 		}
 	});
 var author$project$Main$numBaseColors = 12;
+var author$project$Main$wsSend = _Platform_outgoingPort('wsSend', elm$core$Basics$identity);
 var avh4$elm_color$Color$rgb = F3(
 	function (r, g, b) {
 		return A4(avh4$elm_color$Color$RgbaSpace, r, g, b, 1.0);
@@ -5944,6 +5963,7 @@ var elm$core$Task$attempt = F2(
 							elm$core$Result$Ok),
 						task))));
 	});
+var elm$json$Json$Encode$int = _Json_wrap;
 var author$project$Main$onMousePress = F2(
 	function (event, model) {
 		var _n0 = A2(author$project$Main$screenToWorld, model, event.offsetPos);
@@ -5952,7 +5972,7 @@ var author$project$Main$onMousePress = F2(
 		var _n1 = event.button;
 		switch (_n1.$) {
 			case 'MainButton':
-				var task = A2(
+				var setFocus = A2(
 					elm$core$Task$attempt,
 					author$project$Main$ChangedFocus,
 					elm$browser$Browser$Dom$focus('canvas'));
@@ -5986,11 +6006,17 @@ var author$project$Main$onMousePress = F2(
 									}),
 								model.tokens)
 						}),
-					task) : _Utils_Tuple2(
+					elm$core$Platform$Cmd$batch(
+						_List_fromArray(
+							[
+								author$project$Main$wsSend(
+								elm$json$Json$Encode$int(42)),
+								setFocus
+							]))) : _Utils_Tuple2(
 					_Utils_update(
 						model,
 						{action: a, selected: s}),
-					task);
+					setFocus);
 			case 'MiddleButton':
 				return _Utils_Tuple2(
 					_Utils_update(
@@ -6013,11 +6039,12 @@ var author$project$Main$onMouseRelease = F2(
 	});
 var author$project$Main$onMouseWheel = F2(
 	function (event, model) {
+		var scrollDir = (event.deltaY > 0) ? 1 : (-1);
 		return _Utils_Tuple2(
 			_Utils_update(
 				model,
 				{
-					view: {height: model.view.height * (1 + (0.1 * event.deltaY)), x: model.view.x, y: model.view.y}
+					view: {height: model.view.height * (1 + (0.3 * scrollDir)), x: model.view.x, y: model.view.y}
 				}),
 			elm$core$Platform$Cmd$none);
 	});
@@ -6799,6 +6826,19 @@ var joakin$elm_canvas$Canvas$Settings$stroke = function (color) {
 	return joakin$elm_canvas$Canvas$Internal$Canvas$SettingDrawOp(
 		joakin$elm_canvas$Canvas$Internal$Canvas$Stroke(color));
 };
+var joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$font = function (f) {
+	return A2(
+		joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$field,
+		'font',
+		elm$json$Json$Encode$string(f));
+};
+var joakin$elm_canvas$Canvas$Settings$Text$font = function (_n0) {
+	var size = _n0.size;
+	var family = _n0.family;
+	return joakin$elm_canvas$Canvas$Internal$Canvas$SettingCommand(
+		joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$font(
+			elm$core$String$fromInt(size) + ('px ' + family)));
+};
 var elm$core$Basics$not = _Basics_not;
 var elm$core$Basics$abs = function (n) {
 	return (n < 0) ? (-n) : n;
@@ -7114,7 +7154,11 @@ var author$project$Main$distanceLineRenderable = F5(
 				_List_fromArray(
 					[
 						joakin$elm_canvas$Canvas$Settings$stroke(
-						A3(avh4$elm_color$Color$rgb, 0.7, 0.7, 0.7))
+						A3(avh4$elm_color$Color$rgb, 0.3, 0.3, 0.3)),
+						joakin$elm_canvas$Canvas$Settings$fill(
+						A3(avh4$elm_color$Color$rgb, 1, 1, 1)),
+						joakin$elm_canvas$Canvas$Settings$Text$font(
+						{family: 'sans serif', size: 22})
 					]),
 				_Utils_Tuple2(sex + 10, sey),
 				A2(myrho$elm_round$Round$round, 2, length) + 'm')
@@ -7943,7 +7987,6 @@ var elm$json$Json$Decode$at = F2(
 		return A3(elm$core$List$foldr, elm$json$Json$Decode$field, decoder, fields);
 	});
 var elm$json$Json$Decode$float = _Json_decodeFloat;
-var elm$json$Json$Decode$value = _Json_decodeValue;
 var joakin$elm_canvas$Canvas$decodeTextureImageInfo = A2(
 	elm$json$Json$Decode$andThen,
 	function (target) {
