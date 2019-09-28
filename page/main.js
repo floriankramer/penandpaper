@@ -4348,18 +4348,11 @@ var _Bitwise_shiftRightZfBy = F2(function(offset, a)
 	return a >>> offset;
 });
 var author$project$Main$None = {$: 'None'};
-var elm$core$Basics$False = {$: 'False'};
-var elm$core$Basics$negate = function (n) {
-	return -n;
-};
-var elm$core$Basics$True = {$: 'True'};
-var elm$core$Result$isOk = function (result) {
-	if (result.$ === 'Ok') {
-		return true;
-	} else {
-		return false;
-	}
-};
+var elm$core$Array$Array_elm_builtin = F4(
+	function (a, b, c, d) {
+		return {$: 'Array_elm_builtin', a: a, b: b, c: c, d: d};
+	});
+var elm$core$Array$branchFactor = 32;
 var elm$core$Basics$EQ = {$: 'EQ'};
 var elm$core$Basics$GT = {$: 'GT'};
 var elm$core$Basics$LT = {$: 'LT'};
@@ -4440,11 +4433,6 @@ var elm$core$Array$foldr = F3(
 var elm$core$Array$toList = function (array) {
 	return A3(elm$core$Array$foldr, elm$core$List$cons, _List_Nil, array);
 };
-var elm$core$Array$branchFactor = 32;
-var elm$core$Array$Array_elm_builtin = F4(
-	function (a, b, c, d) {
-		return {$: 'Array_elm_builtin', a: a, b: b, c: c, d: d};
-	});
 var elm$core$Basics$ceiling = _Basics_ceiling;
 var elm$core$Basics$fdiv = _Basics_fdiv;
 var elm$core$Basics$logBase = F2(
@@ -4456,6 +4444,18 @@ var elm$core$Array$shiftStep = elm$core$Basics$ceiling(
 	A2(elm$core$Basics$logBase, 2, elm$core$Array$branchFactor));
 var elm$core$Elm$JsArray$empty = _JsArray_empty;
 var elm$core$Array$empty = A4(elm$core$Array$Array_elm_builtin, 0, elm$core$Array$shiftStep, elm$core$Elm$JsArray$empty, elm$core$Elm$JsArray$empty);
+var elm$core$Basics$False = {$: 'False'};
+var elm$core$Basics$negate = function (n) {
+	return -n;
+};
+var elm$core$Basics$True = {$: 'True'};
+var elm$core$Result$isOk = function (result) {
+	if (result.$ === 'Ok') {
+		return true;
+	} else {
+		return false;
+	}
+};
 var elm$core$Array$Leaf = function (a) {
 	return {$: 'Leaf', a: a};
 };
@@ -4842,6 +4842,8 @@ var author$project$Main$init = function (_n0) {
 			mouse: {x: 0, y: 0},
 			nextId: 0,
 			selected: -1,
+			sentMessagePos: 0,
+			sentMessages: elm$core$Array$empty,
 			tokens: _List_Nil,
 			user: {id: 0},
 			username: '',
@@ -5868,7 +5870,9 @@ var author$project$Main$subscriptions = function (_n0) {
 				author$project$Main$wsReceive(author$project$Main$onWsReceive)
 			]));
 };
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Down = {$: 'Down'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Enter = {$: 'Enter'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Up = {$: 'Up'};
 var elm$json$Json$Encode$object = function (pairs) {
 	return _Json_wrap(
 		A3(
@@ -5950,35 +5954,6 @@ var author$project$Main$encodeChat = function (cc) {
 	return author$project$Main$encodePacket(packet);
 };
 var author$project$Main$wsSend = _Platform_outgoingPort('wsSend', elm$core$Basics$identity);
-var author$project$Main$onChatKeyDown = F2(
-	function (event, model) {
-		return _Utils_eq(event.keyCode, SwiftsNamesake$proper_keyboard$Keyboard$Key$Enter) ? _Utils_Tuple2(
-			_Utils_update(
-				model,
-				{chatText: ''}),
-			author$project$Main$wsSend(
-				author$project$Main$encodeChat(
-					{message: model.chatText, sender: model.username}))) : _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
-	});
-var author$project$Main$Creature = function (a) {
-	return {$: 'Creature', a: a};
-};
-var avh4$elm_color$Color$RgbaSpace = F4(
-	function (a, b, c, d) {
-		return {$: 'RgbaSpace', a: a, b: b, c: c, d: d};
-	});
-var avh4$elm_color$Color$scaleFrom255 = function (c) {
-	return c / 255;
-};
-var avh4$elm_color$Color$rgb255 = F3(
-	function (r, g, b) {
-		return A4(
-			avh4$elm_color$Color$RgbaSpace,
-			avh4$elm_color$Color$scaleFrom255(r),
-			avh4$elm_color$Color$scaleFrom255(g),
-			avh4$elm_color$Color$scaleFrom255(b),
-			1.0);
-	});
 var elm$core$Array$fromListHelp = F3(
 	function (list, nodeList, nodeListSize) {
 		fromListHelp:
@@ -6014,39 +5989,6 @@ var elm$core$Array$fromList = function (list) {
 		return A3(elm$core$Array$fromListHelp, list, _List_Nil, 0);
 	}
 };
-var author$project$Main$baseColors = elm$core$Array$fromList(
-	_List_fromArray(
-		[
-			A3(avh4$elm_color$Color$rgb255, 201, 42, 42),
-			A3(avh4$elm_color$Color$rgb255, 166, 30, 77),
-			A3(avh4$elm_color$Color$rgb255, 134, 46, 156),
-			A3(avh4$elm_color$Color$rgb255, 95, 61, 196),
-			A3(avh4$elm_color$Color$rgb255, 54, 79, 199),
-			A3(avh4$elm_color$Color$rgb255, 24, 100, 171),
-			A3(avh4$elm_color$Color$rgb255, 11, 114, 133),
-			A3(avh4$elm_color$Color$rgb255, 8, 127, 91),
-			A3(avh4$elm_color$Color$rgb255, 43, 138, 62),
-			A3(avh4$elm_color$Color$rgb255, 92, 148, 13),
-			A3(avh4$elm_color$Color$rgb255, 230, 119, 0),
-			A3(avh4$elm_color$Color$rgb255, 217, 72, 15),
-			A3(avh4$elm_color$Color$rgb255, 255, 84, 84),
-			A3(avh4$elm_color$Color$rgb255, 186, 90, 170),
-			A3(avh4$elm_color$Color$rgb255, 154, 92, 186),
-			A3(avh4$elm_color$Color$rgb255, 190, 122, 220),
-			A3(avh4$elm_color$Color$rgb255, 138, 160, 220),
-			A3(avh4$elm_color$Color$rgb255, 100, 190, 220),
-			A3(avh4$elm_color$Color$rgb255, 42, 184, 183),
-			A3(avh4$elm_color$Color$rgb255, 32, 200, 170),
-			A3(avh4$elm_color$Color$rgb255, 110, 198, 120),
-			A3(avh4$elm_color$Color$rgb255, 142, 220, 66),
-			A3(avh4$elm_color$Color$rgb255, 255, 179, 50),
-			A3(avh4$elm_color$Color$rgb255, 255, 190, 70)
-		]));
-var author$project$Main$numBaseColors = 24;
-var avh4$elm_color$Color$rgb = F3(
-	function (r, g, b) {
-		return A4(avh4$elm_color$Color$RgbaSpace, r, g, b, 1.0);
-	});
 var elm$core$Bitwise$shiftRightZfBy = _Bitwise_shiftRightZfBy;
 var elm$core$Array$bitMask = 4294967295 >>> (32 - elm$core$Array$shiftStep);
 var elm$core$Bitwise$and = _Bitwise_and;
@@ -6089,6 +6031,140 @@ var elm$core$Array$get = F2(
 			A2(elm$core$Elm$JsArray$unsafeGet, elm$core$Array$bitMask & index, tail)) : elm$core$Maybe$Just(
 			A3(elm$core$Array$getHelp, startShift, index, tree)));
 	});
+var elm$core$Array$length = function (_n0) {
+	var len = _n0.a;
+	return len;
+};
+var elm$core$Basics$min = F2(
+	function (x, y) {
+		return (_Utils_cmp(x, y) < 0) ? x : y;
+	});
+var elm$core$List$takeReverse = F3(
+	function (n, list, kept) {
+		takeReverse:
+		while (true) {
+			if (n <= 0) {
+				return kept;
+			} else {
+				if (!list.b) {
+					return kept;
+				} else {
+					var x = list.a;
+					var xs = list.b;
+					var $temp$n = n - 1,
+						$temp$list = xs,
+						$temp$kept = A2(elm$core$List$cons, x, kept);
+					n = $temp$n;
+					list = $temp$list;
+					kept = $temp$kept;
+					continue takeReverse;
+				}
+			}
+		}
+	});
+var elm$core$List$takeTailRec = F2(
+	function (n, list) {
+		return elm$core$List$reverse(
+			A3(elm$core$List$takeReverse, n, list, _List_Nil));
+	});
+var elm$core$List$takeFast = F3(
+	function (ctr, n, list) {
+		if (n <= 0) {
+			return _List_Nil;
+		} else {
+			var _n0 = _Utils_Tuple2(n, list);
+			_n0$1:
+			while (true) {
+				_n0$5:
+				while (true) {
+					if (!_n0.b.b) {
+						return list;
+					} else {
+						if (_n0.b.b.b) {
+							switch (_n0.a) {
+								case 1:
+									break _n0$1;
+								case 2:
+									var _n2 = _n0.b;
+									var x = _n2.a;
+									var _n3 = _n2.b;
+									var y = _n3.a;
+									return _List_fromArray(
+										[x, y]);
+								case 3:
+									if (_n0.b.b.b.b) {
+										var _n4 = _n0.b;
+										var x = _n4.a;
+										var _n5 = _n4.b;
+										var y = _n5.a;
+										var _n6 = _n5.b;
+										var z = _n6.a;
+										return _List_fromArray(
+											[x, y, z]);
+									} else {
+										break _n0$5;
+									}
+								default:
+									if (_n0.b.b.b.b && _n0.b.b.b.b.b) {
+										var _n7 = _n0.b;
+										var x = _n7.a;
+										var _n8 = _n7.b;
+										var y = _n8.a;
+										var _n9 = _n8.b;
+										var z = _n9.a;
+										var _n10 = _n9.b;
+										var w = _n10.a;
+										var tl = _n10.b;
+										return (ctr > 1000) ? A2(
+											elm$core$List$cons,
+											x,
+											A2(
+												elm$core$List$cons,
+												y,
+												A2(
+													elm$core$List$cons,
+													z,
+													A2(
+														elm$core$List$cons,
+														w,
+														A2(elm$core$List$takeTailRec, n - 4, tl))))) : A2(
+											elm$core$List$cons,
+											x,
+											A2(
+												elm$core$List$cons,
+												y,
+												A2(
+													elm$core$List$cons,
+													z,
+													A2(
+														elm$core$List$cons,
+														w,
+														A3(elm$core$List$takeFast, ctr + 1, n - 4, tl)))));
+									} else {
+										break _n0$5;
+									}
+							}
+						} else {
+							if (_n0.a === 1) {
+								break _n0$1;
+							} else {
+								break _n0$5;
+							}
+						}
+					}
+				}
+				return list;
+			}
+			var _n1 = _n0.b;
+			var x = _n1.a;
+			return _List_fromArray(
+				[x]);
+		}
+	});
+var elm$core$List$take = F2(
+	function (n, list) {
+		return A3(elm$core$List$takeFast, 0, n, list);
+	});
 var elm$core$Maybe$withDefault = F2(
 	function (_default, maybe) {
 		if (maybe.$ === 'Just') {
@@ -6097,6 +6173,112 @@ var elm$core$Maybe$withDefault = F2(
 		} else {
 			return _default;
 		}
+	});
+var author$project$Main$onChatKeyDown = F2(
+	function (event, model) {
+		if (_Utils_eq(event.keyCode, SwiftsNamesake$proper_keyboard$Keyboard$Key$Enter)) {
+			return _Utils_Tuple2(
+				_Utils_update(
+					model,
+					{
+						chatText: '',
+						sentMessagePos: 0,
+						sentMessages: elm$core$Array$fromList(
+							A2(
+								elm$core$List$take,
+								25,
+								A2(
+									elm$core$List$cons,
+									model.chatText,
+									elm$core$Array$toList(model.sentMessages))))
+					}),
+				author$project$Main$wsSend(
+					author$project$Main$encodeChat(
+						{message: model.chatText, sender: model.username})));
+		} else {
+			if (_Utils_eq(event.keyCode, SwiftsNamesake$proper_keyboard$Keyboard$Key$Up)) {
+				var tm = A2(elm$core$Array$get, model.sentMessagePos, model.sentMessages);
+				var t = A2(elm$core$Maybe$withDefault, model.chatText, tm);
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							chatText: t,
+							sentMessagePos: A2(
+								elm$core$Basics$min,
+								model.sentMessagePos + 1,
+								elm$core$Array$length(model.sentMessages))
+						}),
+					elm$core$Platform$Cmd$none);
+			} else {
+				if (_Utils_eq(event.keyCode, SwiftsNamesake$proper_keyboard$Keyboard$Key$Down)) {
+					var tm = A2(elm$core$Array$get, model.sentMessagePos - 2, model.sentMessages);
+					var t = A2(elm$core$Maybe$withDefault, '', tm);
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								chatText: t,
+								sentMessagePos: A2(elm$core$Basics$max, model.sentMessagePos - 1, 0)
+							}),
+						elm$core$Platform$Cmd$none);
+				} else {
+					return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+				}
+			}
+		}
+	});
+var author$project$Main$Creature = function (a) {
+	return {$: 'Creature', a: a};
+};
+var avh4$elm_color$Color$RgbaSpace = F4(
+	function (a, b, c, d) {
+		return {$: 'RgbaSpace', a: a, b: b, c: c, d: d};
+	});
+var avh4$elm_color$Color$scaleFrom255 = function (c) {
+	return c / 255;
+};
+var avh4$elm_color$Color$rgb255 = F3(
+	function (r, g, b) {
+		return A4(
+			avh4$elm_color$Color$RgbaSpace,
+			avh4$elm_color$Color$scaleFrom255(r),
+			avh4$elm_color$Color$scaleFrom255(g),
+			avh4$elm_color$Color$scaleFrom255(b),
+			1.0);
+	});
+var author$project$Main$baseColors = elm$core$Array$fromList(
+	_List_fromArray(
+		[
+			A3(avh4$elm_color$Color$rgb255, 201, 42, 42),
+			A3(avh4$elm_color$Color$rgb255, 166, 30, 77),
+			A3(avh4$elm_color$Color$rgb255, 134, 46, 156),
+			A3(avh4$elm_color$Color$rgb255, 95, 61, 196),
+			A3(avh4$elm_color$Color$rgb255, 54, 79, 199),
+			A3(avh4$elm_color$Color$rgb255, 24, 100, 171),
+			A3(avh4$elm_color$Color$rgb255, 11, 114, 133),
+			A3(avh4$elm_color$Color$rgb255, 8, 127, 91),
+			A3(avh4$elm_color$Color$rgb255, 43, 138, 62),
+			A3(avh4$elm_color$Color$rgb255, 92, 148, 13),
+			A3(avh4$elm_color$Color$rgb255, 230, 119, 0),
+			A3(avh4$elm_color$Color$rgb255, 217, 72, 15),
+			A3(avh4$elm_color$Color$rgb255, 255, 84, 84),
+			A3(avh4$elm_color$Color$rgb255, 186, 90, 170),
+			A3(avh4$elm_color$Color$rgb255, 154, 92, 186),
+			A3(avh4$elm_color$Color$rgb255, 190, 122, 220),
+			A3(avh4$elm_color$Color$rgb255, 138, 160, 220),
+			A3(avh4$elm_color$Color$rgb255, 100, 190, 220),
+			A3(avh4$elm_color$Color$rgb255, 42, 184, 183),
+			A3(avh4$elm_color$Color$rgb255, 32, 200, 170),
+			A3(avh4$elm_color$Color$rgb255, 110, 198, 120),
+			A3(avh4$elm_color$Color$rgb255, 142, 220, 66),
+			A3(avh4$elm_color$Color$rgb255, 255, 179, 50),
+			A3(avh4$elm_color$Color$rgb255, 255, 190, 70)
+		]));
+var author$project$Main$numBaseColors = 24;
+var avh4$elm_color$Color$rgb = F3(
+	function (r, g, b) {
+		return A4(avh4$elm_color$Color$RgbaSpace, r, g, b, 1.0);
 	});
 var author$project$Main$onCreate = F2(
 	function (_n0, model) {
@@ -6582,132 +6764,6 @@ var author$project$Main$onMove = F3(
 				}),
 			elm$core$Platform$Cmd$none);
 	});
-var elm$core$List$takeReverse = F3(
-	function (n, list, kept) {
-		takeReverse:
-		while (true) {
-			if (n <= 0) {
-				return kept;
-			} else {
-				if (!list.b) {
-					return kept;
-				} else {
-					var x = list.a;
-					var xs = list.b;
-					var $temp$n = n - 1,
-						$temp$list = xs,
-						$temp$kept = A2(elm$core$List$cons, x, kept);
-					n = $temp$n;
-					list = $temp$list;
-					kept = $temp$kept;
-					continue takeReverse;
-				}
-			}
-		}
-	});
-var elm$core$List$takeTailRec = F2(
-	function (n, list) {
-		return elm$core$List$reverse(
-			A3(elm$core$List$takeReverse, n, list, _List_Nil));
-	});
-var elm$core$List$takeFast = F3(
-	function (ctr, n, list) {
-		if (n <= 0) {
-			return _List_Nil;
-		} else {
-			var _n0 = _Utils_Tuple2(n, list);
-			_n0$1:
-			while (true) {
-				_n0$5:
-				while (true) {
-					if (!_n0.b.b) {
-						return list;
-					} else {
-						if (_n0.b.b.b) {
-							switch (_n0.a) {
-								case 1:
-									break _n0$1;
-								case 2:
-									var _n2 = _n0.b;
-									var x = _n2.a;
-									var _n3 = _n2.b;
-									var y = _n3.a;
-									return _List_fromArray(
-										[x, y]);
-								case 3:
-									if (_n0.b.b.b.b) {
-										var _n4 = _n0.b;
-										var x = _n4.a;
-										var _n5 = _n4.b;
-										var y = _n5.a;
-										var _n6 = _n5.b;
-										var z = _n6.a;
-										return _List_fromArray(
-											[x, y, z]);
-									} else {
-										break _n0$5;
-									}
-								default:
-									if (_n0.b.b.b.b && _n0.b.b.b.b.b) {
-										var _n7 = _n0.b;
-										var x = _n7.a;
-										var _n8 = _n7.b;
-										var y = _n8.a;
-										var _n9 = _n8.b;
-										var z = _n9.a;
-										var _n10 = _n9.b;
-										var w = _n10.a;
-										var tl = _n10.b;
-										return (ctr > 1000) ? A2(
-											elm$core$List$cons,
-											x,
-											A2(
-												elm$core$List$cons,
-												y,
-												A2(
-													elm$core$List$cons,
-													z,
-													A2(
-														elm$core$List$cons,
-														w,
-														A2(elm$core$List$takeTailRec, n - 4, tl))))) : A2(
-											elm$core$List$cons,
-											x,
-											A2(
-												elm$core$List$cons,
-												y,
-												A2(
-													elm$core$List$cons,
-													z,
-													A2(
-														elm$core$List$cons,
-														w,
-														A3(elm$core$List$takeFast, ctr + 1, n - 4, tl)))));
-									} else {
-										break _n0$5;
-									}
-							}
-						} else {
-							if (_n0.a === 1) {
-								break _n0$1;
-							} else {
-								break _n0$5;
-							}
-						}
-					}
-				}
-				return list;
-			}
-			var _n1 = _n0.b;
-			var x = _n1.a;
-			return _List_fromArray(
-				[x]);
-		}
-	});
-var elm$core$List$take = F2(
-	function (n, list) {
-		return A3(elm$core$List$takeFast, 0, n, list);
-	});
 var author$project$Main$onMsgChat = F3(
 	function (sender, message, model) {
 		return _Utils_Tuple2(
@@ -6895,7 +6951,6 @@ var SwiftsNamesake$proper_keyboard$Keyboard$Key$Ctrl = function (a) {
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$D = {$: 'D'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Decimal = {$: 'Decimal'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Divide = {$: 'Divide'};
-var SwiftsNamesake$proper_keyboard$Keyboard$Key$Down = {$: 'Down'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$E = {$: 'E'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Eight = {$: 'Eight'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$End = {$: 'End'};
@@ -6966,7 +7021,6 @@ var SwiftsNamesake$proper_keyboard$Keyboard$Key$U = {$: 'U'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Unknown = function (a) {
 	return {$: 'Unknown', a: a};
 };
-var SwiftsNamesake$proper_keyboard$Keyboard$Key$Up = {$: 'Up'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$V = {$: 'V'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$W = {$: 'W'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Windows = {$: 'Windows'};

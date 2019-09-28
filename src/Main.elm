@@ -99,6 +99,8 @@ type alias Model = { tokens : List Token
                    , nextId : Int
                    , chat : List (String, String)
                    , chatText : String
+                   , sentMessages : Array.Array String
+                   , sentMessagePos : Int
                    , username : String
                    , usernameSet : Bool
                    }
@@ -116,6 +118,8 @@ init (w, h) =
    , chat = [("Server", "Welcome to GOATS ROCK!")]
    , chatText = ""
    , username = ""
+   , sentMessages = Array.empty
+   , sentMessagePos = 0
    , usernameSet = False
    }, Cmd.none)
 
@@ -658,8 +662,35 @@ onMsgInit d model =
 onChatKeyDown: Keyboard.KeyboardEvent -> Model -> (Model, Cmd Msg)
 onChatKeyDown event model =
   if event.keyCode == Key.Enter then 
-    ({ model | chatText = ""}
+    ({ model | chatText = ""
+     , sentMessages = Array.fromList
+                        (List.take 
+                          25
+                          (model.chatText ::
+                            (Array.toList model.sentMessages)))
+     , sentMessagePos = 0
+     }
     , wsSend (encodeChat ({sender=model.username, message=model.chatText})))
+  else if event.keyCode == Key.Up then
+    let
+      tm = Array.get (model.sentMessagePos) model.sentMessages
+      t = Maybe.withDefault model.chatText tm 
+    in
+      ({ model | chatText = t 
+       , sentMessagePos = min (model.sentMessagePos + 1)
+                              (Array.length model.sentMessages)
+       }
+      , Cmd.none)
+  else if event.keyCode == Key.Down then
+    let
+      tm = Array.get (model.sentMessagePos - 2) model.sentMessages
+      t = Maybe.withDefault "" tm 
+    in
+      ({ model | chatText = t 
+       , sentMessagePos = max (model.sentMessagePos - 1)
+                              (0)
+       }
+      , Cmd.none)
   else
     (model, Cmd.none)
 

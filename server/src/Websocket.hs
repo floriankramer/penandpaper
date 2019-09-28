@@ -13,6 +13,7 @@ import qualified Data.Text as Text
 import qualified Data.List as List
 import qualified Control.Concurrent.MVar as MV
 import qualified Control.Exception as EX
+import qualified System.Random as R 
 
 import qualified Simulation as S
 
@@ -27,14 +28,22 @@ data Client = Client {clientId :: Int, conn :: WS.Connection}
 instance Eq Client where
   x == y = (clientId x) == (clientId y)
 
-data State = State {clients :: [Client], nextId :: Int, model :: S.Model}
-initState :: State
-initState = State {clients = [], nextId = 0, model = S.initModel}
+data State = State { clients :: [Client]
+                   , nextId :: Int
+                   , model :: S.Model
+                   , sRand :: R.StdGen
+                   }
+initState :: R.StdGen -> State
+initState rand = State { clients = []
+                       , nextId = 0
+                       , model = S.initModel rand
+                       , sRand = rand}
 
 -- Takes a webserver and adds a websocket server
 start :: W.Application -> IO ()
 start h = do 
-    serverState <- MV.newMVar initState
+    rand <- R.newStdGen
+    serverState <- MV.newMVar $ initState rand
     W.runTLS tlsSettings warpSettings $
              WWS.websocketsOr WS.defaultConnectionOptions (handleConnection serverState) h
 -- start h = W.run 8080$
@@ -65,8 +74,15 @@ communicateForever mstate connection = do
       putStrLn $ Text.unpack msg
       -- Broadcast the message to all clients
       state <- MV.takeMVar mstate
-      let nstate = state { model = S.update msg (model state)}
-      mapM_ (\ c -> WS.sendTextData (conn c) msg) (clients nstate)
+      let (nmodel, action) = S.update msg (model state)
+      let nstate = state { model = nmodel }
+      case action of
+        S.Forward ->
+          mapM_ (\ c -> WS.sendTextData (conn c) msg) (clients nstate)
+        S.Broadcast t ->
+          mapM_ (\ c -> WS.sendTextData (conn c) t) (clients nstate)
+        S.Reply t ->
+          WS.sendTextData connection t
       MV.putMVar mstate nstate 
       communicateForever mstate connection
     )

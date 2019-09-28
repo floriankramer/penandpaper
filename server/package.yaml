@@ -34,6 +34,8 @@ dependencies:
 - attoparsec
 - unordered-containers
 - array
+- random
+- split
 
 library:
   source-dirs: src

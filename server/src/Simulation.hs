@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Simulation (Model, initModel, update, initPacket) where
+module Simulation (Model, initModel, update, initPacket, Response (..)) where
 
 import qualified Data.Aeson.Parser as J
 import qualified Data.Aeson.Types as J
@@ -13,6 +13,10 @@ import Data.Text (Text)
 import qualified Data.Text.Lazy as TL
 import qualified Data.HashMap.Strict as M
 import qualified Data.Array as A
+import Data.List.Split (splitOn)
+import qualified Data.List as List
+import System.Random as R
+import Text.Read (readMaybe)
 
 -- constants
 
@@ -47,6 +51,10 @@ numColors = 24
 
 -- networking
 
+data Response = Reply Text
+              | Broadcast Text
+              | Forward
+
 data RawPacket = RawPacket { rpt :: String }
 
 instance J.FromJSON RawPacket where
@@ -58,10 +66,7 @@ data Packet = CreateCreature { ccX :: Float, ccY :: Float }
             | InitState { initTokens :: [Token]
                         , initNextId :: Int
                         , initNextColor :: Int }
-
-packetParser :: J.Value -> String -> J.Parser Packet
-packetParser (J.Object v) t =
-  CreateCreature <$> v J..: "x" <*> v J..: "y"
+            | Chat { chatSender :: String, chatMessage :: String }          
 
 instance J.FromJSON Packet where
   parseJSON j = do
@@ -86,6 +91,10 @@ instance J.FromJSON Packet where
             else if s == "DeleteCreature" then
               DeleteCreature
               <$> d J..: "id" 
+            else if s == "Chat" then
+              Chat 
+              <$> d J..: "sender" 
+              <*> d J..: "message" 
             else
               fail ("Unknown type " ++ s) :: (J.Parser Packet)
           Nothing ->
@@ -117,6 +126,12 @@ instance J.ToJSON Packet where
                  , "nextId" J..=  ni
                  , "nextColor" J..=  nc
                  ]]
+      Chat sender message ->
+        J.object ["type" J..= ("Chat" :: Text)
+                 , "data" J..= J.object [
+                   "sender" J..= sender
+                 , "message" J..= message
+                 ]]
 
 
 initPacket :: Model -> Text
@@ -126,6 +141,9 @@ initPacket model =
               , initNextId = nextId model
               , initNextColor = nextColor model
               }
+
+toJsonText :: (J.ToJSON a) => a -> Text
+toJsonText = TL.toStrict . ECL.decodeUtf8 . J.encode
 
 -- the model
 data Token = Token { tokenId :: Int
@@ -149,12 +167,13 @@ instance J.ToJSON Token where
              ]
 
 
-data Model = Model { tokens :: [Token], nextId :: Int, nextColor :: Int }
+data Model = Model { tokens :: [Token], nextId :: Int, nextColor :: Int
+                   , mRand :: R.StdGen}
 
-initModel :: Model
-initModel = Model { tokens = [], nextId = 0, nextColor = 0 }
+initModel :: R.StdGen -> Model
+initModel rand = Model { tokens = [], nextId = 0, nextColor = 0, mRand = rand}
 
-update :: Text -> Model -> Model
+update :: Text -> Model -> (Model, Response)
 update input model =
   let
     p = (J.decode $ ECL.encodeUtf8 $ TL.fromStrict input) :: Maybe Packet
@@ -163,13 +182,15 @@ update input model =
     Just v ->
       case v of
         CreateCreature _ _ ->
-          onCreateCreature v model
+          (onCreateCreature v model, Forward)
         MoveCreature _ _ _ ->
-          onMoveCreature v model
+          (onMoveCreature v model, Forward)
         DeleteCreature _ ->
-          onDeleteCreature v model
+          (onDeleteCreature v model, Forward)
+        Chat _ _ ->
+          onChat v model
     Nothing ->
-      model
+     (model, Forward)
 
 onCreateCreature :: Packet -> Model -> Model
 onCreateCreature p model =
@@ -206,7 +227,49 @@ onDeleteCreature p model =
                      (tokens model)
           }
   
- 
+onChat :: Packet -> Model -> (Model, Response)
+onChat p model =
+  let
+    msg = chatMessage p
+    sender = chatSender p
+  in
+    if length msg > 0 && head msg == '/' then
+      if List.isPrefixOf "/roll" msg then
+        (model, Reply $ toJsonText $ Chat "Server" (cmdRoll (mRand model) sender msg))
+      else
+        (model, Reply $ toJsonText $ Chat "Server" ("Unknown command: " ++ msg))
+    else
+      (model, Forward)
+
+rollList :: R.StdGen -> Int -> [Int] -> [Int]
+rollList rand min []    = []
+rollList rand min maxes =
+  let
+    (n, nrand) = R.randomR (min, head maxes) rand
+  in
+    n : (rollList nrand min $ tail maxes)
+
+
+cmdRoll :: R.StdGen -> String -> String -> String
+cmdRoll rand who t =
+  let
+    parts = tail $ splitOn " " t
+    ints = map (\t -> readMaybe t :: Maybe Int) parts
+    validM = filter (\t -> case t of
+                             Just _ -> True
+                             Nothing -> False)
+                     ints
+    valid = map (\t -> case t of 
+                             Just i -> i
+                             Nothing -> -1)
+                validM
+    rands = rollList rand 1 valid 
+    srands = map (\t -> show t) rands
+    snums = List.intercalate " " srands 
+    sdice = List.intercalate " " (map (\t -> show t) valid)
+  in
+    who ++ " rolled " ++ snums ++ " with dice " ++ sdice
+     
 
 -- util functions
 applyToCreature :: (Token -> Token) -> Int -> [Token] -> [Token]
