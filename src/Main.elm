@@ -4,7 +4,7 @@ import Browser exposing (Document)
 import Browser.Dom as Dom exposing (getViewport)
 import Browser.Events
 import Html exposing (Html, button, div, text)
-import Html.Events exposing (onClick)
+import Html.Events exposing (onClick, onInput)
 import Html.Attributes as A
 import Canvas  as C
 import Canvas.Settings as C
@@ -97,6 +97,10 @@ type alias Model = { tokens : List Token
                    , view : Viewport
                    , mouse : MouseInfo
                    , nextId : Int
+                   , chat : List (String, String)
+                   , chatText : String
+                   , username : String
+                   , usernameSet : Bool
                    }
 
 init : (Int, Int) -> (Model,  Cmd Msg)
@@ -109,6 +113,10 @@ init (w, h) =
    , view = {x = 0, y = 0, height = 8}
    , mouse = {x = 0, y = 0}
    , nextId = 0
+   , chat = [("Server", "Welcome to GOATS ROCK!")]
+   , chatText = ""
+   , username = ""
+   , usernameSet = False
    }, Cmd.none)
 
 screenToWorld : Model -> (Float, Float) -> (Float, Float)
@@ -135,6 +143,7 @@ type Packet = CreateCreature Json.Value
             | DeleteCreature Json.Value
             | MoveCreature Json.Value
             | Init Json.Value
+            | Chat Json.Value
 
 type alias PacketCreateCreature = { x : Float
                                   , y : Float
@@ -160,6 +169,10 @@ type alias PacketInit = { tokens : List InitToken
                         , nextColor : Int
                         , nextId : Int }
 
+type alias PacketChat = { sender : String
+                        , message : String
+                        }
+
 initTokenToToken : InitToken -> Token
 initTokenToToken t =
   Creature
@@ -181,6 +194,8 @@ rawPacketToPacket rawPacket =
     Ok (MoveCreature rawPacket.d)
   else if rawPacket.t == "Init" then
     Ok (Init rawPacket.d)
+  else if rawPacket.t == "Chat" then
+    Ok (Chat rawPacket.d)
   else
     Err <| "Unknown packet type " ++ rawPacket.t
 
@@ -210,6 +225,9 @@ encodePacket p =
                                 , ("data", v)
                                 ]
     Init _ -> JE.object [("type", JE.string "unsupported")]
+    Chat v -> JE.object [ ("type", JE.string "Chat")
+                        , ("data", v)
+                        ]
 
 decodeCreateCreature : Json.Value -> Result String PacketCreateCreature 
 decodeCreateCreature v =
@@ -304,6 +322,30 @@ decodeInit v =
       Ok p -> Ok p
       Err e -> Err <| Json.errorToString e
 
+
+decodeChat : Json.Value -> Result String PacketChat 
+decodeChat v =
+  let
+    d = Json.map2 PacketChat
+          (Json.field "sender" Json.string) 
+          (Json.field "message" Json.string) 
+    cc = Json.decodeValue d v
+  in
+    case cc of
+      Ok p -> Ok p
+      Err e -> Err <| Json.errorToString e
+
+encodeChat : PacketChat -> Json.Value
+encodeChat cc = 
+  let
+    val = JE.object
+      [ ("sender", JE.string cc.sender)
+      , ("message", JE.string cc.message)
+      ]
+    packet = Chat val
+  in
+  encodePacket packet
+
 -- Update
 type Msg = Move Int (Float, Float)
          | Create (Float, Float)
@@ -315,7 +357,12 @@ type Msg = Move Int (Float, Float)
          | MouseRelease Mouse.Event
          | MouseWheel Wheel.Event
          | KeyDown Keyboard.KeyboardEvent
+         | ChatKeyDown Keyboard.KeyboardEvent
+         | ChatInput String
          | ChangedFocus (Result Dom.Error ())
+         | MsgChat String String
+         | MsgSetUsername String
+         | MsgFinishUsername 
          | MsgShowError String
          | MsgDoNothing -- TODO: there is probably a nicer solution for this
 
@@ -582,7 +629,7 @@ onCreate (x, y) model =
             } :: model.tokens,
      nextId = model.nextId + 1 
    }
-  , Cmd.none)
+   , Cmd.none)
 
 onDestroy : Int -> Model -> (Model, Cmd Msg)
 onDestroy id model =
@@ -605,7 +652,29 @@ onMsgInit d model =
      nextId = d.nextId
    , tokens = List.map initTokenToToken d.tokens  
    }
-  , Cmd.none) -- TODO: setup the model
+  , Cmd.none)
+
+
+onChatKeyDown: Keyboard.KeyboardEvent -> Model -> (Model, Cmd Msg)
+onChatKeyDown event model =
+  if event.keyCode == Key.Enter then 
+    ({ model | chatText = ""}
+    , wsSend (encodeChat ({sender=model.username, message=model.chatText})))
+  else
+    (model, Cmd.none)
+
+onMsgChat : String -> String -> Model -> (Model, Cmd Msg)
+onMsgChat sender message model =
+  ({ model |
+   chat = List.take 50 ((sender, message) :: model.chat) 
+  }, Cmd.none)
+
+onMsgChatInput : String -> Model -> (Model, Cmd Msg)
+onMsgChatInput text model =
+  ({ model |
+    chatText = text
+  }, Cmd.none)
+
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model = 
@@ -616,12 +685,19 @@ update msg model =
     MsgInit d -> onMsgInit d model
     OnResize (w, h) ->
       ({ model | window = {width = w, height = h}}, Cmd.none)
+    MsgSetUsername s ->
+      ({ model | username = s}, Cmd.none)
+    MsgFinishUsername ->
+      ({ model | usernameSet = True}, Cmd.none)
     MousePress e -> onMousePress e model
     MouseMotion e -> onMouseMotion e model
     MouseRelease e -> onMouseRelease e model
     MouseWheel e -> onMouseWheel e model
     KeyDown e -> onKeyDown e model
+    ChatKeyDown e -> onChatKeyDown e model
     ChangedFocus _ -> (model, Cmd.none)
+    MsgChat s m -> onMsgChat s m model
+    ChatInput s -> onMsgChatInput s model 
     MsgDoNothing -> (model, Cmd.none)
     MsgShowError e ->
       let
@@ -667,6 +743,16 @@ onInit v =
       Ok o -> MsgInit o 
       Err e -> MsgShowError e 
 
+onChat : JE.Value -> Msg
+onChat v = 
+  let
+    p = decodeChat v
+  in
+    case p of
+      Ok o -> MsgChat o.sender o.message 
+      Err e -> MsgShowError e 
+
+
 onPacket : Packet -> Msg
 onPacket p =
   case p of
@@ -674,6 +760,7 @@ onPacket p =
     MoveCreature d -> onMoveCreature d
     DeleteCreature d -> onDeleteCreature d
     Init d -> onInit d 
+    Chat d -> onChat d 
 
 onWsReceive : JE.Value -> Msg
 onWsReceive v =
@@ -816,10 +903,10 @@ dimensionsFromModel : Model -> Dimensions
 dimensionsFromModel m =
   { canvasWidth = floor <| 0.8 * toFloat m.window.width
   , canvasHeight = m.window.height
-  , toolsWidth = floor <| 0.2 * toFloat m.window.width
-  , toolsHeight = floor <| 0.5 * toFloat m.window.height
-  , chatWidth = floor <| 0.2 * toFloat m.window.width
-  , chatHeight = floor <| 0.5 * toFloat m.window.height
+  , toolsWidth = floor <| 0.2 * toFloat m.window.width - 20
+  , toolsHeight = floor <| 0 * toFloat m.window.height
+  , chatWidth = floor <| 0.2 * toFloat m.window.width - 20
+  , chatHeight = floor <| 1 * toFloat m.window.height
   }
 
 canvasTransform : Dimensions -> Model -> List C.Setting
@@ -835,6 +922,24 @@ canvasTransform d m =
     , C.lineWidth <| 2 / scale
     ]
 
+viewChat : Model -> List (Html msg)
+viewChat model =
+  [Html.dl [] 
+    <| List.concat 
+    <| List.map (\(s, m) -> [Html.dt [] [Html.text s], Html.dd [] [Html.text m]]) 
+    <| List.reverse model.chat
+  ]
+  
+viewSetUsername : Model -> List (Html Msg)
+viewSetUsername model =
+  if model.usernameSet == False then
+    [Html.div [A.id "username-popup"]
+              [ Html.text "Please enter a Username:"
+              , Html.input [onInput MsgSetUsername] []
+              , Html.button [onClick MsgFinishUsername] [Html.text "Ok"]]
+    ]
+  else
+    []
 
 view : Model -> Document Msg
 view model =
@@ -844,7 +949,7 @@ view model =
   in
     {title = "Goats Rock"
     , body =
-      [ C.toHtml (dim.canvasWidth, dim.canvasHeight) 
+      (List.append [ C.toHtml (dim.canvasWidth, dim.canvasHeight) 
                  [ Mouse.onDown (\event -> MousePress event)
                  , Mouse.onMove (\event -> MouseMotion event)
                  , Mouse.onUp (\event -> MouseRelease event)
@@ -868,8 +973,13 @@ view model =
                      , A.style "height" <| String.fromInt dim.chatHeight
                      , A.style "width" <| String.fromInt dim.chatWidth
                      ] 
-            [ Html.div [A.id "chat-text"] []
-            , Html.input [A.id "chat-input"] []]
+            [ Html.div [A.id "chat-text"] (viewChat model)
+            , Html.input [A.id "chat-input"
+                         , A.value model.chatText
+                         , onInput ChatInput 
+                         , Html.Events.on "keydown"
+                           <| Debug.log "on keydown" <| Json.map ChatKeyDown Keyboard.decodeKeyboardEvent] []]
           ]
-      ]
+      ] (viewSetUsername model))
+      
     }

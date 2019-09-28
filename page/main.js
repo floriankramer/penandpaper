@@ -4348,10 +4348,10 @@ var _Bitwise_shiftRightZfBy = F2(function(offset, a)
 	return a >>> offset;
 });
 var author$project$Main$None = {$: 'None'};
+var elm$core$Basics$False = {$: 'False'};
 var elm$core$Basics$negate = function (n) {
 	return -n;
 };
-var elm$core$Basics$False = {$: 'False'};
 var elm$core$Basics$True = {$: 'True'};
 var elm$core$Result$isOk = function (result) {
 	if (result.$ === 'Ok') {
@@ -4834,11 +4834,18 @@ var author$project$Main$init = function (_n0) {
 	return _Utils_Tuple2(
 		{
 			action: author$project$Main$None,
+			chat: _List_fromArray(
+				[
+					_Utils_Tuple2('Server', 'Welcome to GOATS ROCK!')
+				]),
+			chatText: '',
 			mouse: {x: 0, y: 0},
 			nextId: 0,
 			selected: -1,
 			tokens: _List_Nil,
 			user: {id: 0},
+			username: '',
+			usernameSet: false,
 			view: {height: 8, x: 0, y: 0},
 			window: {height: h, width: w}
 		},
@@ -4859,6 +4866,9 @@ var author$project$Main$RawPacket = F2(
 	function (t, d) {
 		return {d: d, t: t};
 	});
+var author$project$Main$Chat = function (a) {
+	return {$: 'Chat', a: a};
+};
 var author$project$Main$CreateCreature = function (a) {
 	return {$: 'CreateCreature', a: a};
 };
@@ -4876,7 +4886,8 @@ var author$project$Main$rawPacketToPacket = function (rawPacket) {
 		author$project$Main$CreateCreature(rawPacket.d)) : ((rawPacket.t === 'DeleteCreature') ? elm$core$Result$Ok(
 		author$project$Main$DeleteCreature(rawPacket.d)) : ((rawPacket.t === 'MoveCreature') ? elm$core$Result$Ok(
 		author$project$Main$MoveCreature(rawPacket.d)) : ((rawPacket.t === 'Init') ? elm$core$Result$Ok(
-		author$project$Main$Init(rawPacket.d)) : elm$core$Result$Err('Unknown packet type ' + rawPacket.t))));
+		author$project$Main$Init(rawPacket.d)) : ((rawPacket.t === 'Chat') ? elm$core$Result$Ok(
+		author$project$Main$Chat(rawPacket.d)) : elm$core$Result$Err('Unknown packet type ' + rawPacket.t)))));
 };
 var elm$json$Json$Decode$decodeValue = _Json_run;
 var elm$json$Json$Decode$field = _Json_decodeField;
@@ -4897,6 +4908,40 @@ var author$project$Main$decodePacket = function (v) {
 		var e = rawPacket.a;
 		return elm$core$Result$Err(
 			elm$json$Json$Decode$errorToString(e));
+	}
+};
+var author$project$Main$MsgChat = F2(
+	function (a, b) {
+		return {$: 'MsgChat', a: a, b: b};
+	});
+var author$project$Main$PacketChat = F2(
+	function (sender, message) {
+		return {message: message, sender: sender};
+	});
+var author$project$Main$decodeChat = function (v) {
+	var d = A3(
+		elm$json$Json$Decode$map2,
+		author$project$Main$PacketChat,
+		A2(elm$json$Json$Decode$field, 'sender', elm$json$Json$Decode$string),
+		A2(elm$json$Json$Decode$field, 'message', elm$json$Json$Decode$string));
+	var cc = A2(elm$json$Json$Decode$decodeValue, d, v);
+	if (cc.$ === 'Ok') {
+		var p = cc.a;
+		return elm$core$Result$Ok(p);
+	} else {
+		var e = cc.a;
+		return elm$core$Result$Err(
+			elm$json$Json$Decode$errorToString(e));
+	}
+};
+var author$project$Main$onChat = function (v) {
+	var p = author$project$Main$decodeChat(v);
+	if (p.$ === 'Ok') {
+		var o = p.a;
+		return A2(author$project$Main$MsgChat, o.sender, o.message);
+	} else {
+		var e = p.a;
+		return author$project$Main$MsgShowError(e);
 	}
 };
 var author$project$Main$Create = function (a) {
@@ -5070,9 +5115,12 @@ var author$project$Main$onPacket = function (p) {
 		case 'DeleteCreature':
 			var d = p.a;
 			return author$project$Main$onDeleteCreature(d);
-		default:
+		case 'Init':
 			var d = p.a;
 			return author$project$Main$onInit(d);
+		default:
+			var d = p.a;
+			return author$project$Main$onChat(d);
 	}
 };
 var author$project$Main$onWsReceive = function (v) {
@@ -5820,6 +5868,98 @@ var author$project$Main$subscriptions = function (_n0) {
 				author$project$Main$wsReceive(author$project$Main$onWsReceive)
 			]));
 };
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Enter = {$: 'Enter'};
+var elm$json$Json$Encode$object = function (pairs) {
+	return _Json_wrap(
+		A3(
+			elm$core$List$foldl,
+			F2(
+				function (_n0, obj) {
+					var k = _n0.a;
+					var v = _n0.b;
+					return A3(_Json_addField, k, v, obj);
+				}),
+			_Json_emptyObject(_Utils_Tuple0),
+			pairs));
+};
+var elm$json$Json$Encode$string = _Json_wrap;
+var author$project$Main$encodePacket = function (p) {
+	switch (p.$) {
+		case 'CreateCreature':
+			var v = p.a;
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('CreateCreature')),
+						_Utils_Tuple2('data', v)
+					]));
+		case 'DeleteCreature':
+			var v = p.a;
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('DeleteCreature')),
+						_Utils_Tuple2('data', v)
+					]));
+		case 'MoveCreature':
+			var v = p.a;
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('MoveCreature')),
+						_Utils_Tuple2('data', v)
+					]));
+		case 'Init':
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('unsupported'))
+					]));
+		default:
+			var v = p.a;
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('Chat')),
+						_Utils_Tuple2('data', v)
+					]));
+	}
+};
+var author$project$Main$encodeChat = function (cc) {
+	var val = elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'sender',
+				elm$json$Json$Encode$string(cc.sender)),
+				_Utils_Tuple2(
+				'message',
+				elm$json$Json$Encode$string(cc.message))
+			]));
+	var packet = author$project$Main$Chat(val);
+	return author$project$Main$encodePacket(packet);
+};
+var author$project$Main$wsSend = _Platform_outgoingPort('wsSend', elm$core$Basics$identity);
+var author$project$Main$onChatKeyDown = F2(
+	function (event, model) {
+		return _Utils_eq(event.keyCode, SwiftsNamesake$proper_keyboard$Keyboard$Key$Enter) ? _Utils_Tuple2(
+			_Utils_update(
+				model,
+				{chatText: ''}),
+			author$project$Main$wsSend(
+				author$project$Main$encodeChat(
+					{message: model.chatText, sender: model.username}))) : _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+	});
 var author$project$Main$Creature = function (a) {
 	return {$: 'Creature', a: a};
 };
@@ -6018,62 +6158,6 @@ var author$project$Main$onDestroy = F2(
 			elm$core$Platform$Cmd$none);
 	});
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Delete = {$: 'Delete'};
-var elm$json$Json$Encode$object = function (pairs) {
-	return _Json_wrap(
-		A3(
-			elm$core$List$foldl,
-			F2(
-				function (_n0, obj) {
-					var k = _n0.a;
-					var v = _n0.b;
-					return A3(_Json_addField, k, v, obj);
-				}),
-			_Json_emptyObject(_Utils_Tuple0),
-			pairs));
-};
-var elm$json$Json$Encode$string = _Json_wrap;
-var author$project$Main$encodePacket = function (p) {
-	switch (p.$) {
-		case 'CreateCreature':
-			var v = p.a;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('CreateCreature')),
-						_Utils_Tuple2('data', v)
-					]));
-		case 'DeleteCreature':
-			var v = p.a;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('DeleteCreature')),
-						_Utils_Tuple2('data', v)
-					]));
-		case 'MoveCreature':
-			var v = p.a;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('MoveCreature')),
-						_Utils_Tuple2('data', v)
-					]));
-		default:
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('unsupported'))
-					]));
-	}
-};
 var elm$json$Json$Encode$int = _Json_wrap;
 var author$project$Main$encodeDeleteCreature = function (cc) {
 	var val = elm$json$Json$Encode$object(
@@ -6086,7 +6170,6 @@ var author$project$Main$encodeDeleteCreature = function (cc) {
 	var packet = author$project$Main$DeleteCreature(val);
 	return author$project$Main$encodePacket(packet);
 };
-var author$project$Main$wsSend = _Platform_outgoingPort('wsSend', elm$core$Basics$identity);
 var author$project$Main$onKeyDown = F2(
 	function (event, model) {
 		return (_Utils_eq(event.keyCode, SwiftsNamesake$proper_keyboard$Keyboard$Key$Delete) && (model.selected >= 0)) ? _Utils_Tuple2(
@@ -6499,6 +6582,156 @@ var author$project$Main$onMove = F3(
 				}),
 			elm$core$Platform$Cmd$none);
 	});
+var elm$core$List$takeReverse = F3(
+	function (n, list, kept) {
+		takeReverse:
+		while (true) {
+			if (n <= 0) {
+				return kept;
+			} else {
+				if (!list.b) {
+					return kept;
+				} else {
+					var x = list.a;
+					var xs = list.b;
+					var $temp$n = n - 1,
+						$temp$list = xs,
+						$temp$kept = A2(elm$core$List$cons, x, kept);
+					n = $temp$n;
+					list = $temp$list;
+					kept = $temp$kept;
+					continue takeReverse;
+				}
+			}
+		}
+	});
+var elm$core$List$takeTailRec = F2(
+	function (n, list) {
+		return elm$core$List$reverse(
+			A3(elm$core$List$takeReverse, n, list, _List_Nil));
+	});
+var elm$core$List$takeFast = F3(
+	function (ctr, n, list) {
+		if (n <= 0) {
+			return _List_Nil;
+		} else {
+			var _n0 = _Utils_Tuple2(n, list);
+			_n0$1:
+			while (true) {
+				_n0$5:
+				while (true) {
+					if (!_n0.b.b) {
+						return list;
+					} else {
+						if (_n0.b.b.b) {
+							switch (_n0.a) {
+								case 1:
+									break _n0$1;
+								case 2:
+									var _n2 = _n0.b;
+									var x = _n2.a;
+									var _n3 = _n2.b;
+									var y = _n3.a;
+									return _List_fromArray(
+										[x, y]);
+								case 3:
+									if (_n0.b.b.b.b) {
+										var _n4 = _n0.b;
+										var x = _n4.a;
+										var _n5 = _n4.b;
+										var y = _n5.a;
+										var _n6 = _n5.b;
+										var z = _n6.a;
+										return _List_fromArray(
+											[x, y, z]);
+									} else {
+										break _n0$5;
+									}
+								default:
+									if (_n0.b.b.b.b && _n0.b.b.b.b.b) {
+										var _n7 = _n0.b;
+										var x = _n7.a;
+										var _n8 = _n7.b;
+										var y = _n8.a;
+										var _n9 = _n8.b;
+										var z = _n9.a;
+										var _n10 = _n9.b;
+										var w = _n10.a;
+										var tl = _n10.b;
+										return (ctr > 1000) ? A2(
+											elm$core$List$cons,
+											x,
+											A2(
+												elm$core$List$cons,
+												y,
+												A2(
+													elm$core$List$cons,
+													z,
+													A2(
+														elm$core$List$cons,
+														w,
+														A2(elm$core$List$takeTailRec, n - 4, tl))))) : A2(
+											elm$core$List$cons,
+											x,
+											A2(
+												elm$core$List$cons,
+												y,
+												A2(
+													elm$core$List$cons,
+													z,
+													A2(
+														elm$core$List$cons,
+														w,
+														A3(elm$core$List$takeFast, ctr + 1, n - 4, tl)))));
+									} else {
+										break _n0$5;
+									}
+							}
+						} else {
+							if (_n0.a === 1) {
+								break _n0$1;
+							} else {
+								break _n0$5;
+							}
+						}
+					}
+				}
+				return list;
+			}
+			var _n1 = _n0.b;
+			var x = _n1.a;
+			return _List_fromArray(
+				[x]);
+		}
+	});
+var elm$core$List$take = F2(
+	function (n, list) {
+		return A3(elm$core$List$takeFast, 0, n, list);
+	});
+var author$project$Main$onMsgChat = F3(
+	function (sender, message, model) {
+		return _Utils_Tuple2(
+			_Utils_update(
+				model,
+				{
+					chat: A2(
+						elm$core$List$take,
+						50,
+						A2(
+							elm$core$List$cons,
+							_Utils_Tuple2(sender, message),
+							model.chat))
+				}),
+			elm$core$Platform$Cmd$none);
+	});
+var author$project$Main$onMsgChatInput = F2(
+	function (text, model) {
+		return _Utils_Tuple2(
+			_Utils_update(
+				model,
+				{chatText: text}),
+			elm$core$Platform$Cmd$none);
+	});
 var elm$core$Basics$round = _Basics_round;
 var author$project$Main$initTokenToToken = function (t) {
 	return author$project$Main$Creature(
@@ -6560,6 +6793,19 @@ var author$project$Main$update = F2(
 							window: {height: h, width: w}
 						}),
 					elm$core$Platform$Cmd$none);
+			case 'MsgSetUsername':
+				var s = msg.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{username: s}),
+					elm$core$Platform$Cmd$none);
+			case 'MsgFinishUsername':
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{usernameSet: true}),
+					elm$core$Platform$Cmd$none);
 			case 'MousePress':
 				var e = msg.a;
 				return A2(author$project$Main$onMousePress, e, model);
@@ -6575,8 +6821,18 @@ var author$project$Main$update = F2(
 			case 'KeyDown':
 				var e = msg.a;
 				return A2(author$project$Main$onKeyDown, e, model);
+			case 'ChatKeyDown':
+				var e = msg.a;
+				return A2(author$project$Main$onChatKeyDown, e, model);
 			case 'ChangedFocus':
 				return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+			case 'MsgChat':
+				var s = msg.a;
+				var m = msg.b;
+				return A3(author$project$Main$onMsgChat, s, m, model);
+			case 'ChatInput':
+				var s = msg.a;
+				return A2(author$project$Main$onMsgChatInput, s, model);
 			case 'MsgDoNothing':
 				return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 			default:
@@ -6643,7 +6899,6 @@ var SwiftsNamesake$proper_keyboard$Keyboard$Key$Down = {$: 'Down'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$E = {$: 'E'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Eight = {$: 'Eight'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$End = {$: 'End'};
-var SwiftsNamesake$proper_keyboard$Keyboard$Key$Enter = {$: 'Enter'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Escape = {$: 'Escape'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$F = {$: 'F'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$F1 = {$: 'F1'};
@@ -6912,6 +7167,12 @@ var Gizra$elm_keyboard_event$Keyboard$Event$decodeKeyboardEvent = A8(
 	A2(elm$json$Json$Decode$field, 'metaKey', elm$json$Json$Decode$bool),
 	A2(elm$json$Json$Decode$field, 'repeat', elm$json$Json$Decode$bool),
 	A2(elm$json$Json$Decode$field, 'shiftKey', elm$json$Json$Decode$bool));
+var author$project$Main$ChatInput = function (a) {
+	return {$: 'ChatInput', a: a};
+};
+var author$project$Main$ChatKeyDown = function (a) {
+	return {$: 'ChatKeyDown', a: a};
+};
 var author$project$Main$KeyDown = function (a) {
 	return {$: 'KeyDown', a: a};
 };
@@ -7250,11 +7511,60 @@ var author$project$Main$dimensionsFromModel = function (m) {
 	return {
 		canvasHeight: m.window.height,
 		canvasWidth: elm$core$Basics$floor(0.8 * m.window.width),
-		chatHeight: elm$core$Basics$floor(0.5 * m.window.height),
-		chatWidth: elm$core$Basics$floor(0.2 * m.window.width),
-		toolsHeight: elm$core$Basics$floor(0.5 * m.window.height),
-		toolsWidth: elm$core$Basics$floor(0.2 * m.window.width)
+		chatHeight: elm$core$Basics$floor(1 * m.window.height),
+		chatWidth: elm$core$Basics$floor((0.2 * m.window.width) - 20),
+		toolsHeight: elm$core$Basics$floor(0 * m.window.height),
+		toolsWidth: elm$core$Basics$floor((0.2 * m.window.width) - 20)
 	};
+};
+var elm$core$List$append = F2(
+	function (xs, ys) {
+		if (!ys.b) {
+			return xs;
+		} else {
+			return A3(elm$core$List$foldr, elm$core$List$cons, ys, xs);
+		}
+	});
+var elm$core$List$concat = function (lists) {
+	return A3(elm$core$List$foldr, elm$core$List$append, _List_Nil, lists);
+};
+var elm$html$Html$dd = _VirtualDom_node('dd');
+var elm$html$Html$dl = _VirtualDom_node('dl');
+var elm$html$Html$dt = _VirtualDom_node('dt');
+var elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
+var elm$html$Html$text = elm$virtual_dom$VirtualDom$text;
+var author$project$Main$viewChat = function (model) {
+	return _List_fromArray(
+		[
+			A2(
+			elm$html$Html$dl,
+			_List_Nil,
+			elm$core$List$concat(
+				A2(
+					elm$core$List$map,
+					function (_n0) {
+						var s = _n0.a;
+						var m = _n0.b;
+						return _List_fromArray(
+							[
+								A2(
+								elm$html$Html$dt,
+								_List_Nil,
+								_List_fromArray(
+									[
+										elm$html$Html$text(s)
+									])),
+								A2(
+								elm$html$Html$dd,
+								_List_Nil,
+								_List_fromArray(
+									[
+										elm$html$Html$text(m)
+									]))
+							]);
+					},
+					elm$core$List$reverse(model.chat))))
+		]);
 };
 var author$project$Main$worldToScreen = F2(
 	function (m, _n0) {
@@ -7683,17 +7993,6 @@ var author$project$Main$nextHighestMult = F2(
 	function (a, mul) {
 		return elm$core$Basics$ceiling(a / mul) * mul;
 	});
-var elm$core$List$append = F2(
-	function (xs, ys) {
-		if (!ys.b) {
-			return xs;
-		} else {
-			return A3(elm$core$List$foldr, elm$core$List$cons, ys, xs);
-		}
-	});
-var elm$core$List$concat = function (lists) {
-	return A3(elm$core$List$foldr, elm$core$List$append, _List_Nil, lists);
-};
 var joakin$elm_canvas$Canvas$Internal$Canvas$MoveTo = function (a) {
 	return {$: 'MoveTo', a: a};
 };
@@ -7764,6 +8063,101 @@ var author$project$Main$viewGrid = F3(
 							A2(elm$core$List$range, 0, numx))))
 				]));
 	});
+var author$project$Main$MsgFinishUsername = {$: 'MsgFinishUsername'};
+var author$project$Main$MsgSetUsername = function (a) {
+	return {$: 'MsgSetUsername', a: a};
+};
+var elm$html$Html$button = _VirtualDom_node('button');
+var elm$html$Html$div = _VirtualDom_node('div');
+var elm$html$Html$input = _VirtualDom_node('input');
+var elm$html$Html$Attributes$stringProperty = F2(
+	function (key, string) {
+		return A2(
+			_VirtualDom_property,
+			key,
+			elm$json$Json$Encode$string(string));
+	});
+var elm$html$Html$Attributes$id = elm$html$Html$Attributes$stringProperty('id');
+var elm$virtual_dom$VirtualDom$Normal = function (a) {
+	return {$: 'Normal', a: a};
+};
+var elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
+var elm$html$Html$Events$on = F2(
+	function (event, decoder) {
+		return A2(
+			elm$virtual_dom$VirtualDom$on,
+			event,
+			elm$virtual_dom$VirtualDom$Normal(decoder));
+	});
+var elm$html$Html$Events$onClick = function (msg) {
+	return A2(
+		elm$html$Html$Events$on,
+		'click',
+		elm$json$Json$Decode$succeed(msg));
+};
+var elm$html$Html$Events$alwaysStop = function (x) {
+	return _Utils_Tuple2(x, true);
+};
+var elm$virtual_dom$VirtualDom$MayStopPropagation = function (a) {
+	return {$: 'MayStopPropagation', a: a};
+};
+var elm$html$Html$Events$stopPropagationOn = F2(
+	function (event, decoder) {
+		return A2(
+			elm$virtual_dom$VirtualDom$on,
+			event,
+			elm$virtual_dom$VirtualDom$MayStopPropagation(decoder));
+	});
+var elm$json$Json$Decode$at = F2(
+	function (fields, decoder) {
+		return A3(elm$core$List$foldr, elm$json$Json$Decode$field, decoder, fields);
+	});
+var elm$html$Html$Events$targetValue = A2(
+	elm$json$Json$Decode$at,
+	_List_fromArray(
+		['target', 'value']),
+	elm$json$Json$Decode$string);
+var elm$html$Html$Events$onInput = function (tagger) {
+	return A2(
+		elm$html$Html$Events$stopPropagationOn,
+		'input',
+		A2(
+			elm$json$Json$Decode$map,
+			elm$html$Html$Events$alwaysStop,
+			A2(elm$json$Json$Decode$map, tagger, elm$html$Html$Events$targetValue)));
+};
+var author$project$Main$viewSetUsername = function (model) {
+	return (!model.usernameSet) ? _List_fromArray(
+		[
+			A2(
+			elm$html$Html$div,
+			_List_fromArray(
+				[
+					elm$html$Html$Attributes$id('username-popup')
+				]),
+			_List_fromArray(
+				[
+					elm$html$Html$text('Please enter a Username:'),
+					A2(
+					elm$html$Html$input,
+					_List_fromArray(
+						[
+							elm$html$Html$Events$onInput(author$project$Main$MsgSetUsername)
+						]),
+					_List_Nil),
+					A2(
+					elm$html$Html$button,
+					_List_fromArray(
+						[
+							elm$html$Html$Events$onClick(author$project$Main$MsgFinishUsername)
+						]),
+					_List_fromArray(
+						[
+							elm$html$Html$text('Ok')
+						]))
+				]))
+		]) : _List_Nil;
+};
 var joakin$elm_canvas$Canvas$Internal$Canvas$Circle = F2(
 	function (a, b) {
 		return {$: 'Circle', a: a, b: b};
@@ -7842,16 +8236,6 @@ var author$project$Main$viewToken = F3(
 					]));
 		}
 	});
-var elm$html$Html$div = _VirtualDom_node('div');
-var elm$html$Html$input = _VirtualDom_node('input');
-var elm$html$Html$Attributes$stringProperty = F2(
-	function (key, string) {
-		return A2(
-			_VirtualDom_property,
-			key,
-			elm$json$Json$Encode$string(string));
-	});
-var elm$html$Html$Attributes$id = elm$html$Html$Attributes$stringProperty('id');
 var elm$virtual_dom$VirtualDom$style = _VirtualDom_style;
 var elm$html$Html$Attributes$style = elm$virtual_dom$VirtualDom$style;
 var elm$html$Html$Attributes$tabindex = function (n) {
@@ -7860,17 +8244,7 @@ var elm$html$Html$Attributes$tabindex = function (n) {
 		'tabIndex',
 		elm$core$String$fromInt(n));
 };
-var elm$virtual_dom$VirtualDom$Normal = function (a) {
-	return {$: 'Normal', a: a};
-};
-var elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
-var elm$html$Html$Events$on = F2(
-	function (event, decoder) {
-		return A2(
-			elm$virtual_dom$VirtualDom$on,
-			event,
-			elm$virtual_dom$VirtualDom$Normal(decoder));
-	});
+var elm$html$Html$Attributes$value = elm$html$Html$Attributes$stringProperty('value');
 var elm$html$Html$Attributes$height = function (n) {
 	return A2(
 		_VirtualDom_attribute,
@@ -8415,10 +8789,6 @@ var elm$html$Html$Attributes$src = function (url) {
 		'src',
 		_VirtualDom_noJavaScriptOrHtmlUri(url));
 };
-var elm$json$Json$Decode$at = F2(
-	function (fields, decoder) {
-		return A3(elm$core$List$foldr, elm$json$Json$Decode$field, decoder, fields);
-	});
 var joakin$elm_canvas$Canvas$decodeTextureImageInfo = A2(
 	elm$json$Json$Decode$andThen,
 	function (target) {
@@ -8669,109 +9039,121 @@ var author$project$Main$view = function (model) {
 	var dim = author$project$Main$dimensionsFromModel(model);
 	var trans = A2(author$project$Main$canvasTransform, dim, model);
 	return {
-		body: _List_fromArray(
-			[
-				A3(
-				joakin$elm_canvas$Canvas$toHtml,
-				_Utils_Tuple2(dim.canvasWidth, dim.canvasHeight),
-				_List_fromArray(
-					[
-						mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onDown(
-						function (event) {
-							return author$project$Main$MousePress(event);
-						}),
-						mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onMove(
-						function (event) {
-							return author$project$Main$MouseMotion(event);
-						}),
-						mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onUp(
-						function (event) {
-							return author$project$Main$MouseRelease(event);
-						}),
-						mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$onWheel(
-						function (event) {
-							return author$project$Main$MouseWheel(event);
-						}),
-						A2(
-						elm$html$Html$Events$on,
-						'keydown',
-						A2(elm$json$Json$Decode$map, author$project$Main$KeyDown, Gizra$elm_keyboard_event$Keyboard$Event$decodeKeyboardEvent)),
-						elm$html$Html$Attributes$tabindex(0),
-						elm$html$Html$Attributes$id('canvas')
-					]),
-				elm$core$List$concat(
+		body: A2(
+			elm$core$List$append,
+			_List_fromArray(
+				[
+					A3(
+					joakin$elm_canvas$Canvas$toHtml,
+					_Utils_Tuple2(dim.canvasWidth, dim.canvasHeight),
 					_List_fromArray(
 						[
-							_List_fromArray(
-							[
-								A2(author$project$Main$clearCanvas, dim.canvasWidth, dim.canvasHeight)
-							]),
-							_List_fromArray(
-							[
-								A3(author$project$Main$viewGrid, 5, model, dim)
-							]),
+							mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onDown(
+							function (event) {
+								return author$project$Main$MousePress(event);
+							}),
+							mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onMove(
+							function (event) {
+								return author$project$Main$MouseMotion(event);
+							}),
+							mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onUp(
+							function (event) {
+								return author$project$Main$MouseRelease(event);
+							}),
+							mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$onWheel(
+							function (event) {
+								return author$project$Main$MouseWheel(event);
+							}),
 							A2(
-							elm$core$List$map,
-							A2(author$project$Main$viewToken, model.selected, trans),
-							model.tokens),
-							A3(author$project$Main$viewDistanceLine, model, dim, trans)
-						]))),
-				A2(
-				elm$html$Html$div,
-				_List_fromArray(
-					[
-						elm$html$Html$Attributes$id('right-bar')
-					]),
-				_List_fromArray(
-					[
-						A2(
-						elm$html$Html$div,
+							elm$html$Html$Events$on,
+							'keydown',
+							A2(elm$json$Json$Decode$map, author$project$Main$KeyDown, Gizra$elm_keyboard_event$Keyboard$Event$decodeKeyboardEvent)),
+							elm$html$Html$Attributes$tabindex(0),
+							elm$html$Html$Attributes$id('canvas')
+						]),
+					elm$core$List$concat(
 						_List_fromArray(
 							[
-								elm$html$Html$Attributes$id('area-tools'),
-								A2(
-								elm$html$Html$Attributes$style,
-								'height',
-								elm$core$String$fromInt(dim.toolsHeight)),
-								A2(
-								elm$html$Html$Attributes$style,
-								'width',
-								elm$core$String$fromInt(dim.toolsWidth))
-							]),
-						_List_Nil),
-						A2(
-						elm$html$Html$div,
-						_List_fromArray(
-							[
-								elm$html$Html$Attributes$id('chat-area'),
-								A2(
-								elm$html$Html$Attributes$style,
-								'height',
-								elm$core$String$fromInt(dim.chatHeight)),
-								A2(
-								elm$html$Html$Attributes$style,
-								'width',
-								elm$core$String$fromInt(dim.chatWidth))
-							]),
-						_List_fromArray(
-							[
-								A2(
-								elm$html$Html$div,
 								_List_fromArray(
-									[
-										elm$html$Html$Attributes$id('chat-text')
-									]),
-								_List_Nil),
-								A2(
-								elm$html$Html$input,
+								[
+									A2(author$project$Main$clearCanvas, dim.canvasWidth, dim.canvasHeight)
+								]),
 								_List_fromArray(
-									[
-										elm$html$Html$Attributes$id('chat-input')
-									]),
-								_List_Nil)
-							]))
-					]))
-			]),
+								[
+									A3(author$project$Main$viewGrid, 5, model, dim)
+								]),
+								A2(
+								elm$core$List$map,
+								A2(author$project$Main$viewToken, model.selected, trans),
+								model.tokens),
+								A3(author$project$Main$viewDistanceLine, model, dim, trans)
+							]))),
+					A2(
+					elm$html$Html$div,
+					_List_fromArray(
+						[
+							elm$html$Html$Attributes$id('right-bar')
+						]),
+					_List_fromArray(
+						[
+							A2(
+							elm$html$Html$div,
+							_List_fromArray(
+								[
+									elm$html$Html$Attributes$id('area-tools'),
+									A2(
+									elm$html$Html$Attributes$style,
+									'height',
+									elm$core$String$fromInt(dim.toolsHeight)),
+									A2(
+									elm$html$Html$Attributes$style,
+									'width',
+									elm$core$String$fromInt(dim.toolsWidth))
+								]),
+							_List_Nil),
+							A2(
+							elm$html$Html$div,
+							_List_fromArray(
+								[
+									elm$html$Html$Attributes$id('chat-area'),
+									A2(
+									elm$html$Html$Attributes$style,
+									'height',
+									elm$core$String$fromInt(dim.chatHeight)),
+									A2(
+									elm$html$Html$Attributes$style,
+									'width',
+									elm$core$String$fromInt(dim.chatWidth))
+								]),
+							_List_fromArray(
+								[
+									A2(
+									elm$html$Html$div,
+									_List_fromArray(
+										[
+											elm$html$Html$Attributes$id('chat-text')
+										]),
+									author$project$Main$viewChat(model)),
+									A2(
+									elm$html$Html$input,
+									_List_fromArray(
+										[
+											elm$html$Html$Attributes$id('chat-input'),
+											elm$html$Html$Attributes$value(model.chatText),
+											elm$html$Html$Events$onInput(author$project$Main$ChatInput),
+											A2(
+											elm$html$Html$Events$on,
+											'keydown',
+											A2(
+												elm$core$Debug$log,
+												'on keydown',
+												A2(elm$json$Json$Decode$map, author$project$Main$ChatKeyDown, Gizra$elm_keyboard_event$Keyboard$Event$decodeKeyboardEvent)))
+										]),
+									_List_Nil)
+								]))
+						]))
+				]),
+			author$project$Main$viewSetUsername(model)),
 		title: 'Goats Rock'
 	};
 };
