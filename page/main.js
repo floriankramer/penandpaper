@@ -4852,17 +4852,239 @@ var author$project$Main$onResize = F2(
 		return author$project$Main$OnResize(
 			_Utils_Tuple2(w, h));
 	});
+var author$project$Main$MsgShowError = function (a) {
+	return {$: 'MsgShowError', a: a};
+};
+var author$project$Main$RawPacket = F2(
+	function (t, d) {
+		return {d: d, t: t};
+	});
+var author$project$Main$CreateCreature = function (a) {
+	return {$: 'CreateCreature', a: a};
+};
+var author$project$Main$DeleteCreature = function (a) {
+	return {$: 'DeleteCreature', a: a};
+};
+var author$project$Main$Init = function (a) {
+	return {$: 'Init', a: a};
+};
+var author$project$Main$MoveCreature = function (a) {
+	return {$: 'MoveCreature', a: a};
+};
+var author$project$Main$rawPacketToPacket = function (rawPacket) {
+	return (rawPacket.t === 'CreateCreature') ? elm$core$Result$Ok(
+		author$project$Main$CreateCreature(rawPacket.d)) : ((rawPacket.t === 'DeleteCreature') ? elm$core$Result$Ok(
+		author$project$Main$DeleteCreature(rawPacket.d)) : ((rawPacket.t === 'MoveCreature') ? elm$core$Result$Ok(
+		author$project$Main$MoveCreature(rawPacket.d)) : ((rawPacket.t === 'Init') ? elm$core$Result$Ok(
+		author$project$Main$Init(rawPacket.d)) : elm$core$Result$Err('Unknown packet type ' + rawPacket.t))));
+};
+var elm$json$Json$Decode$decodeValue = _Json_run;
+var elm$json$Json$Decode$field = _Json_decodeField;
+var elm$json$Json$Decode$map2 = _Json_map2;
+var elm$json$Json$Decode$string = _Json_decodeString;
+var elm$json$Json$Decode$value = _Json_decodeValue;
+var author$project$Main$decodePacket = function (v) {
+	var d = A3(
+		elm$json$Json$Decode$map2,
+		author$project$Main$RawPacket,
+		A2(elm$json$Json$Decode$field, 'type', elm$json$Json$Decode$string),
+		A2(elm$json$Json$Decode$field, 'data', elm$json$Json$Decode$value));
+	var rawPacket = A2(elm$json$Json$Decode$decodeValue, d, v);
+	if (rawPacket.$ === 'Ok') {
+		var r = rawPacket.a;
+		return author$project$Main$rawPacketToPacket(r);
+	} else {
+		var e = rawPacket.a;
+		return elm$core$Result$Err(
+			elm$json$Json$Decode$errorToString(e));
+	}
+};
+var author$project$Main$Create = function (a) {
+	return {$: 'Create', a: a};
+};
+var author$project$Main$PacketCreateCreature = F2(
+	function (x, y) {
+		return {x: x, y: y};
+	});
+var elm$json$Json$Decode$float = _Json_decodeFloat;
+var author$project$Main$decodeCreateCreature = function (v) {
+	var d = A3(
+		elm$json$Json$Decode$map2,
+		author$project$Main$PacketCreateCreature,
+		A2(elm$json$Json$Decode$field, 'x', elm$json$Json$Decode$float),
+		A2(elm$json$Json$Decode$field, 'y', elm$json$Json$Decode$float));
+	var cc = A2(elm$json$Json$Decode$decodeValue, d, v);
+	if (cc.$ === 'Ok') {
+		var p = cc.a;
+		return elm$core$Result$Ok(p);
+	} else {
+		var e = cc.a;
+		return elm$core$Result$Err(
+			elm$json$Json$Decode$errorToString(e));
+	}
+};
+var author$project$Main$onCreateCreature = function (v) {
+	var p = author$project$Main$decodeCreateCreature(v);
+	if (p.$ === 'Ok') {
+		var o = p.a;
+		return author$project$Main$Create(
+			_Utils_Tuple2(o.x, o.y));
+	} else {
+		var e = p.a;
+		return author$project$Main$MsgShowError(e);
+	}
+};
+var author$project$Main$Destroy = function (a) {
+	return {$: 'Destroy', a: a};
+};
+var author$project$Main$PacketDeleteCreature = function (id) {
+	return {id: id};
+};
+var elm$json$Json$Decode$int = _Json_decodeInt;
+var elm$json$Json$Decode$map = _Json_map1;
+var author$project$Main$decodeDeleteCreature = function (v) {
+	var d = A2(
+		elm$json$Json$Decode$map,
+		author$project$Main$PacketDeleteCreature,
+		A2(elm$json$Json$Decode$field, 'id', elm$json$Json$Decode$int));
+	var cc = A2(elm$json$Json$Decode$decodeValue, d, v);
+	if (cc.$ === 'Ok') {
+		var p = cc.a;
+		return elm$core$Result$Ok(p);
+	} else {
+		var e = cc.a;
+		return elm$core$Result$Err(
+			elm$json$Json$Decode$errorToString(e));
+	}
+};
+var author$project$Main$onDeleteCreature = function (v) {
+	var p = author$project$Main$decodeDeleteCreature(v);
+	if (p.$ === 'Ok') {
+		var o = p.a;
+		return author$project$Main$Destroy(o.id);
+	} else {
+		var e = p.a;
+		return author$project$Main$MsgShowError(e);
+	}
+};
+var author$project$Main$MsgInit = function (a) {
+	return {$: 'MsgInit', a: a};
+};
+var author$project$Main$InitToken = F7(
+	function (id, x, y, radius, r, g, b) {
+		return {b: b, g: g, id: id, r: r, radius: radius, x: x, y: y};
+	});
+var author$project$Main$PacketInit = F3(
+	function (tokens, nextColor, nextId) {
+		return {nextColor: nextColor, nextId: nextId, tokens: tokens};
+	});
+var elm$json$Json$Decode$list = _Json_decodeList;
+var elm$json$Json$Decode$map3 = _Json_map3;
+var elm$json$Json$Decode$map7 = _Json_map7;
+var author$project$Main$decodeInit = function (v) {
+	var d = A4(
+		elm$json$Json$Decode$map3,
+		author$project$Main$PacketInit,
+		A2(
+			elm$json$Json$Decode$field,
+			'tokens',
+			elm$json$Json$Decode$list(
+				A8(
+					elm$json$Json$Decode$map7,
+					author$project$Main$InitToken,
+					A2(elm$json$Json$Decode$field, 'id', elm$json$Json$Decode$int),
+					A2(elm$json$Json$Decode$field, 'x', elm$json$Json$Decode$float),
+					A2(elm$json$Json$Decode$field, 'y', elm$json$Json$Decode$float),
+					A2(elm$json$Json$Decode$field, 'radius', elm$json$Json$Decode$float),
+					A2(elm$json$Json$Decode$field, 'r', elm$json$Json$Decode$float),
+					A2(elm$json$Json$Decode$field, 'g', elm$json$Json$Decode$float),
+					A2(elm$json$Json$Decode$field, 'b', elm$json$Json$Decode$float)))),
+		A2(elm$json$Json$Decode$field, 'nextColor', elm$json$Json$Decode$int),
+		A2(elm$json$Json$Decode$field, 'nextId', elm$json$Json$Decode$int));
+	var cc = A2(elm$json$Json$Decode$decodeValue, d, v);
+	if (cc.$ === 'Ok') {
+		var p = cc.a;
+		return elm$core$Result$Ok(p);
+	} else {
+		var e = cc.a;
+		return elm$core$Result$Err(
+			elm$json$Json$Decode$errorToString(e));
+	}
+};
+var author$project$Main$onInit = function (v) {
+	var p = author$project$Main$decodeInit(v);
+	if (p.$ === 'Ok') {
+		var o = p.a;
+		return author$project$Main$MsgInit(o);
+	} else {
+		var e = p.a;
+		return author$project$Main$MsgShowError(e);
+	}
+};
 var author$project$Main$Move = F2(
 	function (a, b) {
 		return {$: 'Move', a: a, b: b};
 	});
-var author$project$Main$onWsReceive = function (_n0) {
-	return A2(
-		author$project$Main$Move,
-		0,
-		_Utils_Tuple2(0, 0));
+var author$project$Main$PacketMoveCreature = F3(
+	function (id, x, y) {
+		return {id: id, x: x, y: y};
+	});
+var author$project$Main$decodeMoveCreature = function (v) {
+	var d = A4(
+		elm$json$Json$Decode$map3,
+		author$project$Main$PacketMoveCreature,
+		A2(elm$json$Json$Decode$field, 'id', elm$json$Json$Decode$int),
+		A2(elm$json$Json$Decode$field, 'x', elm$json$Json$Decode$float),
+		A2(elm$json$Json$Decode$field, 'y', elm$json$Json$Decode$float));
+	var cc = A2(elm$json$Json$Decode$decodeValue, d, v);
+	if (cc.$ === 'Ok') {
+		var p = cc.a;
+		return elm$core$Result$Ok(p);
+	} else {
+		var e = cc.a;
+		return elm$core$Result$Err(
+			elm$json$Json$Decode$errorToString(e));
+	}
 };
-var elm$json$Json$Decode$value = _Json_decodeValue;
+var author$project$Main$onMoveCreature = function (v) {
+	var p = author$project$Main$decodeMoveCreature(v);
+	if (p.$ === 'Ok') {
+		var o = p.a;
+		return A2(
+			author$project$Main$Move,
+			o.id,
+			_Utils_Tuple2(o.x, o.y));
+	} else {
+		var e = p.a;
+		return author$project$Main$MsgShowError(e);
+	}
+};
+var author$project$Main$onPacket = function (p) {
+	switch (p.$) {
+		case 'CreateCreature':
+			var d = p.a;
+			return author$project$Main$onCreateCreature(d);
+		case 'MoveCreature':
+			var d = p.a;
+			return author$project$Main$onMoveCreature(d);
+		case 'DeleteCreature':
+			var d = p.a;
+			return author$project$Main$onDeleteCreature(d);
+		default:
+			var d = p.a;
+			return author$project$Main$onInit(d);
+	}
+};
+var author$project$Main$onWsReceive = function (v) {
+	var p = author$project$Main$decodePacket(v);
+	if (p.$ === 'Ok') {
+		var o = p.a;
+		return author$project$Main$onPacket(o);
+	} else {
+		var e = p.a;
+		return author$project$Main$MsgShowError(e);
+	}
+};
 var author$project$Main$wsReceive = _Platform_incomingPort('wsReceive', elm$json$Json$Decode$value);
 var elm$browser$Browser$Events$Window = {$: 'Window'};
 var elm$browser$Browser$Events$MySub = F3(
@@ -5067,8 +5289,6 @@ var elm$core$Task$perform = F2(
 			elm$core$Task$Perform(
 				A2(elm$core$Task$map, toMessage, task)));
 	});
-var elm$json$Json$Decode$map = _Json_map1;
-var elm$json$Json$Decode$map2 = _Json_map2;
 var elm$json$Json$Decode$succeed = _Json_succeed;
 var elm$virtual_dom$VirtualDom$toHandlerInt = function (handler) {
 	switch (handler.$) {
@@ -5577,8 +5797,6 @@ var elm$browser$Browser$Events$on = F3(
 		return elm$browser$Browser$Events$subscription(
 			A3(elm$browser$Browser$Events$MySub, node, name, decoder));
 	});
-var elm$json$Json$Decode$field = _Json_decodeField;
-var elm$json$Json$Decode$int = _Json_decodeInt;
 var elm$browser$Browser$Events$onResize = function (func) {
 	return A3(
 		elm$browser$Browser$Events$on,
@@ -5602,152 +5820,8 @@ var author$project$Main$subscriptions = function (_n0) {
 				author$project$Main$wsReceive(author$project$Main$onWsReceive)
 			]));
 };
-var author$project$Main$applyToToken = F3(
-	function (f, i, l) {
-		if (!l.b) {
-			return _List_Nil;
-		} else {
-			var h = l.a;
-			var t = l.b;
-			if (h.$ === 'Doodad') {
-				var d = h.a;
-				return _Utils_eq(d.id, i) ? A2(
-					elm$core$List$cons,
-					f(h),
-					A3(author$project$Main$applyToToken, f, i, t)) : A2(
-					elm$core$List$cons,
-					h,
-					A3(author$project$Main$applyToToken, f, i, t));
-			} else {
-				var d = h.a;
-				return _Utils_eq(d.id, i) ? A2(
-					elm$core$List$cons,
-					f(h),
-					A3(author$project$Main$applyToToken, f, i, t)) : A2(
-					elm$core$List$cons,
-					h,
-					A3(author$project$Main$applyToToken, f, i, t));
-			}
-		}
-	});
-var SwiftsNamesake$proper_keyboard$Keyboard$Key$Delete = {$: 'Delete'};
-var author$project$Main$deleteToken = F2(
-	function (i, l) {
-		if (!l.b) {
-			return _List_Nil;
-		} else {
-			var h = l.a;
-			var t = l.b;
-			if (h.$ === 'Doodad') {
-				var d = h.a;
-				return _Utils_eq(d.id, i) ? t : A2(
-					elm$core$List$cons,
-					h,
-					A2(author$project$Main$deleteToken, i, t));
-			} else {
-				var d = h.a;
-				return _Utils_eq(d.id, i) ? t : A2(
-					elm$core$List$cons,
-					h,
-					A2(author$project$Main$deleteToken, i, t));
-			}
-		}
-	});
-var elm$core$Basics$ge = _Utils_ge;
-var author$project$Main$onKeyDown = F2(
-	function (event, model) {
-		return (_Utils_eq(event.keyCode, SwiftsNamesake$proper_keyboard$Keyboard$Key$Delete) && (model.selected >= 0)) ? _Utils_Tuple2(
-			_Utils_update(
-				model,
-				{
-					selected: -1,
-					tokens: A2(author$project$Main$deleteToken, model.selected, model.tokens)
-				}),
-			elm$core$Platform$Cmd$none) : _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
-	});
-var author$project$Main$DragToken = function (a) {
-	return {$: 'DragToken', a: a};
-};
-var author$project$Main$DragView = function (a) {
-	return {$: 'DragView', a: a};
-};
-var author$project$Main$screenToWorld = F2(
-	function (m, _n0) {
-		var x = _n0.a;
-		var y = _n0.b;
-		var scale = m.view.height / m.window.height;
-		return _Utils_Tuple2(((x - ((0.8 * 0.5) * m.window.width)) * scale) + m.view.x, ((y - (0.5 * m.window.height)) * scale) + m.view.y);
-	});
 var author$project$Main$Creature = function (a) {
 	return {$: 'Creature', a: a};
-};
-var author$project$Main$Doodad = function (a) {
-	return {$: 'Doodad', a: a};
-};
-var author$project$Main$tokenSetPosition = F3(
-	function (x, y, t) {
-		if (t.$ === 'Doodad') {
-			var d = t.a;
-			return author$project$Main$Doodad(
-				_Utils_update(
-					d,
-					{x: x, y: y}));
-		} else {
-			var c = t.a;
-			return author$project$Main$Creature(
-				_Utils_update(
-					c,
-					{x: x, y: y}));
-		}
-	});
-var author$project$Main$onMouseMotion = F2(
-	function (event, model) {
-		var _n0 = A2(author$project$Main$screenToWorld, model, event.offsetPos);
-		var x = _n0.a;
-		var y = _n0.b;
-		var _n1 = event.offsetPos;
-		var sx = _n1.a;
-		var sy = _n1.b;
-		var _n2 = model.action;
-		switch (_n2.$) {
-			case 'DragToken':
-				var d = _n2.a;
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							action: author$project$Main$DragToken(
-								{startx: d.startx, starty: d.starty, x: x, y: y}),
-							tokens: A3(
-								author$project$Main$applyToToken,
-								A2(author$project$Main$tokenSetPosition, x, y),
-								model.selected,
-								model.tokens)
-						}),
-					elm$core$Platform$Cmd$none);
-			case 'DragView':
-				var d = _n2.a;
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							action: author$project$Main$DragView(
-								{lastX: sx, lastY: sy}),
-							view: {height: model.view.height, x: model.view.x - (((sx - d.lastX) / model.window.height) * model.view.height), y: model.view.y - (((sy - d.lastY) / model.window.height) * model.view.height)}
-						}),
-					elm$core$Platform$Cmd$none);
-			default:
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							mouse: {x: x, y: y}
-						}),
-					elm$core$Platform$Cmd$none);
-		}
-	});
-var author$project$Main$ChangedFocus = function (a) {
-	return {$: 'ChangedFocus', a: a};
 };
 var avh4$elm_color$Color$RgbaSpace = F4(
 	function (a, b, c, d) {
@@ -5814,8 +5888,324 @@ var author$project$Main$baseColors = elm$core$Array$fromList(
 			A3(avh4$elm_color$Color$rgb255, 43, 138, 62),
 			A3(avh4$elm_color$Color$rgb255, 92, 148, 13),
 			A3(avh4$elm_color$Color$rgb255, 230, 119, 0),
-			A3(avh4$elm_color$Color$rgb255, 217, 72, 15)
+			A3(avh4$elm_color$Color$rgb255, 217, 72, 15),
+			A3(avh4$elm_color$Color$rgb255, 255, 84, 84),
+			A3(avh4$elm_color$Color$rgb255, 186, 90, 170),
+			A3(avh4$elm_color$Color$rgb255, 154, 92, 186),
+			A3(avh4$elm_color$Color$rgb255, 190, 122, 220),
+			A3(avh4$elm_color$Color$rgb255, 138, 160, 220),
+			A3(avh4$elm_color$Color$rgb255, 100, 190, 220),
+			A3(avh4$elm_color$Color$rgb255, 42, 184, 183),
+			A3(avh4$elm_color$Color$rgb255, 32, 200, 170),
+			A3(avh4$elm_color$Color$rgb255, 110, 198, 120),
+			A3(avh4$elm_color$Color$rgb255, 142, 220, 66),
+			A3(avh4$elm_color$Color$rgb255, 255, 179, 50),
+			A3(avh4$elm_color$Color$rgb255, 255, 190, 70)
 		]));
+var author$project$Main$numBaseColors = 24;
+var avh4$elm_color$Color$rgb = F3(
+	function (r, g, b) {
+		return A4(avh4$elm_color$Color$RgbaSpace, r, g, b, 1.0);
+	});
+var elm$core$Bitwise$shiftRightZfBy = _Bitwise_shiftRightZfBy;
+var elm$core$Array$bitMask = 4294967295 >>> (32 - elm$core$Array$shiftStep);
+var elm$core$Bitwise$and = _Bitwise_and;
+var elm$core$Elm$JsArray$unsafeGet = _JsArray_unsafeGet;
+var elm$core$Array$getHelp = F3(
+	function (shift, index, tree) {
+		getHelp:
+		while (true) {
+			var pos = elm$core$Array$bitMask & (index >>> shift);
+			var _n0 = A2(elm$core$Elm$JsArray$unsafeGet, pos, tree);
+			if (_n0.$ === 'SubTree') {
+				var subTree = _n0.a;
+				var $temp$shift = shift - elm$core$Array$shiftStep,
+					$temp$index = index,
+					$temp$tree = subTree;
+				shift = $temp$shift;
+				index = $temp$index;
+				tree = $temp$tree;
+				continue getHelp;
+			} else {
+				var values = _n0.a;
+				return A2(elm$core$Elm$JsArray$unsafeGet, elm$core$Array$bitMask & index, values);
+			}
+		}
+	});
+var elm$core$Bitwise$shiftLeftBy = _Bitwise_shiftLeftBy;
+var elm$core$Array$tailIndex = function (len) {
+	return (len >>> 5) << 5;
+};
+var elm$core$Basics$ge = _Utils_ge;
+var elm$core$Array$get = F2(
+	function (index, _n0) {
+		var len = _n0.a;
+		var startShift = _n0.b;
+		var tree = _n0.c;
+		var tail = _n0.d;
+		return ((index < 0) || (_Utils_cmp(index, len) > -1)) ? elm$core$Maybe$Nothing : ((_Utils_cmp(
+			index,
+			elm$core$Array$tailIndex(len)) > -1) ? elm$core$Maybe$Just(
+			A2(elm$core$Elm$JsArray$unsafeGet, elm$core$Array$bitMask & index, tail)) : elm$core$Maybe$Just(
+			A3(elm$core$Array$getHelp, startShift, index, tree)));
+	});
+var elm$core$Maybe$withDefault = F2(
+	function (_default, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return value;
+		} else {
+			return _default;
+		}
+	});
+var author$project$Main$onCreate = F2(
+	function (_n0, model) {
+		var x = _n0.a;
+		var y = _n0.b;
+		return _Utils_Tuple2(
+			_Utils_update(
+				model,
+				{
+					nextId: model.nextId + 1,
+					tokens: A2(
+						elm$core$List$cons,
+						author$project$Main$Creature(
+							{
+								color: A2(
+									elm$core$Maybe$withDefault,
+									A3(avh4$elm_color$Color$rgb, 0.7, 0, 0.7),
+									A2(elm$core$Array$get, model.nextId % author$project$Main$numBaseColors, author$project$Main$baseColors)),
+								id: model.nextId,
+								owner: 0,
+								radius: 0.25,
+								x: x,
+								y: y
+							}),
+						model.tokens)
+				}),
+			elm$core$Platform$Cmd$none);
+	});
+var author$project$Main$deleteToken = F2(
+	function (i, l) {
+		if (!l.b) {
+			return _List_Nil;
+		} else {
+			var h = l.a;
+			var t = l.b;
+			if (h.$ === 'Doodad') {
+				var d = h.a;
+				return _Utils_eq(d.id, i) ? t : A2(
+					elm$core$List$cons,
+					h,
+					A2(author$project$Main$deleteToken, i, t));
+			} else {
+				var d = h.a;
+				return _Utils_eq(d.id, i) ? t : A2(
+					elm$core$List$cons,
+					h,
+					A2(author$project$Main$deleteToken, i, t));
+			}
+		}
+	});
+var author$project$Main$onDestroy = F2(
+	function (id, model) {
+		return _Utils_Tuple2(
+			_Utils_update(
+				model,
+				{
+					tokens: A2(author$project$Main$deleteToken, id, model.tokens)
+				}),
+			elm$core$Platform$Cmd$none);
+	});
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$Delete = {$: 'Delete'};
+var elm$json$Json$Encode$object = function (pairs) {
+	return _Json_wrap(
+		A3(
+			elm$core$List$foldl,
+			F2(
+				function (_n0, obj) {
+					var k = _n0.a;
+					var v = _n0.b;
+					return A3(_Json_addField, k, v, obj);
+				}),
+			_Json_emptyObject(_Utils_Tuple0),
+			pairs));
+};
+var elm$json$Json$Encode$string = _Json_wrap;
+var author$project$Main$encodePacket = function (p) {
+	switch (p.$) {
+		case 'CreateCreature':
+			var v = p.a;
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('CreateCreature')),
+						_Utils_Tuple2('data', v)
+					]));
+		case 'DeleteCreature':
+			var v = p.a;
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('DeleteCreature')),
+						_Utils_Tuple2('data', v)
+					]));
+		case 'MoveCreature':
+			var v = p.a;
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('MoveCreature')),
+						_Utils_Tuple2('data', v)
+					]));
+		default:
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('unsupported'))
+					]));
+	}
+};
+var elm$json$Json$Encode$int = _Json_wrap;
+var author$project$Main$encodeDeleteCreature = function (cc) {
+	var val = elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'id',
+				elm$json$Json$Encode$int(cc.id))
+			]));
+	var packet = author$project$Main$DeleteCreature(val);
+	return author$project$Main$encodePacket(packet);
+};
+var author$project$Main$wsSend = _Platform_outgoingPort('wsSend', elm$core$Basics$identity);
+var author$project$Main$onKeyDown = F2(
+	function (event, model) {
+		return (_Utils_eq(event.keyCode, SwiftsNamesake$proper_keyboard$Keyboard$Key$Delete) && (model.selected >= 0)) ? _Utils_Tuple2(
+			_Utils_update(
+				model,
+				{selected: -1}),
+			author$project$Main$wsSend(
+				author$project$Main$encodeDeleteCreature(
+					{id: model.selected}))) : _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+	});
+var author$project$Main$DragToken = function (a) {
+	return {$: 'DragToken', a: a};
+};
+var author$project$Main$DragView = function (a) {
+	return {$: 'DragView', a: a};
+};
+var author$project$Main$applyToToken = F3(
+	function (f, i, l) {
+		if (!l.b) {
+			return _List_Nil;
+		} else {
+			var h = l.a;
+			var t = l.b;
+			if (h.$ === 'Doodad') {
+				var d = h.a;
+				return _Utils_eq(d.id, i) ? A2(
+					elm$core$List$cons,
+					f(h),
+					A3(author$project$Main$applyToToken, f, i, t)) : A2(
+					elm$core$List$cons,
+					h,
+					A3(author$project$Main$applyToToken, f, i, t));
+			} else {
+				var d = h.a;
+				return _Utils_eq(d.id, i) ? A2(
+					elm$core$List$cons,
+					f(h),
+					A3(author$project$Main$applyToToken, f, i, t)) : A2(
+					elm$core$List$cons,
+					h,
+					A3(author$project$Main$applyToToken, f, i, t));
+			}
+		}
+	});
+var author$project$Main$screenToWorld = F2(
+	function (m, _n0) {
+		var x = _n0.a;
+		var y = _n0.b;
+		var scale = m.view.height / m.window.height;
+		return _Utils_Tuple2(((x - ((0.8 * 0.5) * m.window.width)) * scale) + m.view.x, ((y - (0.5 * m.window.height)) * scale) + m.view.y);
+	});
+var author$project$Main$Doodad = function (a) {
+	return {$: 'Doodad', a: a};
+};
+var author$project$Main$tokenSetPosition = F3(
+	function (x, y, t) {
+		if (t.$ === 'Doodad') {
+			var d = t.a;
+			return author$project$Main$Doodad(
+				_Utils_update(
+					d,
+					{x: x, y: y}));
+		} else {
+			var c = t.a;
+			return author$project$Main$Creature(
+				_Utils_update(
+					c,
+					{x: x, y: y}));
+		}
+	});
+var author$project$Main$onMouseMotion = F2(
+	function (event, model) {
+		var _n0 = A2(author$project$Main$screenToWorld, model, event.offsetPos);
+		var x = _n0.a;
+		var y = _n0.b;
+		var _n1 = event.offsetPos;
+		var sx = _n1.a;
+		var sy = _n1.b;
+		var _n2 = model.action;
+		switch (_n2.$) {
+			case 'DragToken':
+				var d = _n2.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							action: author$project$Main$DragToken(
+								{ox: d.ox, oy: d.oy, startx: d.startx, starty: d.starty, x: x - d.ox, y: y - d.oy}),
+							tokens: A3(
+								author$project$Main$applyToToken,
+								A2(author$project$Main$tokenSetPosition, x - d.ox, y - d.oy),
+								model.selected,
+								model.tokens)
+						}),
+					elm$core$Platform$Cmd$none);
+			case 'DragView':
+				var d = _n2.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							action: author$project$Main$DragView(
+								{lastX: sx, lastY: sy}),
+							view: {height: model.view.height, x: model.view.x - (((sx - d.lastX) / model.window.height) * model.view.height), y: model.view.y - (((sy - d.lastY) / model.window.height) * model.view.height)}
+						}),
+					elm$core$Platform$Cmd$none);
+			default:
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							mouse: {x: x, y: y}
+						}),
+					elm$core$Platform$Cmd$none);
+		}
+	});
+var author$project$Main$ChangedFocus = function (a) {
+	return {$: 'ChangedFocus', a: a};
+};
 var elm$core$Basics$pow = _Basics_pow;
 var elm$core$Basics$sqrt = _Basics_sqrt;
 var author$project$Main$tokenIdAt = F3(
@@ -5882,63 +6272,59 @@ var author$project$Main$creatureIdAt = F3(
 			}
 		}
 	});
-var author$project$Main$numBaseColors = 12;
-var author$project$Main$wsSend = _Platform_outgoingPort('wsSend', elm$core$Basics$identity);
-var avh4$elm_color$Color$rgb = F3(
-	function (r, g, b) {
-		return A4(avh4$elm_color$Color$RgbaSpace, r, g, b, 1.0);
-	});
-var elm$browser$Browser$Dom$focus = _Browser_call('focus');
-var elm$core$Bitwise$shiftRightZfBy = _Bitwise_shiftRightZfBy;
-var elm$core$Array$bitMask = 4294967295 >>> (32 - elm$core$Array$shiftStep);
-var elm$core$Bitwise$and = _Bitwise_and;
-var elm$core$Elm$JsArray$unsafeGet = _JsArray_unsafeGet;
-var elm$core$Array$getHelp = F3(
-	function (shift, index, tree) {
-		getHelp:
+var elm$json$Json$Encode$float = _Json_wrap;
+var author$project$Main$encodeCreateCreature = function (cc) {
+	var val = elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'x',
+				elm$json$Json$Encode$float(cc.x)),
+				_Utils_Tuple2(
+				'y',
+				elm$json$Json$Encode$float(cc.y))
+			]));
+	var packet = author$project$Main$CreateCreature(val);
+	return author$project$Main$encodePacket(packet);
+};
+var author$project$Main$getToken = F2(
+	function (i, l) {
+		getToken:
 		while (true) {
-			var pos = elm$core$Array$bitMask & (index >>> shift);
-			var _n0 = A2(elm$core$Elm$JsArray$unsafeGet, pos, tree);
-			if (_n0.$ === 'SubTree') {
-				var subTree = _n0.a;
-				var $temp$shift = shift - elm$core$Array$shiftStep,
-					$temp$index = index,
-					$temp$tree = subTree;
-				shift = $temp$shift;
-				index = $temp$index;
-				tree = $temp$tree;
-				continue getHelp;
+			if (!l.b) {
+				return elm$core$Maybe$Nothing;
 			} else {
-				var values = _n0.a;
-				return A2(elm$core$Elm$JsArray$unsafeGet, elm$core$Array$bitMask & index, values);
+				var h = l.a;
+				var t = l.b;
+				if (h.$ === 'Doodad') {
+					var d = h.a;
+					if (_Utils_eq(d.id, i)) {
+						return elm$core$Maybe$Just(
+							author$project$Main$Doodad(d));
+					} else {
+						var $temp$i = i,
+							$temp$l = t;
+						i = $temp$i;
+						l = $temp$l;
+						continue getToken;
+					}
+				} else {
+					var d = h.a;
+					if (_Utils_eq(d.id, i)) {
+						return elm$core$Maybe$Just(
+							author$project$Main$Creature(d));
+					} else {
+						var $temp$i = i,
+							$temp$l = t;
+						i = $temp$i;
+						l = $temp$l;
+						continue getToken;
+					}
+				}
 			}
 		}
 	});
-var elm$core$Bitwise$shiftLeftBy = _Bitwise_shiftLeftBy;
-var elm$core$Array$tailIndex = function (len) {
-	return (len >>> 5) << 5;
-};
-var elm$core$Array$get = F2(
-	function (index, _n0) {
-		var len = _n0.a;
-		var startShift = _n0.b;
-		var tree = _n0.c;
-		var tail = _n0.d;
-		return ((index < 0) || (_Utils_cmp(index, len) > -1)) ? elm$core$Maybe$Nothing : ((_Utils_cmp(
-			index,
-			elm$core$Array$tailIndex(len)) > -1) ? elm$core$Maybe$Just(
-			A2(elm$core$Elm$JsArray$unsafeGet, elm$core$Array$bitMask & index, tail)) : elm$core$Maybe$Just(
-			A3(elm$core$Array$getHelp, startShift, index, tree)));
-	});
-var elm$core$Maybe$withDefault = F2(
-	function (_default, maybe) {
-		if (maybe.$ === 'Just') {
-			var value = maybe.a;
-			return value;
-		} else {
-			return _default;
-		}
-	});
+var elm$browser$Browser$Dom$focus = _Browser_call('focus');
 var elm$core$Basics$composeL = F3(
 	function (g, f, x) {
 		return g(
@@ -5963,7 +6349,6 @@ var elm$core$Task$attempt = F2(
 							elm$core$Result$Ok),
 						task))));
 	});
-var elm$json$Json$Encode$int = _Json_wrap;
 var author$project$Main$onMousePress = F2(
 	function (event, model) {
 		var _n0 = A2(author$project$Main$screenToWorld, model, event.offsetPos);
@@ -5977,40 +6362,51 @@ var author$project$Main$onMousePress = F2(
 					author$project$Main$ChangedFocus,
 					elm$browser$Browser$Dom$focus('canvas'));
 				var s = A3(author$project$Main$creatureIdAt, x, y, model.tokens);
+				var mt = A2(author$project$Main$getToken, s, model.tokens);
+				var cy = function () {
+					if (mt.$ === 'Just') {
+						var c = mt.a;
+						if (c.$ === 'Creature') {
+							var cr = c.a;
+							return cr.y;
+						} else {
+							var _do = c.a;
+							return _do.y;
+						}
+					} else {
+						return y;
+					}
+				}();
+				var cx = function () {
+					if (mt.$ === 'Just') {
+						var c = mt.a;
+						if (c.$ === 'Creature') {
+							var cr = c.a;
+							return cr.x;
+						} else {
+							var _do = c.a;
+							return _do.x;
+						}
+					} else {
+						return x;
+					}
+				}();
 				var _n2 = event.offsetPos;
 				var sx = _n2.a;
 				var sy = _n2.b;
 				var a = (s < 0) ? author$project$Main$DragView(
 					{lastX: sx, lastY: sy}) : author$project$Main$DragToken(
-					{startx: x, starty: y, x: x, y: y});
+					{ox: x - cx, oy: y - cy, startx: cx, starty: cy, x: cx, y: cy});
 				return ((s < 0) && event.keys.ctrl) ? _Utils_Tuple2(
 					_Utils_update(
 						model,
-						{
-							action: author$project$Main$None,
-							nextId: model.nextId + 1,
-							selected: -1,
-							tokens: A2(
-								elm$core$List$cons,
-								author$project$Main$Creature(
-									{
-										color: A2(
-											elm$core$Maybe$withDefault,
-											A3(avh4$elm_color$Color$rgb, 0.7, 0, 0.7),
-											A2(elm$core$Array$get, model.nextId % author$project$Main$numBaseColors, author$project$Main$baseColors)),
-										id: model.nextId,
-										owner: 0,
-										radius: 0.25,
-										x: x,
-										y: y
-									}),
-								model.tokens)
-						}),
+						{action: author$project$Main$None, selected: -1}),
 					elm$core$Platform$Cmd$batch(
 						_List_fromArray(
 							[
 								author$project$Main$wsSend(
-								elm$json$Json$Encode$int(42)),
+								author$project$Main$encodeCreateCreature(
+									{x: x, y: y})),
 								setFocus
 							]))) : _Utils_Tuple2(
 					_Utils_update(
@@ -6029,13 +6425,52 @@ var author$project$Main$onMousePress = F2(
 				return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 		}
 	});
+var author$project$Main$encodeMoveCreature = function (cc) {
+	var val = elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'id',
+				elm$json$Json$Encode$int(cc.id)),
+				_Utils_Tuple2(
+				'x',
+				elm$json$Json$Encode$float(cc.x)),
+				_Utils_Tuple2(
+				'y',
+				elm$json$Json$Encode$float(cc.y))
+			]));
+	var packet = author$project$Main$MoveCreature(val);
+	return author$project$Main$encodePacket(packet);
+};
 var author$project$Main$onMouseRelease = F2(
-	function (_n0, model) {
-		return _Utils_Tuple2(
-			_Utils_update(
-				model,
-				{action: author$project$Main$None}),
-			elm$core$Platform$Cmd$none);
+	function (event, model) {
+		var _n0 = A2(author$project$Main$screenToWorld, model, event.offsetPos);
+		var x = _n0.a;
+		var y = _n0.b;
+		var _n1 = model.action;
+		if (_n1.$ === 'DragToken') {
+			var d = _n1.a;
+			return (elm$core$Basics$sqrt(
+				A2(elm$core$Basics$pow, d.startx - d.x, 2) + A2(elm$core$Basics$pow, d.starty - d.y, 2)) > 0.1) ? _Utils_Tuple2(
+				_Utils_update(
+					model,
+					{action: author$project$Main$None}),
+				author$project$Main$wsSend(
+					author$project$Main$encodeMoveCreature(
+						{id: model.selected, x: d.x, y: d.y}))) : _Utils_Tuple2(
+				_Utils_update(
+					model,
+					{action: author$project$Main$None}),
+				author$project$Main$wsSend(
+					author$project$Main$encodeMoveCreature(
+						{id: model.selected, x: d.startx, y: d.starty})));
+		} else {
+			return _Utils_Tuple2(
+				_Utils_update(
+					model,
+					{action: author$project$Main$None}),
+				elm$core$Platform$Cmd$none);
+		}
 	});
 var author$project$Main$onMouseWheel = F2(
 	function (event, model) {
@@ -6048,6 +6483,50 @@ var author$project$Main$onMouseWheel = F2(
 				}),
 			elm$core$Platform$Cmd$none);
 	});
+var author$project$Main$onMove = F3(
+	function (id, _n0, model) {
+		var x = _n0.a;
+		var y = _n0.b;
+		return _Utils_Tuple2(
+			_Utils_update(
+				model,
+				{
+					tokens: A3(
+						author$project$Main$applyToToken,
+						A2(author$project$Main$tokenSetPosition, x, y),
+						id,
+						model.tokens)
+				}),
+			elm$core$Platform$Cmd$none);
+	});
+var elm$core$Basics$round = _Basics_round;
+var author$project$Main$initTokenToToken = function (t) {
+	return author$project$Main$Creature(
+		{
+			color: A3(
+				avh4$elm_color$Color$rgb255,
+				elm$core$Basics$round(t.r),
+				elm$core$Basics$round(t.g),
+				elm$core$Basics$round(t.b)),
+			id: t.id,
+			owner: 0,
+			radius: t.radius,
+			x: t.x,
+			y: t.y
+		});
+};
+var author$project$Main$onMsgInit = F2(
+	function (d, model) {
+		return _Utils_Tuple2(
+			_Utils_update(
+				model,
+				{
+					nextId: d.nextId,
+					tokens: A2(elm$core$List$map, author$project$Main$initTokenToToken, d.tokens)
+				}),
+			elm$core$Platform$Cmd$none);
+	});
+var elm$core$Debug$log = _Debug_log;
 var author$project$Main$update = F2(
 	function (msg, model) {
 		switch (msg.$) {
@@ -6056,17 +6535,20 @@ var author$project$Main$update = F2(
 				var _n1 = msg.b;
 				var newx = _n1.a;
 				var newy = _n1.b;
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							tokens: A3(
-								author$project$Main$applyToToken,
-								A2(author$project$Main$tokenSetPosition, newx, newy),
-								id,
-								model.tokens)
-						}),
-					elm$core$Platform$Cmd$none);
+				return A3(
+					author$project$Main$onMove,
+					id,
+					_Utils_Tuple2(newx, newy),
+					model);
+			case 'Create':
+				var p = msg.a;
+				return A2(author$project$Main$onCreate, p, model);
+			case 'Destroy':
+				var id = msg.a;
+				return A2(author$project$Main$onDestroy, id, model);
+			case 'MsgInit':
+				var d = msg.a;
+				return A2(author$project$Main$onMsgInit, d, model);
 			case 'OnResize':
 				var _n2 = msg.a;
 				var w = _n2.a;
@@ -6093,7 +6575,13 @@ var author$project$Main$update = F2(
 			case 'KeyDown':
 				var e = msg.a;
 				return A2(author$project$Main$onKeyDown, e, model);
+			case 'ChangedFocus':
+				return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+			case 'MsgDoNothing':
+				return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 			default:
+				var e = msg.a;
+				var v = A2(elm$core$Debug$log, 'Error:', e);
 				return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 		}
 	});
@@ -6112,7 +6600,6 @@ var elm$json$Json$Decode$maybe = function (decoder) {
 				elm$json$Json$Decode$succeed(elm$core$Maybe$Nothing)
 			]));
 };
-var elm$json$Json$Decode$string = _Json_decodeString;
 var Gizra$elm_keyboard_event$Keyboard$Event$decodeKey = elm$json$Json$Decode$maybe(
 	A2(
 		elm$json$Json$Decode$andThen,
@@ -6415,7 +6902,6 @@ var SwiftsNamesake$proper_keyboard$Keyboard$Key$fromCode = function (keyCode) {
 	}
 };
 var elm$json$Json$Decode$bool = _Json_decodeBool;
-var elm$json$Json$Decode$map7 = _Json_map7;
 var Gizra$elm_keyboard_event$Keyboard$Event$decodeKeyboardEvent = A8(
 	elm$json$Json$Decode$map7,
 	Gizra$elm_keyboard_event$Keyboard$Event$KeyboardEvent,
@@ -6449,7 +6935,6 @@ var joakin$elm_canvas$Canvas$Settings$Advanced$scale = joakin$elm_canvas$Canvas$
 var joakin$elm_canvas$Canvas$Internal$Canvas$SettingCommands = function (a) {
 	return {$: 'SettingCommands', a: a};
 };
-var elm$json$Json$Encode$float = _Json_wrap;
 var elm$json$Json$Encode$list = F2(
 	function (func, entries) {
 		return _Json_wrap(
@@ -6459,20 +6944,6 @@ var elm$json$Json$Encode$list = F2(
 				_Json_emptyArray(_Utils_Tuple0),
 				entries));
 	});
-var elm$json$Json$Encode$object = function (pairs) {
-	return _Json_wrap(
-		A3(
-			elm$core$List$foldl,
-			F2(
-				function (_n0, obj) {
-					var k = _n0.a;
-					var v = _n0.b;
-					return A3(_Json_addField, k, v, obj);
-				}),
-			_Json_emptyObject(_Utils_Tuple0),
-			pairs));
-};
-var elm$json$Json$Encode$string = _Json_wrap;
 var joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$fn = F2(
 	function (name, args) {
 		return elm$json$Json$Encode$object(
@@ -7164,43 +7635,6 @@ var author$project$Main$distanceLineRenderable = F5(
 				A2(myrho$elm_round$Round$round, 2, length) + 'm')
 			]);
 	});
-var author$project$Main$getToken = F2(
-	function (i, l) {
-		getToken:
-		while (true) {
-			if (!l.b) {
-				return elm$core$Maybe$Nothing;
-			} else {
-				var h = l.a;
-				var t = l.b;
-				if (h.$ === 'Doodad') {
-					var d = h.a;
-					if (_Utils_eq(d.id, i)) {
-						return elm$core$Maybe$Just(
-							author$project$Main$Doodad(d));
-					} else {
-						var $temp$i = i,
-							$temp$l = t;
-						i = $temp$i;
-						l = $temp$l;
-						continue getToken;
-					}
-				} else {
-					var d = h.a;
-					if (_Utils_eq(d.id, i)) {
-						return elm$core$Maybe$Just(
-							author$project$Main$Creature(d));
-					} else {
-						var $temp$i = i,
-							$temp$l = t;
-						i = $temp$i;
-						l = $temp$l;
-						continue getToken;
-					}
-				}
-			}
-		}
-	});
 var author$project$Main$getSelectedPos = function (m) {
 	var t = A2(author$project$Main$getToken, m.selected, m.tokens);
 	if (t.$ === 'Just') {
@@ -7694,7 +8128,6 @@ var joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$fill = function (fill
 				joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$fillRuleToString(fillRule))
 			]));
 };
-var elm$core$Basics$round = _Basics_round;
 var elm$core$String$concat = function (strings) {
 	return A2(elm$core$String$join, '', strings);
 };
@@ -7986,7 +8419,6 @@ var elm$json$Json$Decode$at = F2(
 	function (fields, decoder) {
 		return A3(elm$core$List$foldr, elm$json$Json$Decode$field, decoder, fields);
 	});
-var elm$json$Json$Decode$float = _Json_decodeFloat;
 var joakin$elm_canvas$Canvas$decodeTextureImageInfo = A2(
 	elm$json$Json$Decode$andThen,
 	function (target) {
@@ -8135,7 +8567,6 @@ var mpizenberg$elm_pointer_events$Internal$Decode$clientPos = A3(
 		}),
 	A2(elm$json$Json$Decode$field, 'clientX', elm$json$Json$Decode$float),
 	A2(elm$json$Json$Decode$field, 'clientY', elm$json$Json$Decode$float));
-var elm$json$Json$Decode$map3 = _Json_map3;
 var mpizenberg$elm_pointer_events$Internal$Decode$Keys = F3(
 	function (alt, ctrl, shift) {
 		return {alt: alt, ctrl: ctrl, shift: shift};

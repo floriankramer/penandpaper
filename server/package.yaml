@@ -29,6 +29,11 @@ dependencies:
 - http-types
 - text
 - utf8-string
+- aeson
+- bytestring
+- attoparsec
+- unordered-containers
+- array
 
 library:
   source-dirs: src

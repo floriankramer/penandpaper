@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Websocket (start) where
 
@@ -11,6 +12,9 @@ import qualified Network.Wai.Handler.WarpTLS as W
 import qualified Data.Text as Text
 import qualified Data.List as List
 import qualified Control.Concurrent.MVar as MV
+import qualified Control.Exception as EX
+
+import qualified Simulation as S
 
 tlsSettings :: W.TLSSettings
 tlsSettings = W.tlsSettings "cert/certificate.pem" "cert/key.pem"
@@ -23,9 +27,9 @@ data Client = Client {clientId :: Int, conn :: WS.Connection}
 instance Eq Client where
   x == y = (clientId x) == (clientId y)
 
-data State = State {clients :: [Client], nextId :: Int}
+data State = State {clients :: [Client], nextId :: Int, model :: S.Model}
 initState :: State
-initState = State {clients = [], nextId = 0}
+initState = State {clients = [], nextId = 0, model = S.initModel}
 
 -- Takes a webserver and adds a websocket server
 start :: W.Application -> IO ()
@@ -37,7 +41,7 @@ start h = do
 --             WWS.websocketsOr WS.defaultConnectionOptions handleConnection h
 
 addClient :: WS.Connection -> State -> State
-addClient conn s = State
+addClient conn s = s
   { clients = Client {clientId = nextId s, conn = conn} : (clients s )
   , nextId = nextId s + 1
   }
@@ -53,6 +57,22 @@ removeClient i s =
   s { clients = deleteById i (clients s)}
   
 
+communicateForever :: MV.MVar State -> WS.Connection -> IO ()
+communicateForever mstate connection = do
+  -- handle communication with the client
+  EX.catch (do
+      msg <- WS.receiveData connection
+      putStrLn $ Text.unpack msg
+      -- Broadcast the message to all clients
+      state <- MV.takeMVar mstate
+      let nstate = state { model = S.update msg (model state)}
+      mapM_ (\ c -> WS.sendTextData (conn c) msg) (clients nstate)
+      MV.putMVar mstate nstate 
+      communicateForever mstate connection
+    )
+    $ \ (e :: WS.ConnectionException) -> putStrLn "Connection closed."
+
+
 handleConnection :: MV.MVar State -> WS.PendingConnection -> IO ()
 handleConnection mstate pending = do
   -- accept the connection
@@ -62,11 +82,10 @@ handleConnection mstate pending = do
   -- update the list of clients
   state <- MV.takeMVar mstate
   let clientId = nextId state in do
+    WS.sendTextData conn $ S.initPacket (model state) 
     MV.putMVar mstate $ addClient conn state 
-    -- handle communication with the client
-    msg <- WS.receiveData conn
-    putStrLn $ Text.unpack msg
-    WS.sendTextData conn msg
+    -- TODO: send the current state to the client
+    communicateForever mstate conn
     -- remove the client from the list of clients
     state <- MV.takeMVar mstate
     MV.putMVar mstate $ removeClient clientId state 

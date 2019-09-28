@@ -44,15 +44,29 @@ baseColors = Array.fromList
               , Color.rgb255 92 148 13 
               , Color.rgb255 230 119 0 
               , Color.rgb255 217 72 15 
+              -- Light colors
+              , Color.rgb255 255 84 84
+              , Color.rgb255 186 90 170
+              , Color.rgb255 154 92 186 
+              , Color.rgb255 190 122 220 
+              , Color.rgb255 138 160 220 
+              , Color.rgb255 100 190 220 
+              , Color.rgb255 42 184 183 
+              , Color.rgb255 32 200 170
+              , Color.rgb255 110 198 120 
+              , Color.rgb255 142 220 66
+              , Color.rgb255 255 179 50 
+              , Color.rgb255 255 190 70 
               ]
 numBaseColors : Int
-numBaseColors = 12
+numBaseColors = 24
 
 gmId : Int
 gmId = 0
 
 type Action = None
-            | DragToken {startx : Float, starty : Float, x : Float, y : Float}
+            | DragToken { startx : Float, starty : Float, x : Float, y : Float
+                        , ox : Float, oy : Float }
             | DragView {lastX : Float, lastY : Float}
 
 type Token = Doodad   { id : Int
@@ -113,15 +127,197 @@ worldToScreen m (x, y) =
     ( (x - m.view.x) * scale + 0.8 * 0.5 * toFloat m.window.width
     , (y - m.view.y) * scale + 0.5 * toFloat m.window.height )
 
+-- Network
+
+
+type alias RawPacket = {t : String, d : Json.Value}
+type Packet = CreateCreature Json.Value 
+            | DeleteCreature Json.Value
+            | MoveCreature Json.Value
+            | Init Json.Value
+
+type alias PacketCreateCreature = { x : Float
+                                  , y : Float
+                                  }
+
+type alias PacketMoveCreature = { id : Int
+                                , x : Float
+                                , y : Float
+                                }
+
+type alias PacketDeleteCreature = { id : Int }
+
+type alias InitToken = { id : Int 
+                       , x : Float
+                       , y : Float
+                       , radius : Float
+                       , r : Float
+                       , g : Float
+                       , b : Float
+                       }
+
+type alias PacketInit = { tokens : List InitToken
+                        , nextColor : Int
+                        , nextId : Int }
+
+initTokenToToken : InitToken -> Token
+initTokenToToken t =
+  Creature
+    { id = t.id
+    , x = t.x
+    , y = t.y
+    , radius = t.radius
+    , color = Color.rgb255 (round t.r) (round t.g) (round t.b)
+    , owner = 0
+    }
+
+rawPacketToPacket : RawPacket -> Result String Packet
+rawPacketToPacket rawPacket =
+  if rawPacket.t == "CreateCreature" then
+    Ok (CreateCreature rawPacket.d)
+  else if rawPacket.t == "DeleteCreature" then
+    Ok (DeleteCreature rawPacket.d)
+  else if rawPacket.t == "MoveCreature" then
+    Ok (MoveCreature rawPacket.d)
+  else if rawPacket.t == "Init" then
+    Ok (Init rawPacket.d)
+  else
+    Err <| "Unknown packet type " ++ rawPacket.t
+
+decodePacket : Json.Value -> Result String Packet
+decodePacket v = 
+  let 
+    d = Json.map2 RawPacket 
+          (Json.field "type" Json.string)
+          (Json.field "data" Json.value)
+    rawPacket = Json.decodeValue d v
+  in
+    case rawPacket of
+      Ok r -> rawPacketToPacket r
+      Err e -> Err <| Json.errorToString e
+
+
+encodePacket : Packet -> Json.Value
+encodePacket p =
+  case p of
+    CreateCreature v -> JE.object [ ("type", JE.string "CreateCreature")
+                                  , ("data", v)
+                                  ]
+    DeleteCreature v -> JE.object [ ("type", JE.string "DeleteCreature")
+                                  , ("data", v)
+                                  ]
+    MoveCreature v -> JE.object [ ("type", JE.string "MoveCreature")
+                                , ("data", v)
+                                ]
+    Init _ -> JE.object [("type", JE.string "unsupported")]
+
+decodeCreateCreature : Json.Value -> Result String PacketCreateCreature 
+decodeCreateCreature v =
+  let
+    d = Json.map2 PacketCreateCreature
+          (Json.field "x" Json.float) 
+          (Json.field "y" Json.float) 
+    cc = Json.decodeValue d v
+  in
+    case cc of
+      Ok p -> Ok p
+      Err e -> Err <| Json.errorToString e
+
+
+encodeCreateCreature : PacketCreateCreature -> Json.Value
+encodeCreateCreature cc = 
+  let
+    val = JE.object
+      [ ("x", JE.float cc.x)
+      , ("y", JE.float cc.y)
+      ]
+    packet = CreateCreature val
+  in
+  encodePacket packet
+
+decodeMoveCreature : Json.Value -> Result String PacketMoveCreature 
+decodeMoveCreature v =
+  let
+    d = Json.map3 PacketMoveCreature
+          (Json.field "id" Json.int) 
+          (Json.field "x" Json.float) 
+          (Json.field "y" Json.float) 
+    cc = Json.decodeValue d v
+  in
+    case cc of
+      Ok p -> Ok p
+      Err e -> Err <| Json.errorToString e
+
+encodeMoveCreature : PacketMoveCreature -> Json.Value
+encodeMoveCreature cc = 
+  let
+    val = JE.object
+      [ ("id", JE.int cc.id)
+      , ("x", JE.float cc.x)
+      , ("y", JE.float cc.y)
+      ]
+    packet = MoveCreature val
+  in
+  encodePacket packet
+
+decodeDeleteCreature : Json.Value -> Result String PacketDeleteCreature 
+decodeDeleteCreature v =
+  let
+    d = Json.map PacketDeleteCreature
+          (Json.field "id" Json.int) 
+    cc = Json.decodeValue d v
+  in
+    case cc of
+      Ok p -> Ok p
+      Err e -> Err <| Json.errorToString e
+
+encodeDeleteCreature : PacketDeleteCreature -> Json.Value
+encodeDeleteCreature cc = 
+  let
+    val = JE.object
+      [ ("id", JE.int cc.id)
+      ]
+    packet = DeleteCreature val
+  in
+  encodePacket packet
+
+decodeInit : Json.Value -> Result String PacketInit
+decodeInit v =
+  let
+    d = Json.map3 PacketInit
+          (Json.field "tokens" <| Json.list (
+            Json.map7 InitToken
+                      (Json.field "id" Json.int)  
+                      (Json.field "x" Json.float)  
+                      (Json.field "y" Json.float)  
+                      (Json.field "radius" Json.float)  
+                      (Json.field "r" Json.float)  
+                      (Json.field "g" Json.float)  
+                      (Json.field "b" Json.float)  
+
+          )) 
+          (Json.field "nextColor" Json.int) 
+          (Json.field "nextId" Json.int) 
+    cc = Json.decodeValue d v
+  in
+    case cc of
+      Ok p -> Ok p
+      Err e -> Err <| Json.errorToString e
+
 -- Update
 type Msg = Move Int (Float, Float)
+         | Create (Float, Float)
+         | Destroy Int
          | OnResize (Int, Int)
+         | MsgInit PacketInit
          | MousePress Mouse.Event
          | MouseMotion Mouse.Event
          | MouseRelease Mouse.Event
          | MouseWheel Wheel.Event
          | KeyDown Keyboard.KeyboardEvent
          | ChangedFocus (Result Dom.Error ())
+         | MsgShowError String
+         | MsgDoNothing -- TODO: there is probably a nicer solution for this
 
 -- Apply the given function to all tokens in the list with the given id
 applyToToken : (Token -> Token) -> Int -> List Token -> List Token
@@ -238,29 +434,39 @@ onMousePress event model =
         let 
           (sx, sy) = event.offsetPos
           s = creatureIdAt x y model.tokens
+          mt = getToken s model.tokens
+          cx = 
+           case mt of 
+             Just c ->
+               case c of
+                 Creature cr -> cr.x
+                 Doodad do -> do.x
+             Nothing -> x 
+          cy = 
+           case mt of 
+             Just c ->
+               case c of
+                 Creature cr -> cr.y
+                 Doodad do -> do.y
+             Nothing -> y
           a = if s < 0 then DragView {lastX = sx, lastY = sy}
-                       else DragToken {startx = x, starty = y, x = x, y = y}
+                       else DragToken {startx = cx, starty = cy
+                                      , ox = x - cx, oy = y - cy
+                                      , x = cx, y = cy}
           setFocus = Task.attempt ChangedFocus (Dom.focus "canvas")
         in
           if s < 0 && event.keys.ctrl then
-            ({ model |
-               selected = -1,
-               action = None,
-               tokens = Creature { id = model.nextId
-                      , x = x 
-                      , y = y
-                      , radius = 0.25
-                      , color = Maybe.withDefault
-                                  (Color.rgb 0.7 0 0.7)
-                                  (Array.get
-                                     (remainderBy numBaseColors model.nextId)
-                                     baseColors)
-                      , owner = 0
-                      } :: model.tokens,
-               nextId = model.nextId + 1 
+            ({ model
+             | action = None
+             , selected = -1
              }
             , Cmd.batch
-                [ wsSend (JE.int 42)
+                [ wsSend 
+                    (encodeCreateCreature (
+                      { x = x
+                      , y = y
+                      }  
+                    ))
                 , setFocus])
           else
             ({ model |
@@ -278,8 +484,33 @@ onMousePress event model =
 
 
 onMouseRelease : Mouse.Event -> Model -> (Model, Cmd Msg)
-onMouseRelease _ model =
-  ({model | action = None}, Cmd.none)
+onMouseRelease event model =
+  let
+      (x, y) = screenToWorld model event.offsetPos
+  in
+    case model.action of
+      DragToken d ->
+        if sqrt ((d.startx - d.x)^2 + (d.starty - d.y)^2) > 0.1 then
+          ({model | action = None},
+          wsSend (encodeMoveCreature (
+              { id = model.selected
+              , x = d.x
+              , y = d.y
+              }
+            ))
+          )
+        else
+          ({model | action = None},
+          wsSend (encodeMoveCreature (
+              { id = model.selected
+              , x = d.startx
+              , y = d.starty
+              }
+            ))
+          )
+
+      _ ->
+        ({model | action = None}, Cmd.none)
 
 onMouseMotion : Mouse.Event -> Model -> (Model, Cmd Msg)
 onMouseMotion event model =
@@ -292,10 +523,12 @@ onMouseMotion event model =
         ({ model |
            action = DragToken { startx = d.startx
                               , starty = d.starty
-                              , x = x
-                              , y = y
+                              , oy = d.oy
+                              , ox = d.ox
+                              , x = x - d.ox
+                              , y = y - d.oy
                               }
-         , tokens = applyToToken (tokenSetPosition x y) model.selected model.tokens
+         , tokens = applyToToken (tokenSetPosition (x - d.ox) (y - d.oy)) model.selected model.tokens
          }
         , Cmd.none)
       DragView d ->
@@ -325,25 +558,62 @@ onMouseWheel event model =
      }
     , Cmd.none)
 
-onKeyDown: Keyboard.KeyboardEvent-> Model -> (Model, Cmd Msg)
+onKeyDown: Keyboard.KeyboardEvent -> Model -> (Model, Cmd Msg)
 onKeyDown event model =
   if event.keyCode == Key.Delete  &&  model.selected >= 0 then
-    ({ model |
-       tokens = deleteToken model.selected model.tokens
-     , selected = -1 
-     }
-    , Cmd.none)
+    ( {model | selected = -1}
+    , wsSend (encodeDeleteCreature ({id = model.selected})))
   else
     (model, Cmd.none)
+
+onCreate : (Float, Float) -> Model -> (Model, Cmd Msg)
+onCreate (x, y) model = 
+  ({ model |
+     tokens = Creature { id = model.nextId
+            , x = x 
+            , y = y
+            , radius = 0.25
+            , color = Maybe.withDefault
+                        (Color.rgb 0.7 0 0.7)
+                        (Array.get
+                           (remainderBy numBaseColors model.nextId)
+                           baseColors)
+            , owner = 0
+            } :: model.tokens,
+     nextId = model.nextId + 1 
+   }
+  , Cmd.none)
+
+onDestroy : Int -> Model -> (Model, Cmd Msg)
+onDestroy id model =
+  ({ model |
+     tokens = deleteToken id model.tokens
+   }
+  , Cmd.none)
+
+onMove : Int -> (Float, Float) -> Model -> (Model, Cmd Msg)
+onMove id (x, y) model =
+  ({ model |
+     tokens = applyToToken (tokenSetPosition x y) id model.tokens
+   }
+  , Cmd.none)
+
+
+onMsgInit : PacketInit -> Model -> (Model, Cmd Msg)
+onMsgInit d model =
+  ({ model |
+     nextId = d.nextId
+   , tokens = List.map initTokenToToken d.tokens  
+   }
+  , Cmd.none) -- TODO: setup the model
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model = 
   case msg of
-    Move id (newx, newy) ->
-      ({ model |
-         tokens = applyToToken (tokenSetPosition newx newy) id model.tokens
-       }
-      , Cmd.none)
+    Move id (newx, newy) -> onMove id (newx, newy) model
+    Create p -> onCreate p model
+    Destroy id -> onDestroy id model
+    MsgInit d -> onMsgInit d model
     OnResize (w, h) ->
       ({ model | window = {width = w, height = h}}, Cmd.none)
     MousePress e -> onMousePress e model
@@ -352,12 +622,67 @@ update msg model =
     MouseWheel e -> onMouseWheel e model
     KeyDown e -> onKeyDown e model
     ChangedFocus _ -> (model, Cmd.none)
+    MsgDoNothing -> (model, Cmd.none)
+    MsgShowError e ->
+      let
+        v = Debug.log "Error:" e
+      in
+        (model, Cmd.none)
 
 
 -- Subscriptions
+onCreateCreature : JE.Value -> Msg
+onCreateCreature v =
+  let
+    p = decodeCreateCreature v
+  in
+    case p of
+      Ok o -> Create (o.x, o.y) 
+      Err e -> MsgShowError e 
+
+onMoveCreature : JE.Value -> Msg
+onMoveCreature v =
+  let
+    p = decodeMoveCreature v
+  in
+    case p of
+      Ok o -> Move o.id (o.x, o.y) 
+      Err e -> MsgShowError e 
+
+onDeleteCreature : JE.Value -> Msg
+onDeleteCreature v =
+  let
+    p = decodeDeleteCreature v
+  in
+    case p of
+      Ok o -> Destroy o.id 
+      Err e -> MsgShowError e 
+
+onInit : JE.Value -> Msg
+onInit v =
+  let
+    p = decodeInit v
+  in
+    case p of
+      Ok o -> MsgInit o 
+      Err e -> MsgShowError e 
+
+onPacket : Packet -> Msg
+onPacket p =
+  case p of
+    CreateCreature d -> onCreateCreature d
+    MoveCreature d -> onMoveCreature d
+    DeleteCreature d -> onDeleteCreature d
+    Init d -> onInit d 
+
 onWsReceive : JE.Value -> Msg
-onWsReceive _ =
-  Move 0 (0, 0)
+onWsReceive v =
+  let
+    p = decodePacket v
+  in
+    case p of
+      Ok o -> onPacket o
+      Err e -> MsgShowError e 
 
 subscriptions : Model -> Sub Msg
 subscriptions _ = 

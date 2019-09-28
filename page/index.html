@@ -16,11 +16,12 @@
       flags: [window.innerWidth, window.innerHeight]
     });
     app.ports.wsSend.subscribe(function(data) {
-      console.log(data);
+      console.log('outgoing: ' + data);
       util.send(JSON.stringify(data));
     });
     util.setOnmessage(function(e) {
-      app.ports.wsReceive.send(e.data);
+      console.log('incoming ' + e.data);
+      app.ports.wsReceive.send(JSON.parse(e.data));
     });
   </script>
 </body>
