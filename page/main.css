@@ -15,11 +15,14 @@ body {
   box-shadow: -3px 0px 5px black; 
   padding-left: 10px;
   padding-right: 10px;
+  position: absolute;
+  right: 0px;
 }
 
 #chat-area {
   display: flex;
   flex-direction: column;
+  overflow: scroll;
 }
 
 #chat-text {

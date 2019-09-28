@@ -235,22 +235,25 @@ onChat p model =
   in
     if length msg > 0 && head msg == '/' then
       if List.isPrefixOf "/roll" msg then
-        (model, Reply $ toJsonText $ Chat "Server" (cmdRoll (mRand model) sender msg))
+        let 
+          (resp, nrand) = (cmdRoll (mRand model) sender msg)
+        in
+          (model {mRand = nrand}, Broadcast $ toJsonText $ Chat "Server" resp)
       else
         (model, Reply $ toJsonText $ Chat "Server" ("Unknown command: " ++ msg))
     else
       (model, Forward)
 
-rollList :: R.StdGen -> Int -> [Int] -> [Int]
-rollList rand min []    = []
+rollList :: R.StdGen -> Int -> [Int] -> ([Int], R.StdGen)
+rollList rand min []    = ([], rand)
 rollList rand min maxes =
   let
     (n, nrand) = R.randomR (min, head maxes) rand
+    (r, rand2) = (rollList nrand min $ tail maxes)
   in
-    n : (rollList nrand min $ tail maxes)
+    (n : r, rand2)
 
-
-cmdRoll :: R.StdGen -> String -> String -> String
+cmdRoll :: R.StdGen -> String -> String -> (String, R.StdGen)
 cmdRoll rand who t =
   let
     parts = tail $ splitOn " " t
@@ -263,12 +266,12 @@ cmdRoll rand who t =
                              Just i -> i
                              Nothing -> -1)
                 validM
-    rands = rollList rand 1 valid 
+    (rands, nrand) = rollList rand 1 valid 
     srands = map (\t -> show t) rands
     snums = List.intercalate " " srands 
     sdice = List.intercalate " " (map (\t -> show t) valid)
   in
-    who ++ " rolled " ++ snums ++ " with dice " ++ sdice
+    (who ++ " rolled " ++ snums ++ " with dice " ++ sdice, nrand)
      
 
 -- util functions
