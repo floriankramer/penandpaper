@@ -69,19 +69,16 @@ type Action = None
                         , ox : Float, oy : Float }
             | DragView {lastX : Float, lastY : Float}
 
-type Token = Doodad   { id : Int
-                      , x : Float
-                      , y : Float 
-                      , radius : Float
-                      , color : Color 
-                      }
-           | Creature { id : Int
-                      , x : Float 
-                      , y : Float 
-                      , radius : Float
-                      , color : Color 
-                      , owner : Int
-                      }
+type CreateMode = ModeCreateToken
+                | ModeCreateLine
+
+type Token = Token { id : Int
+                   , x : Float 
+                   , y : Float 
+                   , radius : Float
+                   , color : Color 
+                   , owner : Int
+                   }
 
 type alias Circle = { x : Float, y : Float, radius : Float } 
 type alias Window = { width : Int, height : Int }
@@ -103,6 +100,7 @@ type alias Model = { tokens : List Token
                    , sentMessagePos : Int
                    , username : String
                    , usernameSet : Bool
+                   , createMode : CreateMode
                    }
 
 init : (Int, Int) -> (Model,  Cmd Msg)
@@ -121,44 +119,45 @@ init (w, h) =
    , sentMessages = Array.empty
    , sentMessagePos = 0
    , usernameSet = False
+   , createMode = ModeCreateToken
    }, Cmd.none)
 
 screenToWorld : Model -> (Float, Float) -> (Float, Float)
 screenToWorld m (x, y) =
   let
-    scale = m.view.height / toFloat m.window.height 
+    scale = m.view.height / toFloat (computeCanvasHeight m.window.height)
   in
-    ( (x - 0.8 * 0.5 * toFloat m.window.width) * scale + m.view.x
-    , (y - 0.5 * toFloat m.window.height) * scale + m.view.y )
+    ((x - 0.5 * toFloat (computeCanvasWidth m.window.width)) * scale + m.view.x
+    ,(y - 0.5 * toFloat (computeCanvasHeight m.window.height)) * scale + m.view.y )
 
 worldToScreen : Model -> (Float, Float) -> (Float, Float)
 worldToScreen m (x, y) =
   let
-    scale =  toFloat m.window.height / m.view.height 
+    scale =  toFloat (computeCanvasHeight m.window.height) / m.view.height 
   in
-    ( (x - m.view.x) * scale + 0.8 * 0.5 * toFloat m.window.width
-    , (y - m.view.y) * scale + 0.5 * toFloat m.window.height )
+    ( (x - m.view.x) * scale + 0.5 * toFloat (computeCanvasWidth m.window.width)
+    , (y - m.view.y) * scale + 0.5 * toFloat (computeCanvasHeight m.window.height))
 
 -- Network
 
 
 type alias RawPacket = {t : String, d : Json.Value}
-type Packet = CreateCreature Json.Value 
-            | DeleteCreature Json.Value
-            | MoveCreature Json.Value
+type Packet = CreateToken Json.Value 
+            | DeleteToken Json.Value
+            | MoveToken Json.Value
             | Init Json.Value
             | Chat Json.Value
 
-type alias PacketCreateCreature = { x : Float
+type alias PacketCreateToken = { x : Float
                                   , y : Float
                                   }
 
-type alias PacketMoveCreature = { id : Int
+type alias PacketMoveToken = { id : Int
                                 , x : Float
                                 , y : Float
                                 }
 
-type alias PacketDeleteCreature = { id : Int }
+type alias PacketDeleteToken = { id : Int }
 
 type alias InitToken = { id : Int 
                        , x : Float
@@ -179,7 +178,7 @@ type alias PacketChat = { sender : String
 
 initTokenToToken : InitToken -> Token
 initTokenToToken t =
-  Creature
+  Token
     { id = t.id
     , x = t.x
     , y = t.y
@@ -190,12 +189,12 @@ initTokenToToken t =
 
 rawPacketToPacket : RawPacket -> Result String Packet
 rawPacketToPacket rawPacket =
-  if rawPacket.t == "CreateCreature" then
-    Ok (CreateCreature rawPacket.d)
-  else if rawPacket.t == "DeleteCreature" then
-    Ok (DeleteCreature rawPacket.d)
-  else if rawPacket.t == "MoveCreature" then
-    Ok (MoveCreature rawPacket.d)
+  if rawPacket.t == "CreateToken" then
+    Ok (CreateToken rawPacket.d)
+  else if rawPacket.t == "DeleteToken" then
+    Ok (DeleteToken rawPacket.d)
+  else if rawPacket.t == "MoveToken" then
+    Ok (MoveToken rawPacket.d)
   else if rawPacket.t == "Init" then
     Ok (Init rawPacket.d)
   else if rawPacket.t == "Chat" then
@@ -219,13 +218,13 @@ decodePacket v =
 encodePacket : Packet -> Json.Value
 encodePacket p =
   case p of
-    CreateCreature v -> JE.object [ ("type", JE.string "CreateCreature")
+    CreateToken v -> JE.object [ ("type", JE.string "CreateToken")
                                   , ("data", v)
                                   ]
-    DeleteCreature v -> JE.object [ ("type", JE.string "DeleteCreature")
+    DeleteToken v -> JE.object [ ("type", JE.string "DeleteToken")
                                   , ("data", v)
                                   ]
-    MoveCreature v -> JE.object [ ("type", JE.string "MoveCreature")
+    MoveToken v -> JE.object [ ("type", JE.string "MoveToken")
                                 , ("data", v)
                                 ]
     Init _ -> JE.object [("type", JE.string "unsupported")]
@@ -233,10 +232,10 @@ encodePacket p =
                         , ("data", v)
                         ]
 
-decodeCreateCreature : Json.Value -> Result String PacketCreateCreature 
-decodeCreateCreature v =
+decodeCreateToken : Json.Value -> Result String PacketCreateToken 
+decodeCreateToken v =
   let
-    d = Json.map2 PacketCreateCreature
+    d = Json.map2 PacketCreateToken
           (Json.field "x" Json.float) 
           (Json.field "y" Json.float) 
     cc = Json.decodeValue d v
@@ -246,21 +245,21 @@ decodeCreateCreature v =
       Err e -> Err <| Json.errorToString e
 
 
-encodeCreateCreature : PacketCreateCreature -> Json.Value
-encodeCreateCreature cc = 
+encodeCreateToken : PacketCreateToken -> Json.Value
+encodeCreateToken cc = 
   let
     val = JE.object
       [ ("x", JE.float cc.x)
       , ("y", JE.float cc.y)
       ]
-    packet = CreateCreature val
+    packet = CreateToken val
   in
   encodePacket packet
 
-decodeMoveCreature : Json.Value -> Result String PacketMoveCreature 
-decodeMoveCreature v =
+decodeMoveToken : Json.Value -> Result String PacketMoveToken 
+decodeMoveToken v =
   let
-    d = Json.map3 PacketMoveCreature
+    d = Json.map3 PacketMoveToken
           (Json.field "id" Json.int) 
           (Json.field "x" Json.float) 
           (Json.field "y" Json.float) 
@@ -270,22 +269,22 @@ decodeMoveCreature v =
       Ok p -> Ok p
       Err e -> Err <| Json.errorToString e
 
-encodeMoveCreature : PacketMoveCreature -> Json.Value
-encodeMoveCreature cc = 
+encodeMoveToken : PacketMoveToken -> Json.Value
+encodeMoveToken cc = 
   let
     val = JE.object
       [ ("id", JE.int cc.id)
       , ("x", JE.float cc.x)
       , ("y", JE.float cc.y)
       ]
-    packet = MoveCreature val
+    packet = MoveToken val
   in
   encodePacket packet
 
-decodeDeleteCreature : Json.Value -> Result String PacketDeleteCreature 
-decodeDeleteCreature v =
+decodeDeleteToken : Json.Value -> Result String PacketDeleteToken 
+decodeDeleteToken v =
   let
-    d = Json.map PacketDeleteCreature
+    d = Json.map PacketDeleteToken
           (Json.field "id" Json.int) 
     cc = Json.decodeValue d v
   in
@@ -293,13 +292,13 @@ decodeDeleteCreature v =
       Ok p -> Ok p
       Err e -> Err <| Json.errorToString e
 
-encodeDeleteCreature : PacketDeleteCreature -> Json.Value
-encodeDeleteCreature cc = 
+encodeDeleteToken : PacketDeleteToken -> Json.Value
+encodeDeleteToken cc = 
   let
     val = JE.object
       [ ("id", JE.int cc.id)
       ]
-    packet = DeleteCreature val
+    packet = DeleteToken val
   in
   encodePacket packet
 
@@ -367,6 +366,7 @@ type Msg = Move Int (Float, Float)
          | MsgChat String String
          | MsgSetUsername String
          | MsgFinishUsername 
+         | MsgSetCreateMode CreateMode
          | MsgShowError String
          | MsgDoNothing -- TODO: there is probably a nicer solution for this
 
@@ -377,12 +377,7 @@ applyToToken f i l =
     [] -> []
     (h::t) ->
       case h of
-        Doodad d ->
-          if d.id == i then
-            (f h) :: (applyToToken f i t)
-          else
-            h :: (applyToToken f i t)
-        Creature d ->
+        Token d ->
           if d.id == i then
             (f h) :: (applyToToken f i t)
           else
@@ -394,12 +389,7 @@ deleteToken i l =
     [] -> []
     (h::t) ->
       case h of
-        Doodad d ->
-          if d.id == i then
-            t
-          else
-            h :: (deleteToken i t)
-        Creature d ->
+        Token d ->
           if d.id == i then
             t
           else
@@ -411,14 +401,9 @@ getToken i l =
     [] -> Nothing
     (h::t) ->
       case h of
-        Doodad d ->
+        Token d ->
           if d.id == i then
-            Just <| Doodad d 
-          else
-            getToken i t
-        Creature d ->
-          if d.id == i then
-            Just <| Creature d
+            Just <| Token d
           else
             getToken i t
 
@@ -430,8 +415,7 @@ getSelectedPos m =
     case t of
       Just a ->
         case a of
-          Doodad b -> (b.x , b.y)
-          Creature b -> (b.x , b.y)
+          Token b -> (b.x , b.y)
       Nothing ->
         (0, 0)
 
@@ -439,8 +423,7 @@ getSelectedPos m =
 tokenSetPosition : Float -> Float -> Token -> Token
 tokenSetPosition x y t =
   case t of
-    Doodad d -> Doodad { d | x = x, y = y }
-    Creature c -> Creature { c | x = x, y = y }
+    Token c -> Token { c | x = x, y = y }
 
 tokenIdAt : Float -> Float -> List Token -> Int
 tokenIdAt x y l =
@@ -448,12 +431,7 @@ tokenIdAt x y l =
     [] -> -1
     (h::t) ->
       case h of
-        Doodad d ->
-          if sqrt((x - d.x)^2 + (y - d.y)^2) < d.radius then
-            d.id
-          else
-            tokenIdAt x y t
-        Creature c ->
+        Token c ->
           if sqrt((x - c.x)^2 + (y - c.y)^2) < c.radius then
             c.id
           else
@@ -465,9 +443,7 @@ creatureIdAt x y l =
     [] -> -1
     (h::t) ->
       case h of
-        Doodad d ->
-          tokenIdAt x y t
-        Creature c ->
+        Token c ->
           if sqrt((x - c.x)^2 + (y - c.y)^2) < c.radius then
             c.id
           else
@@ -490,15 +466,13 @@ onMousePress event model =
            case mt of 
              Just c ->
                case c of
-                 Creature cr -> cr.x
-                 Doodad do -> do.x
+                 Token cr -> cr.x
              Nothing -> x 
           cy = 
            case mt of 
              Just c ->
                case c of
-                 Creature cr -> cr.y
-                 Doodad do -> do.y
+                 Token cr -> cr.y
              Nothing -> y
           a = if s < 0 then DragView {lastX = sx, lastY = sy}
                        else DragToken {startx = cx, starty = cy
@@ -513,7 +487,7 @@ onMousePress event model =
              }
             , Cmd.batch
                 [ wsSend 
-                    (encodeCreateCreature (
+                    (encodeCreateToken (
                       { x = x
                       , y = y
                       }  
@@ -543,7 +517,7 @@ onMouseRelease event model =
       DragToken d ->
         if sqrt ((d.startx - d.x)^2 + (d.starty - d.y)^2) > 0.1 then
           ({model | action = None},
-          wsSend (encodeMoveCreature (
+          wsSend (encodeMoveToken (
               { id = model.selected
               , x = d.x
               , y = d.y
@@ -552,7 +526,7 @@ onMouseRelease event model =
           )
         else
           ({model | action = None},
-          wsSend (encodeMoveCreature (
+          wsSend (encodeMoveToken (
               { id = model.selected
               , x = d.startx
               , y = d.starty
@@ -613,14 +587,14 @@ onKeyDown: Keyboard.KeyboardEvent -> Model -> (Model, Cmd Msg)
 onKeyDown event model =
   if event.keyCode == Key.Delete  &&  model.selected >= 0 then
     ( {model | selected = -1}
-    , wsSend (encodeDeleteCreature ({id = model.selected})))
+    , wsSend (encodeDeleteToken ({id = model.selected})))
   else
     (model, Cmd.none)
 
 onCreate : (Float, Float) -> Model -> (Model, Cmd Msg)
 onCreate (x, y) model = 
   ({ model |
-     tokens = Creature { id = model.nextId
+     tokens = Token { id = model.nextId
             , x = x 
             , y = y
             , radius = 0.25
@@ -729,6 +703,7 @@ update msg model =
     ChangedFocus _ -> (model, Cmd.none)
     MsgChat s m -> onMsgChat s m model
     ChatInput s -> onMsgChatInput s model 
+    MsgSetCreateMode m -> ({model | createMode = m}, Cmd.none)
     MsgDoNothing -> (model, Cmd.none)
     MsgShowError e ->
       let
@@ -738,28 +713,28 @@ update msg model =
 
 
 -- Subscriptions
-onCreateCreature : JE.Value -> Msg
-onCreateCreature v =
+onCreateToken : JE.Value -> Msg
+onCreateToken v =
   let
-    p = decodeCreateCreature v
+    p = decodeCreateToken v
   in
     case p of
       Ok o -> Create (o.x, o.y) 
       Err e -> MsgShowError e 
 
-onMoveCreature : JE.Value -> Msg
-onMoveCreature v =
+onMoveToken : JE.Value -> Msg
+onMoveToken v =
   let
-    p = decodeMoveCreature v
+    p = decodeMoveToken v
   in
     case p of
       Ok o -> Move o.id (o.x, o.y) 
       Err e -> MsgShowError e 
 
-onDeleteCreature : JE.Value -> Msg
-onDeleteCreature v =
+onDeleteToken : JE.Value -> Msg
+onDeleteToken v =
   let
-    p = decodeDeleteCreature v
+    p = decodeDeleteToken v
   in
     case p of
       Ok o -> Destroy o.id 
@@ -787,9 +762,9 @@ onChat v =
 onPacket : Packet -> Msg
 onPacket p =
   case p of
-    CreateCreature d -> onCreateCreature d
-    MoveCreature d -> onMoveCreature d
-    DeleteCreature d -> onDeleteCreature d
+    CreateToken d -> onCreateToken d
+    MoveToken d -> onMoveToken d
+    DeleteToken d -> onDeleteToken d
     Init d -> onInit d 
     Chat d -> onChat d 
 
@@ -824,7 +799,15 @@ type alias Dimensions = { canvasWidth : Int
                         , toolsHeight : Int
                         , chatWidth : Int
                         , chatHeight : Int
+                        , toolbarHeight : Int
                         }
+
+
+computeCanvasHeight : Int -> Int
+computeCanvasHeight h = h - 48 
+
+computeCanvasWidth : Int -> Int
+computeCanvasWidth w = floor <| 0.8 * toFloat w - 10
 
 clearCanvas : Int -> Int -> C.Renderable
 clearCanvas w h = C.shapes [Color.rgb 0.2 0.2 0.2 |> C.fill]
@@ -876,14 +859,7 @@ viewCircle c =
 viewToken : Int -> List C.Setting -> Token -> C.Renderable
 viewToken highlighted trans t =
   case t of
-    Doodad d ->
-      if highlighted == d.id then
-        C.shapes (trans ++ [d.color |> C.fill, Color.rgb 1 1 1 |> C.stroke])
-                 [C.circle (d.x, d.y) d.radius]
-      else
-        C.shapes (trans ++ [d.color |> C.fill])
-                 [C.circle (d.x, d.y) d.radius]
-    Creature d ->
+    Token d ->
       if highlighted == d.id then
         C.shapes (trans ++ [d.color |> C.fill, Color.rgb 1 1 1 |> C.stroke])
                  [C.circle (d.x, d.y) d.radius]
@@ -932,8 +908,9 @@ viewDistanceLine m d trans =
 
 dimensionsFromModel : Model -> Dimensions
 dimensionsFromModel m =
-  { canvasWidth = floor <| 0.8 * toFloat m.window.width
-  , canvasHeight = m.window.height
+  { canvasWidth = computeCanvasWidth m.window.width 
+  , canvasHeight = computeCanvasHeight m.window.height
+  , toolbarHeight = 40
   , toolsWidth = floor <| 0.2 * toFloat m.window.width - 20
   , toolsHeight = floor <| 0 * toFloat m.window.height
   , chatWidth = floor <| 0.2 * toFloat m.window.width - 20
@@ -980,21 +957,35 @@ view model =
   in
     {title = "Goats Rock"
     , body =
-      (List.append [ C.toHtml (dim.canvasWidth, dim.canvasHeight) 
-                 [ Mouse.onDown (\event -> MousePress event)
-                 , Mouse.onMove (\event -> MouseMotion event)
-                 , Mouse.onUp (\event -> MouseRelease event)
-                 , Wheel.onWheel (\event -> MouseWheel event)
-                 , Html.Events.on "keydown" <|
-                     Json.map KeyDown Keyboard.decodeKeyboardEvent 
-                 , A.tabindex 0
-                 , A.id "canvas"] 
-                 (List.concat [ [clearCanvas dim.canvasWidth dim.canvasHeight]
-                              , [viewGrid 5 model dim]
-                              , List.map (viewToken model.selected trans)
-                                         model.tokens
-                              , viewDistanceLine model dim trans
-                              ])
+      (List.append [
+        Html.div [A.id "main-screen"]
+          [ Html.div [ A.id "toolbar"
+                     , A.style "height" <| String.fromInt dim.toolbarHeight
+                     , A.style "width" <| String.fromInt dim.canvasWidth
+                     ]
+                     [ radioButton (MsgSetCreateMode ModeCreateToken)
+                                   "images/circle.png" 
+                                   <| model.createMode == ModeCreateToken
+                     , radioButton (MsgSetCreateMode ModeCreateLine)
+                                   "images/line.png"
+                                   <| model.createMode == ModeCreateLine
+                     ]
+          , C.toHtml (dim.canvasWidth, dim.canvasHeight) 
+                     [ Mouse.onDown (\event -> MousePress event)
+                     , Mouse.onMove (\event -> MouseMotion event)
+                     , Mouse.onUp (\event -> MouseRelease event)
+                     , Wheel.onWheel (\event -> MouseWheel event)
+                     , Html.Events.on "keydown" <|
+                         Json.map KeyDown Keyboard.decodeKeyboardEvent 
+                     , A.tabindex 0
+                     , A.id "canvas"] 
+                     (List.concat [ [clearCanvas dim.canvasWidth dim.canvasHeight]
+                                  , [viewGrid 5 model dim]
+                                  , List.map (viewToken model.selected trans)
+                                             model.tokens
+                                  , viewDistanceLine model dim trans
+                                  ])
+          ]
       , Html.div [A.id "right-bar"]
           [ Html.div [ A.id "area-tools"
                      , A.style "height" <| String.fromInt dim.toolsHeight
@@ -1014,3 +1005,12 @@ view model =
       ] (viewSetUsername model))
       
     }
+
+-- View Utils
+
+radioButton : Msg -> String -> Bool -> Html Msg
+radioButton m img a =
+  Html.label []
+             [ Html.input [A.type_ "radio", onInput <| \x -> m, A.checked a] []
+             , Html.img [ A.src img ] []
+             ]
