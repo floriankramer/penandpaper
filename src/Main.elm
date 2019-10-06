@@ -68,6 +68,11 @@ type Action = None
             | DragToken { startx : Float, starty : Float, x : Float, y : Float
                         , ox : Float, oy : Float }
             | DragView {lastX : Float, lastY : Float}
+            | ActionCreateLine { sx : Float
+                               , sy : Float
+                               , ex : Float
+                               , ey : Float
+                               }
 
 type CreateMode = ModeCreateToken
                 | ModeCreateLine
@@ -80,6 +85,13 @@ type Token = Token { id : Int
                    , owner : Int
                    }
 
+type Doodad = DoodadLine { id : Int
+                         , sx : Float
+                         , sy : Float
+                         , ex : Float
+                         , ey : Float
+                         }
+
 type alias Circle = { x : Float, y : Float, radius : Float } 
 type alias Window = { width : Int, height : Int }
 type alias User = { id : Int }
@@ -87,6 +99,7 @@ type alias Viewport = { x : Float, y : Float, height : Float}
 type alias MouseInfo = {x : Float, y : Float}
 
 type alias Model = { tokens : List Token 
+                   , doodads : List Doodad
                    , selected : Int
                    , window : Window
                    , user : User 
@@ -106,6 +119,7 @@ type alias Model = { tokens : List Token
 init : (Int, Int) -> (Model,  Cmd Msg)
 init (w, h) =
   ({ tokens = []
+   , doodads = []
    , selected = -1 
    , window = { width = w, height = h } 
    , user = { id = 0 }
@@ -147,15 +161,18 @@ type Packet = CreateToken Json.Value
             | MoveToken Json.Value
             | Init Json.Value
             | Chat Json.Value
+            | CreateDoodadLine Json.Value
+            | ClearDoodads Json.Value
+            | ClearTokens Json.Value
 
 type alias PacketCreateToken = { x : Float
-                                  , y : Float
-                                  }
+                               , y : Float
+                               }
 
 type alias PacketMoveToken = { id : Int
-                                , x : Float
-                                , y : Float
-                                }
+                             , x : Float
+                             , y : Float
+                             }
 
 type alias PacketDeleteToken = { id : Int }
 
@@ -168,13 +185,31 @@ type alias InitToken = { id : Int
                        , b : Float
                        }
 
+type alias InitDoodad = { id : Int
+                        , doodadType : String
+                        , sx : Float
+                        , sy : Float
+                        , ex : Float
+                        , ey : Float
+                        }
+
 type alias PacketInit = { tokens : List InitToken
+                        , doodads : List InitDoodad
                         , nextColor : Int
                         , nextId : Int }
 
 type alias PacketChat = { sender : String
                         , message : String
                         }
+
+type alias PacketCreateDoodadLine = { sx : Float
+                                    , sy : Float
+                                    , ex : Float
+                                    , ey : Float
+                                    }
+
+type alias PacketClearDoodads = {}
+type alias PacketClearTokens = {}
 
 initTokenToToken : InitToken -> Token
 initTokenToToken t =
@@ -185,6 +220,16 @@ initTokenToToken t =
     , radius = t.radius
     , color = Color.rgb255 (round t.r) (round t.g) (round t.b)
     , owner = 0
+    }
+
+initDoodadToDoodad : InitDoodad -> Doodad
+initDoodadToDoodad t =
+  DoodadLine
+    { id = t.id
+    , sx = t.sx
+    , sy = t.sy
+    , ex = t.ex
+    , ey = t.ey
     }
 
 rawPacketToPacket : RawPacket -> Result String Packet
@@ -199,6 +244,12 @@ rawPacketToPacket rawPacket =
     Ok (Init rawPacket.d)
   else if rawPacket.t == "Chat" then
     Ok (Chat rawPacket.d)
+  else if rawPacket.t == "CreateDoodadLine" then
+    Ok (CreateDoodadLine rawPacket.d)
+  else if rawPacket.t == "ClearDoodads" then
+    Ok (ClearDoodads rawPacket.d)
+  else if rawPacket.t == "ClearTokens" then
+    Ok (ClearTokens rawPacket.d)
   else
     Err <| "Unknown packet type " ++ rawPacket.t
 
@@ -231,6 +282,15 @@ encodePacket p =
     Chat v -> JE.object [ ("type", JE.string "Chat")
                         , ("data", v)
                         ]
+    CreateDoodadLine v -> JE.object [ ("type", JE.string "CreateDoodadLine")
+                                    , ("data", v)
+                                    ]
+    ClearDoodads v -> JE.object [ ("type", JE.string "ClearDoodads")
+                                , ("data", v)
+                                ]
+    ClearTokens v -> JE.object [ ("type", JE.string "ClearTokens")
+                               , ("data", v)
+                               ]
 
 decodeCreateToken : Json.Value -> Result String PacketCreateToken 
 decodeCreateToken v =
@@ -305,7 +365,7 @@ encodeDeleteToken cc =
 decodeInit : Json.Value -> Result String PacketInit
 decodeInit v =
   let
-    d = Json.map3 PacketInit
+    d = Json.map4 PacketInit
           (Json.field "tokens" <| Json.list (
             Json.map7 InitToken
                       (Json.field "id" Json.int)  
@@ -315,6 +375,16 @@ decodeInit v =
                       (Json.field "r" Json.float)  
                       (Json.field "g" Json.float)  
                       (Json.field "b" Json.float)  
+
+          )) 
+          (Json.field "doodads" <| Json.list (
+            Json.map6 InitDoodad 
+                      (Json.field "id" Json.int)  
+                      (Json.field "type" Json.string)  
+                      (Json.field "sx" Json.float)  
+                      (Json.field "sy" Json.float)  
+                      (Json.field "ex" Json.float)  
+                      (Json.field "ey" Json.float)  
 
           )) 
           (Json.field "nextColor" Json.int) 
@@ -349,6 +419,55 @@ encodeChat cc =
   in
   encodePacket packet
 
+decodeCreateDoodadLine : Json.Value -> Result String PacketCreateDoodadLine 
+decodeCreateDoodadLine v =
+  let
+    d = Json.map4 PacketCreateDoodadLine
+          (Json.field "sx" Json.float) 
+          (Json.field "sy" Json.float) 
+          (Json.field "ex" Json.float) 
+          (Json.field "ey" Json.float) 
+    cc = Json.decodeValue d v
+  in
+    case cc of
+      Ok p -> Ok p
+      Err e -> Err <| Json.errorToString e
+
+encodeCreateDoodadLine : PacketCreateDoodadLine -> Json.Value
+encodeCreateDoodadLine cc = 
+  let
+    val = JE.object
+      [ ("sx", JE.float cc.sx)
+      , ("sy", JE.float cc.sy)
+      , ("ex", JE.float cc.ex)
+      , ("ey", JE.float cc.ey)
+      ]
+    packet = CreateDoodadLine val
+  in
+  encodePacket packet
+
+decodeClearDoodads : Json.Value -> Result String PacketClearDoodads 
+decodeClearDoodads _ = Ok PacketClearDoodads
+
+encodeClearDoodads : PacketClearDoodads -> Json.Value
+encodeClearDoodads cc = 
+  let
+    val = JE.object []
+    packet = ClearDoodads val
+  in
+  encodePacket packet
+
+decodeClearTokens : Json.Value -> Result String PacketClearTokens 
+decodeClearTokens _ = Ok PacketClearTokens
+
+encodeClearTokens : PacketClearTokens -> Json.Value
+encodeClearTokens cc = 
+  let
+    val = JE.object []
+    packet = ClearTokens val
+  in
+  encodePacket packet
+
 -- Update
 type Msg = Move Int (Float, Float)
          | Create (Float, Float)
@@ -367,6 +486,11 @@ type Msg = Move Int (Float, Float)
          | MsgSetUsername String
          | MsgFinishUsername 
          | MsgSetCreateMode CreateMode
+         | MsgCreateDoodadLine {sx : Float, sy : Float, ex : Float, ey : Float} 
+         | MsgSendClearDoodads
+         | MsgClearDoodads
+         | MsgSendClearTokens
+         | MsgClearTokens
          | MsgShowError String
          | MsgDoNothing -- TODO: there is probably a nicer solution for this
 
@@ -481,18 +605,26 @@ onMousePress event model =
           setFocus = Task.attempt ChangedFocus (Dom.focus "canvas")
         in
           if s < 0 && event.keys.ctrl then
-            ({ model
-             | action = None
-             , selected = -1
-             }
-            , Cmd.batch
-                [ wsSend 
-                    (encodeCreateToken (
-                      { x = x
-                      , y = y
-                      }  
-                    ))
-                , setFocus])
+            case model.createMode of
+              ModeCreateToken ->
+                ({ model
+                 | action = None
+                 , selected = -1
+                 }
+                , Cmd.batch
+                    [ wsSend 
+                        (encodeCreateToken (
+                          { x = x
+                          , y = y
+                          }  
+                        ))
+                    , setFocus])
+              ModeCreateLine ->
+                ({ model
+                 | action = ActionCreateLine { sx = x, sy = y, ex = x, ey = y } 
+                 , selected = -1
+                 }
+                , Cmd.none)
           else
             ({ model |
                selected = s,
@@ -533,7 +665,15 @@ onMouseRelease event model =
               }
             ))
           )
-
+      ActionCreateLine l ->
+        ({model | action = None},
+        wsSend (encodeCreateDoodadLine (
+                 { sx = l.sx 
+                 , sy = l.sy
+                 , ex = l.ex
+                 , ey = l.ey
+                 }
+                )))
       _ ->
         ({model | action = None}, Cmd.none)
 
@@ -564,6 +704,25 @@ onMouseMotion event model =
          , action = DragView {lastX = sx, lastY = sy}
         }
         , Cmd.none)
+      ActionCreateLine l ->
+        let
+          d = sqrt ((x - l.sx)^2 + (y - l.sy)^2) 
+        in
+          if d > 3 then
+            ({ model |
+               action = ActionCreateLine { l | sx = l.ex, sy = l.ey, ex = x, ey = y }
+             }
+            , wsSend (encodeCreateDoodadLine (
+                       { sx = l.sx 
+                       , sy = l.sy
+                       , ex = l.ex
+                       , ey = l.ey
+                       }
+                      )))
+          else
+            ({ model |
+               action = ActionCreateLine { l | ex = x, ey = y }
+            }, Cmd.none)
       _ ->
         ({ model|
            mouse = { x = x, y = y }
@@ -629,6 +788,7 @@ onMsgInit d model =
   ({ model |
      nextId = d.nextId
    , tokens = List.map initTokenToToken d.tokens  
+   , doodads = List.map initDoodadToDoodad d.doodads
    }
   , Cmd.none)
 
@@ -681,6 +841,38 @@ onMsgChatInput text model =
   }, Cmd.none)
 
 
+onMsgCreateDoodadLine : (Float, Float) -> (Float, Float) -> Model -> (Model, Cmd Msg)
+onMsgCreateDoodadLine (sx, sy) (ex, ey) model =
+  ({model |
+     doodads = (DoodadLine { id = 0
+                           , sx = sx
+                           , sy = sy
+                           , ex = ex
+                           , ey = ey}) :: model.doodads
+   }, Cmd.none)
+
+onMsgSendClearDoodads :  Model -> (Model, Cmd Msg)
+onMsgSendClearDoodads model =
+  ( model
+  , wsSend <| encodeClearDoodads PacketClearDoodads
+  )
+
+onMsgClearDoodads : Model -> (Model, Cmd Msg)
+onMsgClearDoodads model =
+  ( { model | doodads = [] }
+  , Cmd.none)
+
+onMsgSendClearTokens :  Model -> (Model, Cmd Msg)
+onMsgSendClearTokens model =
+  ( model
+  , wsSend <| encodeClearTokens PacketClearTokens
+  )
+
+onMsgClearTokens : Model -> (Model, Cmd Msg)
+onMsgClearTokens model =
+  ( { model | tokens = [] }
+  , Cmd.none)
+
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model = 
   case msg of
@@ -704,6 +896,11 @@ update msg model =
     MsgChat s m -> onMsgChat s m model
     ChatInput s -> onMsgChatInput s model 
     MsgSetCreateMode m -> ({model | createMode = m}, Cmd.none)
+    MsgCreateDoodadLine m -> onMsgCreateDoodadLine (m.sx, m.sy) (m.ex, m.ey)  model
+    MsgSendClearDoodads -> onMsgSendClearDoodads model
+    MsgClearDoodads -> onMsgClearDoodads model
+    MsgSendClearTokens -> onMsgSendClearTokens model
+    MsgClearTokens -> onMsgClearTokens model
     MsgDoNothing -> (model, Cmd.none)
     MsgShowError e ->
       let
@@ -758,6 +955,34 @@ onChat v =
       Ok o -> MsgChat o.sender o.message 
       Err e -> MsgShowError e 
 
+onCreateDoodadLine : JE.Value -> Msg
+onCreateDoodadLine v = 
+  let
+    p = decodeCreateDoodadLine v
+  in
+    case p of
+      Ok o -> MsgCreateDoodadLine o 
+      Err e -> MsgShowError e 
+
+
+onClearDoodads : JE.Value -> Msg
+onClearDoodads v = 
+  let
+    p = decodeClearDoodads v
+  in
+    case p of
+      Ok o -> MsgClearDoodads
+      Err e -> MsgShowError e 
+
+onClearTokens : JE.Value -> Msg
+onClearTokens v = 
+  let
+    p = decodeClearTokens v
+  in
+    case p of
+      Ok o -> MsgClearTokens
+      Err e -> MsgShowError e 
+
 
 onPacket : Packet -> Msg
 onPacket p =
@@ -767,6 +992,9 @@ onPacket p =
     DeleteToken d -> onDeleteToken d
     Init d -> onInit d 
     Chat d -> onChat d 
+    CreateDoodadLine d -> onCreateDoodadLine d 
+    ClearDoodads d -> onClearDoodads d 
+    ClearTokens d -> onClearTokens d 
 
 onWsReceive : JE.Value -> Msg
 onWsReceive v =
@@ -800,6 +1028,7 @@ type alias Dimensions = { canvasWidth : Int
                         , chatWidth : Int
                         , chatHeight : Int
                         , toolbarHeight : Int
+                        , toolbarWidth : Int
                         }
 
 
@@ -807,7 +1036,19 @@ computeCanvasHeight : Int -> Int
 computeCanvasHeight h = h - 48 
 
 computeCanvasWidth : Int -> Int
-computeCanvasWidth w = floor <| 0.8 * toFloat w - 10
+computeCanvasWidth w = w - 370
+
+dimensionsFromModel : Model -> Dimensions
+dimensionsFromModel m =
+  { canvasWidth = computeCanvasWidth m.window.width 
+  , canvasHeight = computeCanvasHeight m.window.height
+  , toolbarHeight = 40
+  , toolbarWidth = (computeCanvasWidth m.window.width) - 30
+  , toolsWidth = 350 
+  , toolsHeight = floor <| 0 * toFloat m.window.height
+  , chatWidth = 350 
+  , chatHeight = floor <| 1 * toFloat m.window.height
+  }
 
 clearCanvas : Int -> Int -> C.Renderable
 clearCanvas w h = C.shapes [Color.rgb 0.2 0.2 0.2 |> C.fill]
@@ -849,7 +1090,7 @@ viewGrid s m d =
                                              , offy + (toFloat i) * step)
                                   , C.lineTo ( toFloat d.canvasWidth
                                              , offy + (toFloat i) * step)])
-                          (List.range 0 numx)))
+                          (List.range 0 numy)))
              ]
 
 viewCircle : Circle -> C.Renderable
@@ -866,6 +1107,13 @@ viewToken highlighted trans t =
       else
         C.shapes (trans ++ [d.color |> C.fill])
                  [C.circle (d.x, d.y) d.radius]
+
+viewDoodad : List C.Setting -> Doodad -> C.Renderable
+viewDoodad trans t =
+  case t of
+    DoodadLine l ->
+       C.shapes (trans ++ [(Color.rgb 1 1 1) |> C.stroke])
+                [C.path (l.sx, l.sy) [C.lineTo (l.ex, l.ey)]]
 
 floatToString : Int -> Float -> String
 floatToString d f =
@@ -906,16 +1154,14 @@ viewDistanceLine m d trans =
         in
           distanceLineRenderable (x, y) (m.mouse.x, m.mouse.y) m d trans
 
-dimensionsFromModel : Model -> Dimensions
-dimensionsFromModel m =
-  { canvasWidth = computeCanvasWidth m.window.width 
-  , canvasHeight = computeCanvasHeight m.window.height
-  , toolbarHeight = 40
-  , toolsWidth = floor <| 0.2 * toFloat m.window.width - 20
-  , toolsHeight = floor <| 0 * toFloat m.window.height
-  , chatWidth = floor <| 0.2 * toFloat m.window.width - 20
-  , chatHeight = floor <| 1 * toFloat m.window.height
-  }
+viewCurrentDoodad : List C.Setting -> Model -> List C.Renderable
+viewCurrentDoodad trans model =
+  case model.action of
+    ActionCreateLine l ->
+       [C.shapes (trans ++ [(Color.rgb 1 1 1) |> C.stroke])
+                 [C.path (l.sx, l.sy) [C.lineTo (l.ex, l.ey)]]]
+    _ -> []
+
 
 canvasTransform : Dimensions -> Model -> List C.Setting
 canvasTransform d m =
@@ -961,7 +1207,7 @@ view model =
         Html.div [A.id "main-screen"]
           [ Html.div [ A.id "toolbar"
                      , A.style "height" <| String.fromInt dim.toolbarHeight
-                     , A.style "width" <| String.fromInt dim.canvasWidth
+                     , A.style "width" <| String.fromInt dim.toolbarWidth
                      ]
                      [ radioButton (MsgSetCreateMode ModeCreateToken)
                                    "images/circle.png" 
@@ -969,6 +1215,15 @@ view model =
                      , radioButton (MsgSetCreateMode ModeCreateLine)
                                    "images/line.png"
                                    <| model.createMode == ModeCreateLine
+
+                     , Html.button [A.id "button-clear-doodads"
+                                   , onClick MsgSendClearDoodads 
+                                   ]
+                                   [Html.text "Clear Doodads"]
+                     , Html.button [A.id "button-clear-tokens"
+                                   , onClick MsgSendClearTokens
+                                   ]
+                                   [Html.text "Clear Tokens"]
                      ]
           , C.toHtml (dim.canvasWidth, dim.canvasHeight) 
                      [ Mouse.onDown (\event -> MousePress event)
@@ -981,6 +1236,9 @@ view model =
                      , A.id "canvas"] 
                      (List.concat [ [clearCanvas dim.canvasWidth dim.canvasHeight]
                                   , [viewGrid 5 model dim]
+                                  , List.map (viewDoodad trans)
+                                             model.doodads
+                                  , viewCurrentDoodad trans model
                                   , List.map (viewToken model.selected trans)
                                              model.tokens
                                   , viewDistanceLine model dim trans

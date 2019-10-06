@@ -4347,6 +4347,7 @@ var _Bitwise_shiftRightZfBy = F2(function(offset, a)
 {
 	return a >>> offset;
 });
+var author$project$Main$ModeCreateToken = {$: 'ModeCreateToken'};
 var author$project$Main$None = {$: 'None'};
 var elm$core$Array$Array_elm_builtin = F4(
 	function (a, b, c, d) {
@@ -4839,6 +4840,8 @@ var author$project$Main$init = function (_n0) {
 					_Utils_Tuple2('Server', 'Welcome to GOATS ROCK!')
 				]),
 			chatText: '',
+			createMode: author$project$Main$ModeCreateToken,
+			doodads: _List_Nil,
 			mouse: {x: 0, y: 0},
 			nextId: 0,
 			selected: -1,
@@ -4871,25 +4874,37 @@ var author$project$Main$RawPacket = F2(
 var author$project$Main$Chat = function (a) {
 	return {$: 'Chat', a: a};
 };
-var author$project$Main$CreateCreature = function (a) {
-	return {$: 'CreateCreature', a: a};
+var author$project$Main$ClearDoodads = function (a) {
+	return {$: 'ClearDoodads', a: a};
 };
-var author$project$Main$DeleteCreature = function (a) {
-	return {$: 'DeleteCreature', a: a};
+var author$project$Main$ClearTokens = function (a) {
+	return {$: 'ClearTokens', a: a};
+};
+var author$project$Main$CreateDoodadLine = function (a) {
+	return {$: 'CreateDoodadLine', a: a};
+};
+var author$project$Main$CreateToken = function (a) {
+	return {$: 'CreateToken', a: a};
+};
+var author$project$Main$DeleteToken = function (a) {
+	return {$: 'DeleteToken', a: a};
 };
 var author$project$Main$Init = function (a) {
 	return {$: 'Init', a: a};
 };
-var author$project$Main$MoveCreature = function (a) {
-	return {$: 'MoveCreature', a: a};
+var author$project$Main$MoveToken = function (a) {
+	return {$: 'MoveToken', a: a};
 };
 var author$project$Main$rawPacketToPacket = function (rawPacket) {
-	return (rawPacket.t === 'CreateCreature') ? elm$core$Result$Ok(
-		author$project$Main$CreateCreature(rawPacket.d)) : ((rawPacket.t === 'DeleteCreature') ? elm$core$Result$Ok(
-		author$project$Main$DeleteCreature(rawPacket.d)) : ((rawPacket.t === 'MoveCreature') ? elm$core$Result$Ok(
-		author$project$Main$MoveCreature(rawPacket.d)) : ((rawPacket.t === 'Init') ? elm$core$Result$Ok(
+	return (rawPacket.t === 'CreateToken') ? elm$core$Result$Ok(
+		author$project$Main$CreateToken(rawPacket.d)) : ((rawPacket.t === 'DeleteToken') ? elm$core$Result$Ok(
+		author$project$Main$DeleteToken(rawPacket.d)) : ((rawPacket.t === 'MoveToken') ? elm$core$Result$Ok(
+		author$project$Main$MoveToken(rawPacket.d)) : ((rawPacket.t === 'Init') ? elm$core$Result$Ok(
 		author$project$Main$Init(rawPacket.d)) : ((rawPacket.t === 'Chat') ? elm$core$Result$Ok(
-		author$project$Main$Chat(rawPacket.d)) : elm$core$Result$Err('Unknown packet type ' + rawPacket.t)))));
+		author$project$Main$Chat(rawPacket.d)) : ((rawPacket.t === 'CreateDoodadLine') ? elm$core$Result$Ok(
+		author$project$Main$CreateDoodadLine(rawPacket.d)) : ((rawPacket.t === 'ClearDoodads') ? elm$core$Result$Ok(
+		author$project$Main$ClearDoodads(rawPacket.d)) : ((rawPacket.t === 'ClearTokens') ? elm$core$Result$Ok(
+		author$project$Main$ClearTokens(rawPacket.d)) : elm$core$Result$Err('Unknown packet type ' + rawPacket.t))))))));
 };
 var elm$json$Json$Decode$decodeValue = _Json_run;
 var elm$json$Json$Decode$field = _Json_decodeField;
@@ -4946,18 +4961,84 @@ var author$project$Main$onChat = function (v) {
 		return author$project$Main$MsgShowError(e);
 	}
 };
+var author$project$Main$MsgClearDoodads = {$: 'MsgClearDoodads'};
+var author$project$Main$PacketClearDoodads = {};
+var author$project$Main$decodeClearDoodads = function (_n0) {
+	return elm$core$Result$Ok(author$project$Main$PacketClearDoodads);
+};
+var author$project$Main$onClearDoodads = function (v) {
+	var p = author$project$Main$decodeClearDoodads(v);
+	if (p.$ === 'Ok') {
+		var o = p.a;
+		return author$project$Main$MsgClearDoodads;
+	} else {
+		var e = p.a;
+		return author$project$Main$MsgShowError(e);
+	}
+};
+var author$project$Main$MsgClearTokens = {$: 'MsgClearTokens'};
+var author$project$Main$PacketClearTokens = {};
+var author$project$Main$decodeClearTokens = function (_n0) {
+	return elm$core$Result$Ok(author$project$Main$PacketClearTokens);
+};
+var author$project$Main$onClearTokens = function (v) {
+	var p = author$project$Main$decodeClearTokens(v);
+	if (p.$ === 'Ok') {
+		var o = p.a;
+		return author$project$Main$MsgClearTokens;
+	} else {
+		var e = p.a;
+		return author$project$Main$MsgShowError(e);
+	}
+};
+var author$project$Main$MsgCreateDoodadLine = function (a) {
+	return {$: 'MsgCreateDoodadLine', a: a};
+};
+var author$project$Main$PacketCreateDoodadLine = F4(
+	function (sx, sy, ex, ey) {
+		return {ex: ex, ey: ey, sx: sx, sy: sy};
+	});
+var elm$json$Json$Decode$float = _Json_decodeFloat;
+var elm$json$Json$Decode$map4 = _Json_map4;
+var author$project$Main$decodeCreateDoodadLine = function (v) {
+	var d = A5(
+		elm$json$Json$Decode$map4,
+		author$project$Main$PacketCreateDoodadLine,
+		A2(elm$json$Json$Decode$field, 'sx', elm$json$Json$Decode$float),
+		A2(elm$json$Json$Decode$field, 'sy', elm$json$Json$Decode$float),
+		A2(elm$json$Json$Decode$field, 'ex', elm$json$Json$Decode$float),
+		A2(elm$json$Json$Decode$field, 'ey', elm$json$Json$Decode$float));
+	var cc = A2(elm$json$Json$Decode$decodeValue, d, v);
+	if (cc.$ === 'Ok') {
+		var p = cc.a;
+		return elm$core$Result$Ok(p);
+	} else {
+		var e = cc.a;
+		return elm$core$Result$Err(
+			elm$json$Json$Decode$errorToString(e));
+	}
+};
+var author$project$Main$onCreateDoodadLine = function (v) {
+	var p = author$project$Main$decodeCreateDoodadLine(v);
+	if (p.$ === 'Ok') {
+		var o = p.a;
+		return author$project$Main$MsgCreateDoodadLine(o);
+	} else {
+		var e = p.a;
+		return author$project$Main$MsgShowError(e);
+	}
+};
 var author$project$Main$Create = function (a) {
 	return {$: 'Create', a: a};
 };
-var author$project$Main$PacketCreateCreature = F2(
+var author$project$Main$PacketCreateToken = F2(
 	function (x, y) {
 		return {x: x, y: y};
 	});
-var elm$json$Json$Decode$float = _Json_decodeFloat;
-var author$project$Main$decodeCreateCreature = function (v) {
+var author$project$Main$decodeCreateToken = function (v) {
 	var d = A3(
 		elm$json$Json$Decode$map2,
-		author$project$Main$PacketCreateCreature,
+		author$project$Main$PacketCreateToken,
 		A2(elm$json$Json$Decode$field, 'x', elm$json$Json$Decode$float),
 		A2(elm$json$Json$Decode$field, 'y', elm$json$Json$Decode$float));
 	var cc = A2(elm$json$Json$Decode$decodeValue, d, v);
@@ -4970,8 +5051,8 @@ var author$project$Main$decodeCreateCreature = function (v) {
 			elm$json$Json$Decode$errorToString(e));
 	}
 };
-var author$project$Main$onCreateCreature = function (v) {
-	var p = author$project$Main$decodeCreateCreature(v);
+var author$project$Main$onCreateToken = function (v) {
+	var p = author$project$Main$decodeCreateToken(v);
 	if (p.$ === 'Ok') {
 		var o = p.a;
 		return author$project$Main$Create(
@@ -4984,15 +5065,15 @@ var author$project$Main$onCreateCreature = function (v) {
 var author$project$Main$Destroy = function (a) {
 	return {$: 'Destroy', a: a};
 };
-var author$project$Main$PacketDeleteCreature = function (id) {
+var author$project$Main$PacketDeleteToken = function (id) {
 	return {id: id};
 };
 var elm$json$Json$Decode$int = _Json_decodeInt;
 var elm$json$Json$Decode$map = _Json_map1;
-var author$project$Main$decodeDeleteCreature = function (v) {
+var author$project$Main$decodeDeleteToken = function (v) {
 	var d = A2(
 		elm$json$Json$Decode$map,
-		author$project$Main$PacketDeleteCreature,
+		author$project$Main$PacketDeleteToken,
 		A2(elm$json$Json$Decode$field, 'id', elm$json$Json$Decode$int));
 	var cc = A2(elm$json$Json$Decode$decodeValue, d, v);
 	if (cc.$ === 'Ok') {
@@ -5004,8 +5085,8 @@ var author$project$Main$decodeDeleteCreature = function (v) {
 			elm$json$Json$Decode$errorToString(e));
 	}
 };
-var author$project$Main$onDeleteCreature = function (v) {
-	var p = author$project$Main$decodeDeleteCreature(v);
+var author$project$Main$onDeleteToken = function (v) {
+	var p = author$project$Main$decodeDeleteToken(v);
 	if (p.$ === 'Ok') {
 		var o = p.a;
 		return author$project$Main$Destroy(o.id);
@@ -5017,20 +5098,24 @@ var author$project$Main$onDeleteCreature = function (v) {
 var author$project$Main$MsgInit = function (a) {
 	return {$: 'MsgInit', a: a};
 };
+var author$project$Main$InitDoodad = F6(
+	function (id, doodadType, sx, sy, ex, ey) {
+		return {doodadType: doodadType, ex: ex, ey: ey, id: id, sx: sx, sy: sy};
+	});
 var author$project$Main$InitToken = F7(
 	function (id, x, y, radius, r, g, b) {
 		return {b: b, g: g, id: id, r: r, radius: radius, x: x, y: y};
 	});
-var author$project$Main$PacketInit = F3(
-	function (tokens, nextColor, nextId) {
-		return {nextColor: nextColor, nextId: nextId, tokens: tokens};
+var author$project$Main$PacketInit = F4(
+	function (tokens, doodads, nextColor, nextId) {
+		return {doodads: doodads, nextColor: nextColor, nextId: nextId, tokens: tokens};
 	});
 var elm$json$Json$Decode$list = _Json_decodeList;
-var elm$json$Json$Decode$map3 = _Json_map3;
+var elm$json$Json$Decode$map6 = _Json_map6;
 var elm$json$Json$Decode$map7 = _Json_map7;
 var author$project$Main$decodeInit = function (v) {
-	var d = A4(
-		elm$json$Json$Decode$map3,
+	var d = A5(
+		elm$json$Json$Decode$map4,
 		author$project$Main$PacketInit,
 		A2(
 			elm$json$Json$Decode$field,
@@ -5046,6 +5131,19 @@ var author$project$Main$decodeInit = function (v) {
 					A2(elm$json$Json$Decode$field, 'r', elm$json$Json$Decode$float),
 					A2(elm$json$Json$Decode$field, 'g', elm$json$Json$Decode$float),
 					A2(elm$json$Json$Decode$field, 'b', elm$json$Json$Decode$float)))),
+		A2(
+			elm$json$Json$Decode$field,
+			'doodads',
+			elm$json$Json$Decode$list(
+				A7(
+					elm$json$Json$Decode$map6,
+					author$project$Main$InitDoodad,
+					A2(elm$json$Json$Decode$field, 'id', elm$json$Json$Decode$int),
+					A2(elm$json$Json$Decode$field, 'type', elm$json$Json$Decode$string),
+					A2(elm$json$Json$Decode$field, 'sx', elm$json$Json$Decode$float),
+					A2(elm$json$Json$Decode$field, 'sy', elm$json$Json$Decode$float),
+					A2(elm$json$Json$Decode$field, 'ex', elm$json$Json$Decode$float),
+					A2(elm$json$Json$Decode$field, 'ey', elm$json$Json$Decode$float)))),
 		A2(elm$json$Json$Decode$field, 'nextColor', elm$json$Json$Decode$int),
 		A2(elm$json$Json$Decode$field, 'nextId', elm$json$Json$Decode$int));
 	var cc = A2(elm$json$Json$Decode$decodeValue, d, v);
@@ -5072,14 +5170,15 @@ var author$project$Main$Move = F2(
 	function (a, b) {
 		return {$: 'Move', a: a, b: b};
 	});
-var author$project$Main$PacketMoveCreature = F3(
+var author$project$Main$PacketMoveToken = F3(
 	function (id, x, y) {
 		return {id: id, x: x, y: y};
 	});
-var author$project$Main$decodeMoveCreature = function (v) {
+var elm$json$Json$Decode$map3 = _Json_map3;
+var author$project$Main$decodeMoveToken = function (v) {
 	var d = A4(
 		elm$json$Json$Decode$map3,
-		author$project$Main$PacketMoveCreature,
+		author$project$Main$PacketMoveToken,
 		A2(elm$json$Json$Decode$field, 'id', elm$json$Json$Decode$int),
 		A2(elm$json$Json$Decode$field, 'x', elm$json$Json$Decode$float),
 		A2(elm$json$Json$Decode$field, 'y', elm$json$Json$Decode$float));
@@ -5093,8 +5192,8 @@ var author$project$Main$decodeMoveCreature = function (v) {
 			elm$json$Json$Decode$errorToString(e));
 	}
 };
-var author$project$Main$onMoveCreature = function (v) {
-	var p = author$project$Main$decodeMoveCreature(v);
+var author$project$Main$onMoveToken = function (v) {
+	var p = author$project$Main$decodeMoveToken(v);
 	if (p.$ === 'Ok') {
 		var o = p.a;
 		return A2(
@@ -5108,21 +5207,30 @@ var author$project$Main$onMoveCreature = function (v) {
 };
 var author$project$Main$onPacket = function (p) {
 	switch (p.$) {
-		case 'CreateCreature':
+		case 'CreateToken':
 			var d = p.a;
-			return author$project$Main$onCreateCreature(d);
-		case 'MoveCreature':
+			return author$project$Main$onCreateToken(d);
+		case 'MoveToken':
 			var d = p.a;
-			return author$project$Main$onMoveCreature(d);
-		case 'DeleteCreature':
+			return author$project$Main$onMoveToken(d);
+		case 'DeleteToken':
 			var d = p.a;
-			return author$project$Main$onDeleteCreature(d);
+			return author$project$Main$onDeleteToken(d);
 		case 'Init':
 			var d = p.a;
 			return author$project$Main$onInit(d);
-		default:
+		case 'Chat':
 			var d = p.a;
 			return author$project$Main$onChat(d);
+		case 'CreateDoodadLine':
+			var d = p.a;
+			return author$project$Main$onCreateDoodadLine(d);
+		case 'ClearDoodads':
+			var d = p.a;
+			return author$project$Main$onClearDoodads(d);
+		default:
+			var d = p.a;
+			return author$project$Main$onClearTokens(d);
 	}
 };
 var author$project$Main$onWsReceive = function (v) {
@@ -5889,34 +5997,34 @@ var elm$json$Json$Encode$object = function (pairs) {
 var elm$json$Json$Encode$string = _Json_wrap;
 var author$project$Main$encodePacket = function (p) {
 	switch (p.$) {
-		case 'CreateCreature':
+		case 'CreateToken':
 			var v = p.a;
 			return elm$json$Json$Encode$object(
 				_List_fromArray(
 					[
 						_Utils_Tuple2(
 						'type',
-						elm$json$Json$Encode$string('CreateCreature')),
+						elm$json$Json$Encode$string('CreateToken')),
 						_Utils_Tuple2('data', v)
 					]));
-		case 'DeleteCreature':
+		case 'DeleteToken':
 			var v = p.a;
 			return elm$json$Json$Encode$object(
 				_List_fromArray(
 					[
 						_Utils_Tuple2(
 						'type',
-						elm$json$Json$Encode$string('DeleteCreature')),
+						elm$json$Json$Encode$string('DeleteToken')),
 						_Utils_Tuple2('data', v)
 					]));
-		case 'MoveCreature':
+		case 'MoveToken':
 			var v = p.a;
 			return elm$json$Json$Encode$object(
 				_List_fromArray(
 					[
 						_Utils_Tuple2(
 						'type',
-						elm$json$Json$Encode$string('MoveCreature')),
+						elm$json$Json$Encode$string('MoveToken')),
 						_Utils_Tuple2('data', v)
 					]));
 		case 'Init':
@@ -5927,7 +6035,7 @@ var author$project$Main$encodePacket = function (p) {
 						'type',
 						elm$json$Json$Encode$string('unsupported'))
 					]));
-		default:
+		case 'Chat':
 			var v = p.a;
 			return elm$json$Json$Encode$object(
 				_List_fromArray(
@@ -5935,6 +6043,36 @@ var author$project$Main$encodePacket = function (p) {
 						_Utils_Tuple2(
 						'type',
 						elm$json$Json$Encode$string('Chat')),
+						_Utils_Tuple2('data', v)
+					]));
+		case 'CreateDoodadLine':
+			var v = p.a;
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('CreateDoodadLine')),
+						_Utils_Tuple2('data', v)
+					]));
+		case 'ClearDoodads':
+			var v = p.a;
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('ClearDoodads')),
+						_Utils_Tuple2('data', v)
+					]));
+		default:
+			var v = p.a;
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('ClearTokens')),
 						_Utils_Tuple2('data', v)
 					]));
 	}
@@ -6228,8 +6366,8 @@ var author$project$Main$onChatKeyDown = F2(
 			}
 		}
 	});
-var author$project$Main$Creature = function (a) {
-	return {$: 'Creature', a: a};
+var author$project$Main$Token = function (a) {
+	return {$: 'Token', a: a};
 };
 var avh4$elm_color$Color$RgbaSpace = F4(
 	function (a, b, c, d) {
@@ -6291,7 +6429,7 @@ var author$project$Main$onCreate = F2(
 					nextId: model.nextId + 1,
 					tokens: A2(
 						elm$core$List$cons,
-						author$project$Main$Creature(
+						author$project$Main$Token(
 							{
 								color: A2(
 									elm$core$Maybe$withDefault,
@@ -6314,19 +6452,11 @@ var author$project$Main$deleteToken = F2(
 		} else {
 			var h = l.a;
 			var t = l.b;
-			if (h.$ === 'Doodad') {
-				var d = h.a;
-				return _Utils_eq(d.id, i) ? t : A2(
-					elm$core$List$cons,
-					h,
-					A2(author$project$Main$deleteToken, i, t));
-			} else {
-				var d = h.a;
-				return _Utils_eq(d.id, i) ? t : A2(
-					elm$core$List$cons,
-					h,
-					A2(author$project$Main$deleteToken, i, t));
-			}
+			var d = h.a;
+			return _Utils_eq(d.id, i) ? t : A2(
+				elm$core$List$cons,
+				h,
+				A2(author$project$Main$deleteToken, i, t));
 		}
 	});
 var author$project$Main$onDestroy = F2(
@@ -6341,7 +6471,7 @@ var author$project$Main$onDestroy = F2(
 	});
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Delete = {$: 'Delete'};
 var elm$json$Json$Encode$int = _Json_wrap;
-var author$project$Main$encodeDeleteCreature = function (cc) {
+var author$project$Main$encodeDeleteToken = function (cc) {
 	var val = elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
@@ -6349,7 +6479,7 @@ var author$project$Main$encodeDeleteCreature = function (cc) {
 				'id',
 				elm$json$Json$Encode$int(cc.id))
 			]));
-	var packet = author$project$Main$DeleteCreature(val);
+	var packet = author$project$Main$DeleteToken(val);
 	return author$project$Main$encodePacket(packet);
 };
 var author$project$Main$onKeyDown = F2(
@@ -6359,9 +6489,12 @@ var author$project$Main$onKeyDown = F2(
 				model,
 				{selected: -1}),
 			author$project$Main$wsSend(
-				author$project$Main$encodeDeleteCreature(
+				author$project$Main$encodeDeleteToken(
 					{id: model.selected}))) : _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 	});
+var author$project$Main$ActionCreateLine = function (a) {
+	return {$: 'ActionCreateLine', a: a};
+};
 var author$project$Main$DragToken = function (a) {
 	return {$: 'DragToken', a: a};
 };
@@ -6375,53 +6508,62 @@ var author$project$Main$applyToToken = F3(
 		} else {
 			var h = l.a;
 			var t = l.b;
-			if (h.$ === 'Doodad') {
-				var d = h.a;
-				return _Utils_eq(d.id, i) ? A2(
-					elm$core$List$cons,
-					f(h),
-					A3(author$project$Main$applyToToken, f, i, t)) : A2(
-					elm$core$List$cons,
-					h,
-					A3(author$project$Main$applyToToken, f, i, t));
-			} else {
-				var d = h.a;
-				return _Utils_eq(d.id, i) ? A2(
-					elm$core$List$cons,
-					f(h),
-					A3(author$project$Main$applyToToken, f, i, t)) : A2(
-					elm$core$List$cons,
-					h,
-					A3(author$project$Main$applyToToken, f, i, t));
-			}
+			var d = h.a;
+			return _Utils_eq(d.id, i) ? A2(
+				elm$core$List$cons,
+				f(h),
+				A3(author$project$Main$applyToToken, f, i, t)) : A2(
+				elm$core$List$cons,
+				h,
+				A3(author$project$Main$applyToToken, f, i, t));
 		}
 	});
+var elm$json$Json$Encode$float = _Json_wrap;
+var author$project$Main$encodeCreateDoodadLine = function (cc) {
+	var val = elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'sx',
+				elm$json$Json$Encode$float(cc.sx)),
+				_Utils_Tuple2(
+				'sy',
+				elm$json$Json$Encode$float(cc.sy)),
+				_Utils_Tuple2(
+				'ex',
+				elm$json$Json$Encode$float(cc.ex)),
+				_Utils_Tuple2(
+				'ey',
+				elm$json$Json$Encode$float(cc.ey))
+			]));
+	var packet = author$project$Main$CreateDoodadLine(val);
+	return author$project$Main$encodePacket(packet);
+};
+var author$project$Main$computeCanvasHeight = function (h) {
+	return h - 48;
+};
+var author$project$Main$computeCanvasWidth = function (w) {
+	return w - 370;
+};
 var author$project$Main$screenToWorld = F2(
 	function (m, _n0) {
 		var x = _n0.a;
 		var y = _n0.b;
-		var scale = m.view.height / m.window.height;
-		return _Utils_Tuple2(((x - ((0.8 * 0.5) * m.window.width)) * scale) + m.view.x, ((y - (0.5 * m.window.height)) * scale) + m.view.y);
+		var scale = m.view.height / author$project$Main$computeCanvasHeight(m.window.height);
+		return _Utils_Tuple2(
+			((x - (0.5 * author$project$Main$computeCanvasWidth(m.window.width))) * scale) + m.view.x,
+			((y - (0.5 * author$project$Main$computeCanvasHeight(m.window.height))) * scale) + m.view.y);
 	});
-var author$project$Main$Doodad = function (a) {
-	return {$: 'Doodad', a: a};
-};
 var author$project$Main$tokenSetPosition = F3(
 	function (x, y, t) {
-		if (t.$ === 'Doodad') {
-			var d = t.a;
-			return author$project$Main$Doodad(
-				_Utils_update(
-					d,
-					{x: x, y: y}));
-		} else {
-			var c = t.a;
-			return author$project$Main$Creature(
-				_Utils_update(
-					c,
-					{x: x, y: y}));
-		}
+		var c = t.a;
+		return author$project$Main$Token(
+			_Utils_update(
+				c,
+				{x: x, y: y}));
 	});
+var elm$core$Basics$pow = _Basics_pow;
+var elm$core$Basics$sqrt = _Basics_sqrt;
 var author$project$Main$onMouseMotion = F2(
 	function (event, model) {
 		var _n0 = A2(author$project$Main$screenToWorld, model, event.offsetPos);
@@ -6458,6 +6600,31 @@ var author$project$Main$onMouseMotion = F2(
 							view: {height: model.view.height, x: model.view.x - (((sx - d.lastX) / model.window.height) * model.view.height), y: model.view.y - (((sy - d.lastY) / model.window.height) * model.view.height)}
 						}),
 					elm$core$Platform$Cmd$none);
+			case 'ActionCreateLine':
+				var l = _n2.a;
+				var d = elm$core$Basics$sqrt(
+					A2(elm$core$Basics$pow, x - l.sx, 2) + A2(elm$core$Basics$pow, y - l.sy, 2));
+				return (d > 3) ? _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							action: author$project$Main$ActionCreateLine(
+								_Utils_update(
+									l,
+									{ex: x, ey: y, sx: l.ex, sy: l.ey}))
+						}),
+					author$project$Main$wsSend(
+						author$project$Main$encodeCreateDoodadLine(
+							{ex: l.ex, ey: l.ey, sx: l.sx, sy: l.sy}))) : _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							action: author$project$Main$ActionCreateLine(
+								_Utils_update(
+									l,
+									{ex: x, ey: y}))
+						}),
+					elm$core$Platform$Cmd$none);
 			default:
 				return _Utils_Tuple2(
 					_Utils_update(
@@ -6471,8 +6638,6 @@ var author$project$Main$onMouseMotion = F2(
 var author$project$Main$ChangedFocus = function (a) {
 	return {$: 'ChangedFocus', a: a};
 };
-var elm$core$Basics$pow = _Basics_pow;
-var elm$core$Basics$sqrt = _Basics_sqrt;
 var author$project$Main$tokenIdAt = F3(
 	function (x, y, l) {
 		tokenIdAt:
@@ -6482,38 +6647,20 @@ var author$project$Main$tokenIdAt = F3(
 			} else {
 				var h = l.a;
 				var t = l.b;
-				if (h.$ === 'Doodad') {
-					var d = h.a;
-					if (_Utils_cmp(
-						elm$core$Basics$sqrt(
-							A2(elm$core$Basics$pow, x - d.x, 2) + A2(elm$core$Basics$pow, y - d.y, 2)),
-						d.radius) < 0) {
-						return d.id;
-					} else {
-						var $temp$x = x,
-							$temp$y = y,
-							$temp$l = t;
-						x = $temp$x;
-						y = $temp$y;
-						l = $temp$l;
-						continue tokenIdAt;
-					}
+				var c = h.a;
+				if (_Utils_cmp(
+					elm$core$Basics$sqrt(
+						A2(elm$core$Basics$pow, x - c.x, 2) + A2(elm$core$Basics$pow, y - c.y, 2)),
+					c.radius) < 0) {
+					return c.id;
 				} else {
-					var c = h.a;
-					if (_Utils_cmp(
-						elm$core$Basics$sqrt(
-							A2(elm$core$Basics$pow, x - c.x, 2) + A2(elm$core$Basics$pow, y - c.y, 2)),
-						c.radius) < 0) {
-						return c.id;
-					} else {
-						var $temp$x = x,
-							$temp$y = y,
-							$temp$l = t;
-						x = $temp$x;
-						y = $temp$y;
-						l = $temp$l;
-						continue tokenIdAt;
-					}
+					var $temp$x = x,
+						$temp$y = y,
+						$temp$l = t;
+					x = $temp$x;
+					y = $temp$y;
+					l = $temp$l;
+					continue tokenIdAt;
 				}
 			}
 		}
@@ -6525,20 +6672,14 @@ var author$project$Main$creatureIdAt = F3(
 		} else {
 			var h = l.a;
 			var t = l.b;
-			if (h.$ === 'Doodad') {
-				var d = h.a;
-				return A3(author$project$Main$tokenIdAt, x, y, t);
-			} else {
-				var c = h.a;
-				return (_Utils_cmp(
-					elm$core$Basics$sqrt(
-						A2(elm$core$Basics$pow, x - c.x, 2) + A2(elm$core$Basics$pow, y - c.y, 2)),
-					c.radius) < 0) ? c.id : A3(author$project$Main$tokenIdAt, x, y, t);
-			}
+			var c = h.a;
+			return (_Utils_cmp(
+				elm$core$Basics$sqrt(
+					A2(elm$core$Basics$pow, x - c.x, 2) + A2(elm$core$Basics$pow, y - c.y, 2)),
+				c.radius) < 0) ? c.id : A3(author$project$Main$tokenIdAt, x, y, t);
 		}
 	});
-var elm$json$Json$Encode$float = _Json_wrap;
-var author$project$Main$encodeCreateCreature = function (cc) {
+var author$project$Main$encodeCreateToken = function (cc) {
 	var val = elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
@@ -6549,7 +6690,7 @@ var author$project$Main$encodeCreateCreature = function (cc) {
 				'y',
 				elm$json$Json$Encode$float(cc.y))
 			]));
-	var packet = author$project$Main$CreateCreature(val);
+	var packet = author$project$Main$CreateToken(val);
 	return author$project$Main$encodePacket(packet);
 };
 var author$project$Main$getToken = F2(
@@ -6561,30 +6702,16 @@ var author$project$Main$getToken = F2(
 			} else {
 				var h = l.a;
 				var t = l.b;
-				if (h.$ === 'Doodad') {
-					var d = h.a;
-					if (_Utils_eq(d.id, i)) {
-						return elm$core$Maybe$Just(
-							author$project$Main$Doodad(d));
-					} else {
-						var $temp$i = i,
-							$temp$l = t;
-						i = $temp$i;
-						l = $temp$l;
-						continue getToken;
-					}
+				var d = h.a;
+				if (_Utils_eq(d.id, i)) {
+					return elm$core$Maybe$Just(
+						author$project$Main$Token(d));
 				} else {
-					var d = h.a;
-					if (_Utils_eq(d.id, i)) {
-						return elm$core$Maybe$Just(
-							author$project$Main$Creature(d));
-					} else {
-						var $temp$i = i,
-							$temp$l = t;
-						i = $temp$i;
-						l = $temp$l;
-						continue getToken;
-					}
+					var $temp$i = i,
+						$temp$l = t;
+					i = $temp$i;
+					l = $temp$l;
+					continue getToken;
 				}
 			}
 		}
@@ -6631,13 +6758,8 @@ var author$project$Main$onMousePress = F2(
 				var cy = function () {
 					if (mt.$ === 'Just') {
 						var c = mt.a;
-						if (c.$ === 'Creature') {
-							var cr = c.a;
-							return cr.y;
-						} else {
-							var _do = c.a;
-							return _do.y;
-						}
+						var cr = c.a;
+						return cr.y;
 					} else {
 						return y;
 					}
@@ -6645,13 +6767,8 @@ var author$project$Main$onMousePress = F2(
 				var cx = function () {
 					if (mt.$ === 'Just') {
 						var c = mt.a;
-						if (c.$ === 'Creature') {
-							var cr = c.a;
-							return cr.x;
-						} else {
-							var _do = c.a;
-							return _do.x;
-						}
+						var cr = c.a;
+						return cr.x;
 					} else {
 						return x;
 					}
@@ -6662,22 +6779,39 @@ var author$project$Main$onMousePress = F2(
 				var a = (s < 0) ? author$project$Main$DragView(
 					{lastX: sx, lastY: sy}) : author$project$Main$DragToken(
 					{ox: x - cx, oy: y - cy, startx: cx, starty: cy, x: cx, y: cy});
-				return ((s < 0) && event.keys.ctrl) ? _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{action: author$project$Main$None, selected: -1}),
-					elm$core$Platform$Cmd$batch(
-						_List_fromArray(
-							[
-								author$project$Main$wsSend(
-								author$project$Main$encodeCreateCreature(
-									{x: x, y: y})),
-								setFocus
-							]))) : _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{action: a, selected: s}),
-					setFocus);
+				if ((s < 0) && event.keys.ctrl) {
+					var _n3 = model.createMode;
+					if (_n3.$ === 'ModeCreateToken') {
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{action: author$project$Main$None, selected: -1}),
+							elm$core$Platform$Cmd$batch(
+								_List_fromArray(
+									[
+										author$project$Main$wsSend(
+										author$project$Main$encodeCreateToken(
+											{x: x, y: y})),
+										setFocus
+									])));
+					} else {
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									action: author$project$Main$ActionCreateLine(
+										{ex: x, ey: y, sx: x, sy: y}),
+									selected: -1
+								}),
+							elm$core$Platform$Cmd$none);
+					}
+				} else {
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{action: a, selected: s}),
+						setFocus);
+				}
 			case 'MiddleButton':
 				return _Utils_Tuple2(
 					_Utils_update(
@@ -6690,7 +6824,7 @@ var author$project$Main$onMousePress = F2(
 				return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 		}
 	});
-var author$project$Main$encodeMoveCreature = function (cc) {
+var author$project$Main$encodeMoveToken = function (cc) {
 	var val = elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
@@ -6704,7 +6838,7 @@ var author$project$Main$encodeMoveCreature = function (cc) {
 				'y',
 				elm$json$Json$Encode$float(cc.y))
 			]));
-	var packet = author$project$Main$MoveCreature(val);
+	var packet = author$project$Main$MoveToken(val);
 	return author$project$Main$encodePacket(packet);
 };
 var author$project$Main$onMouseRelease = F2(
@@ -6713,28 +6847,38 @@ var author$project$Main$onMouseRelease = F2(
 		var x = _n0.a;
 		var y = _n0.b;
 		var _n1 = model.action;
-		if (_n1.$ === 'DragToken') {
-			var d = _n1.a;
-			return (elm$core$Basics$sqrt(
-				A2(elm$core$Basics$pow, d.startx - d.x, 2) + A2(elm$core$Basics$pow, d.starty - d.y, 2)) > 0.1) ? _Utils_Tuple2(
-				_Utils_update(
-					model,
-					{action: author$project$Main$None}),
-				author$project$Main$wsSend(
-					author$project$Main$encodeMoveCreature(
-						{id: model.selected, x: d.x, y: d.y}))) : _Utils_Tuple2(
-				_Utils_update(
-					model,
-					{action: author$project$Main$None}),
-				author$project$Main$wsSend(
-					author$project$Main$encodeMoveCreature(
-						{id: model.selected, x: d.startx, y: d.starty})));
-		} else {
-			return _Utils_Tuple2(
-				_Utils_update(
-					model,
-					{action: author$project$Main$None}),
-				elm$core$Platform$Cmd$none);
+		switch (_n1.$) {
+			case 'DragToken':
+				var d = _n1.a;
+				return (elm$core$Basics$sqrt(
+					A2(elm$core$Basics$pow, d.startx - d.x, 2) + A2(elm$core$Basics$pow, d.starty - d.y, 2)) > 0.1) ? _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{action: author$project$Main$None}),
+					author$project$Main$wsSend(
+						author$project$Main$encodeMoveToken(
+							{id: model.selected, x: d.x, y: d.y}))) : _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{action: author$project$Main$None}),
+					author$project$Main$wsSend(
+						author$project$Main$encodeMoveToken(
+							{id: model.selected, x: d.startx, y: d.starty})));
+			case 'ActionCreateLine':
+				var l = _n1.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{action: author$project$Main$None}),
+					author$project$Main$wsSend(
+						author$project$Main$encodeCreateDoodadLine(
+							{ex: l.ex, ey: l.ey, sx: l.sx, sy: l.sy})));
+			default:
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{action: author$project$Main$None}),
+					elm$core$Platform$Cmd$none);
 		}
 	});
 var author$project$Main$onMouseWheel = F2(
@@ -6788,9 +6932,48 @@ var author$project$Main$onMsgChatInput = F2(
 				{chatText: text}),
 			elm$core$Platform$Cmd$none);
 	});
+var author$project$Main$onMsgClearDoodads = function (model) {
+	return _Utils_Tuple2(
+		_Utils_update(
+			model,
+			{doodads: _List_Nil}),
+		elm$core$Platform$Cmd$none);
+};
+var author$project$Main$onMsgClearTokens = function (model) {
+	return _Utils_Tuple2(
+		_Utils_update(
+			model,
+			{tokens: _List_Nil}),
+		elm$core$Platform$Cmd$none);
+};
+var author$project$Main$DoodadLine = function (a) {
+	return {$: 'DoodadLine', a: a};
+};
+var author$project$Main$onMsgCreateDoodadLine = F3(
+	function (_n0, _n1, model) {
+		var sx = _n0.a;
+		var sy = _n0.b;
+		var ex = _n1.a;
+		var ey = _n1.b;
+		return _Utils_Tuple2(
+			_Utils_update(
+				model,
+				{
+					doodads: A2(
+						elm$core$List$cons,
+						author$project$Main$DoodadLine(
+							{ex: ex, ey: ey, id: 0, sx: sx, sy: sy}),
+						model.doodads)
+				}),
+			elm$core$Platform$Cmd$none);
+	});
+var author$project$Main$initDoodadToDoodad = function (t) {
+	return author$project$Main$DoodadLine(
+		{ex: t.ex, ey: t.ey, id: t.id, sx: t.sx, sy: t.sy});
+};
 var elm$core$Basics$round = _Basics_round;
 var author$project$Main$initTokenToToken = function (t) {
-	return author$project$Main$Creature(
+	return author$project$Main$Token(
 		{
 			color: A3(
 				avh4$elm_color$Color$rgb255,
@@ -6810,11 +6993,34 @@ var author$project$Main$onMsgInit = F2(
 			_Utils_update(
 				model,
 				{
+					doodads: A2(elm$core$List$map, author$project$Main$initDoodadToDoodad, d.doodads),
 					nextId: d.nextId,
 					tokens: A2(elm$core$List$map, author$project$Main$initTokenToToken, d.tokens)
 				}),
 			elm$core$Platform$Cmd$none);
 	});
+var author$project$Main$encodeClearDoodads = function (cc) {
+	var val = elm$json$Json$Encode$object(_List_Nil);
+	var packet = author$project$Main$ClearDoodads(val);
+	return author$project$Main$encodePacket(packet);
+};
+var author$project$Main$onMsgSendClearDoodads = function (model) {
+	return _Utils_Tuple2(
+		model,
+		author$project$Main$wsSend(
+			author$project$Main$encodeClearDoodads(author$project$Main$PacketClearDoodads)));
+};
+var author$project$Main$encodeClearTokens = function (cc) {
+	var val = elm$json$Json$Encode$object(_List_Nil);
+	var packet = author$project$Main$ClearTokens(val);
+	return author$project$Main$encodePacket(packet);
+};
+var author$project$Main$onMsgSendClearTokens = function (model) {
+	return _Utils_Tuple2(
+		model,
+		author$project$Main$wsSend(
+			author$project$Main$encodeClearTokens(author$project$Main$PacketClearTokens)));
+};
 var elm$core$Debug$log = _Debug_log;
 var author$project$Main$update = F2(
 	function (msg, model) {
@@ -6889,6 +7095,28 @@ var author$project$Main$update = F2(
 			case 'ChatInput':
 				var s = msg.a;
 				return A2(author$project$Main$onMsgChatInput, s, model);
+			case 'MsgSetCreateMode':
+				var m = msg.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{createMode: m}),
+					elm$core$Platform$Cmd$none);
+			case 'MsgCreateDoodadLine':
+				var m = msg.a;
+				return A3(
+					author$project$Main$onMsgCreateDoodadLine,
+					_Utils_Tuple2(m.sx, m.sy),
+					_Utils_Tuple2(m.ex, m.ey),
+					model);
+			case 'MsgSendClearDoodads':
+				return author$project$Main$onMsgSendClearDoodads(model);
+			case 'MsgClearDoodads':
+				return author$project$Main$onMsgClearDoodads(model);
+			case 'MsgSendClearTokens':
+				return author$project$Main$onMsgSendClearTokens(model);
+			case 'MsgClearTokens':
+				return author$project$Main$onMsgClearTokens(model);
 			case 'MsgDoNothing':
 				return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 			default:
@@ -7230,6 +7458,7 @@ var author$project$Main$ChatKeyDown = function (a) {
 var author$project$Main$KeyDown = function (a) {
 	return {$: 'KeyDown', a: a};
 };
+var author$project$Main$ModeCreateLine = {$: 'ModeCreateLine'};
 var author$project$Main$MouseMotion = function (a) {
 	return {$: 'MouseMotion', a: a};
 };
@@ -7241,6 +7470,11 @@ var author$project$Main$MouseRelease = function (a) {
 };
 var author$project$Main$MouseWheel = function (a) {
 	return {$: 'MouseWheel', a: a};
+};
+var author$project$Main$MsgSendClearDoodads = {$: 'MsgSendClearDoodads'};
+var author$project$Main$MsgSendClearTokens = {$: 'MsgSendClearTokens'};
+var author$project$Main$MsgSetCreateMode = function (a) {
+	return {$: 'MsgSetCreateMode', a: a};
 };
 var joakin$elm_canvas$Canvas$Settings$Advanced$Scale = F2(
 	function (a, b) {
@@ -7563,14 +7797,102 @@ var author$project$Main$clearCanvas = F2(
 	});
 var author$project$Main$dimensionsFromModel = function (m) {
 	return {
-		canvasHeight: m.window.height,
-		canvasWidth: elm$core$Basics$floor(0.8 * m.window.width),
+		canvasHeight: author$project$Main$computeCanvasHeight(m.window.height),
+		canvasWidth: author$project$Main$computeCanvasWidth(m.window.width),
 		chatHeight: elm$core$Basics$floor(1 * m.window.height),
-		chatWidth: elm$core$Basics$floor((0.2 * m.window.width) - 20),
+		chatWidth: 350,
+		toolbarHeight: 40,
+		toolbarWidth: author$project$Main$computeCanvasWidth(m.window.width) - 30,
 		toolsHeight: elm$core$Basics$floor(0 * m.window.height),
-		toolsWidth: elm$core$Basics$floor((0.2 * m.window.width) - 20)
+		toolsWidth: 350
 	};
 };
+var elm$html$Html$img = _VirtualDom_node('img');
+var elm$html$Html$input = _VirtualDom_node('input');
+var elm$html$Html$label = _VirtualDom_node('label');
+var elm$json$Json$Encode$bool = _Json_wrap;
+var elm$html$Html$Attributes$boolProperty = F2(
+	function (key, bool) {
+		return A2(
+			_VirtualDom_property,
+			key,
+			elm$json$Json$Encode$bool(bool));
+	});
+var elm$html$Html$Attributes$checked = elm$html$Html$Attributes$boolProperty('checked');
+var elm$html$Html$Attributes$stringProperty = F2(
+	function (key, string) {
+		return A2(
+			_VirtualDom_property,
+			key,
+			elm$json$Json$Encode$string(string));
+	});
+var elm$html$Html$Attributes$src = function (url) {
+	return A2(
+		elm$html$Html$Attributes$stringProperty,
+		'src',
+		_VirtualDom_noJavaScriptOrHtmlUri(url));
+};
+var elm$html$Html$Attributes$type_ = elm$html$Html$Attributes$stringProperty('type');
+var elm$html$Html$Events$alwaysStop = function (x) {
+	return _Utils_Tuple2(x, true);
+};
+var elm$virtual_dom$VirtualDom$MayStopPropagation = function (a) {
+	return {$: 'MayStopPropagation', a: a};
+};
+var elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
+var elm$html$Html$Events$stopPropagationOn = F2(
+	function (event, decoder) {
+		return A2(
+			elm$virtual_dom$VirtualDom$on,
+			event,
+			elm$virtual_dom$VirtualDom$MayStopPropagation(decoder));
+	});
+var elm$json$Json$Decode$at = F2(
+	function (fields, decoder) {
+		return A3(elm$core$List$foldr, elm$json$Json$Decode$field, decoder, fields);
+	});
+var elm$html$Html$Events$targetValue = A2(
+	elm$json$Json$Decode$at,
+	_List_fromArray(
+		['target', 'value']),
+	elm$json$Json$Decode$string);
+var elm$html$Html$Events$onInput = function (tagger) {
+	return A2(
+		elm$html$Html$Events$stopPropagationOn,
+		'input',
+		A2(
+			elm$json$Json$Decode$map,
+			elm$html$Html$Events$alwaysStop,
+			A2(elm$json$Json$Decode$map, tagger, elm$html$Html$Events$targetValue)));
+};
+var author$project$Main$radioButton = F3(
+	function (m, img, a) {
+		return A2(
+			elm$html$Html$label,
+			_List_Nil,
+			_List_fromArray(
+				[
+					A2(
+					elm$html$Html$input,
+					_List_fromArray(
+						[
+							elm$html$Html$Attributes$type_('radio'),
+							elm$html$Html$Events$onInput(
+							function (x) {
+								return m;
+							}),
+							elm$html$Html$Attributes$checked(a)
+						]),
+					_List_Nil),
+					A2(
+					elm$html$Html$img,
+					_List_fromArray(
+						[
+							elm$html$Html$Attributes$src(img)
+						]),
+					_List_Nil)
+				]));
+	});
 var elm$core$List$append = F2(
 	function (xs, ys) {
 		if (!ys.b) {
@@ -7620,13 +7942,6 @@ var author$project$Main$viewChat = function (model) {
 					elm$core$List$reverse(model.chat))))
 		]);
 };
-var author$project$Main$worldToScreen = F2(
-	function (m, _n0) {
-		var x = _n0.a;
-		var y = _n0.b;
-		var scale = m.window.height / m.view.height;
-		return _Utils_Tuple2(((x - m.view.x) * scale) + ((0.8 * 0.5) * m.window.width), ((y - m.view.y) * scale) + (0.5 * m.window.height));
-	});
 var joakin$elm_canvas$Canvas$Internal$Canvas$LineTo = function (a) {
 	return {$: 'LineTo', a: a};
 };
@@ -7640,6 +7955,51 @@ var joakin$elm_canvas$Canvas$Internal$Canvas$Path = F2(
 var joakin$elm_canvas$Canvas$path = F2(
 	function (startingPoint, segments) {
 		return A2(joakin$elm_canvas$Canvas$Internal$Canvas$Path, startingPoint, segments);
+	});
+var joakin$elm_canvas$Canvas$Settings$stroke = function (color) {
+	return joakin$elm_canvas$Canvas$Internal$Canvas$SettingDrawOp(
+		joakin$elm_canvas$Canvas$Internal$Canvas$Stroke(color));
+};
+var author$project$Main$viewCurrentDoodad = F2(
+	function (trans, model) {
+		var _n0 = model.action;
+		if (_n0.$ === 'ActionCreateLine') {
+			var l = _n0.a;
+			return _List_fromArray(
+				[
+					A2(
+					joakin$elm_canvas$Canvas$shapes,
+					_Utils_ap(
+						trans,
+						_List_fromArray(
+							[
+								joakin$elm_canvas$Canvas$Settings$stroke(
+								A3(avh4$elm_color$Color$rgb, 1, 1, 1))
+							])),
+					_List_fromArray(
+						[
+							A2(
+							joakin$elm_canvas$Canvas$path,
+							_Utils_Tuple2(l.sx, l.sy),
+							_List_fromArray(
+								[
+									joakin$elm_canvas$Canvas$lineTo(
+									_Utils_Tuple2(l.ex, l.ey))
+								]))
+						]))
+				]);
+		} else {
+			return _List_Nil;
+		}
+	});
+var author$project$Main$worldToScreen = F2(
+	function (m, _n0) {
+		var x = _n0.a;
+		var y = _n0.b;
+		var scale = author$project$Main$computeCanvasHeight(m.window.height) / m.view.height;
+		return _Utils_Tuple2(
+			((x - m.view.x) * scale) + (0.5 * author$project$Main$computeCanvasWidth(m.window.width)),
+			((y - m.view.y) * scale) + (0.5 * author$project$Main$computeCanvasHeight(m.window.height)));
 	});
 var joakin$elm_canvas$Canvas$Internal$Canvas$DrawableText = function (a) {
 	return {$: 'DrawableText', a: a};
@@ -7657,10 +8017,6 @@ var joakin$elm_canvas$Canvas$text = F3(
 						{maxWidth: elm$core$Maybe$Nothing, point: point, text: str})
 				}));
 	});
-var joakin$elm_canvas$Canvas$Settings$stroke = function (color) {
-	return joakin$elm_canvas$Canvas$Internal$Canvas$SettingDrawOp(
-		joakin$elm_canvas$Canvas$Internal$Canvas$Stroke(color));
-};
 var joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$font = function (f) {
 	return A2(
 		joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$field,
@@ -8003,13 +8359,8 @@ var author$project$Main$getSelectedPos = function (m) {
 	var t = A2(author$project$Main$getToken, m.selected, m.tokens);
 	if (t.$ === 'Just') {
 		var a = t.a;
-		if (a.$ === 'Doodad') {
-			var b = a.a;
-			return _Utils_Tuple2(b.x, b.y);
-		} else {
-			var b = a.a;
-			return _Utils_Tuple2(b.x, b.y);
-		}
+		var b = a.a;
+		return _Utils_Tuple2(b.x, b.y);
 	} else {
 		return _Utils_Tuple2(0, 0);
 	}
@@ -8042,6 +8393,30 @@ var author$project$Main$viewDistanceLine = F3(
 					trans);
 			}
 		}
+	});
+var author$project$Main$viewDoodad = F2(
+	function (trans, t) {
+		var l = t.a;
+		return A2(
+			joakin$elm_canvas$Canvas$shapes,
+			_Utils_ap(
+				trans,
+				_List_fromArray(
+					[
+						joakin$elm_canvas$Canvas$Settings$stroke(
+						A3(avh4$elm_color$Color$rgb, 1, 1, 1))
+					])),
+			_List_fromArray(
+				[
+					A2(
+					joakin$elm_canvas$Canvas$path,
+					_Utils_Tuple2(l.sx, l.sy),
+					_List_fromArray(
+						[
+							joakin$elm_canvas$Canvas$lineTo(
+							_Utils_Tuple2(l.ex, l.ey))
+						]))
+				]));
 	});
 var author$project$Main$nextHighestMult = F2(
 	function (a, mul) {
@@ -8114,7 +8489,7 @@ var author$project$Main$viewGrid = F3(
 										_Utils_Tuple2(d.canvasWidth, offy + (i * step)))
 									]);
 							},
-							A2(elm$core$List$range, 0, numx))))
+							A2(elm$core$List$range, 0, numy))))
 				]));
 	});
 var author$project$Main$MsgFinishUsername = {$: 'MsgFinishUsername'};
@@ -8123,19 +8498,10 @@ var author$project$Main$MsgSetUsername = function (a) {
 };
 var elm$html$Html$button = _VirtualDom_node('button');
 var elm$html$Html$div = _VirtualDom_node('div');
-var elm$html$Html$input = _VirtualDom_node('input');
-var elm$html$Html$Attributes$stringProperty = F2(
-	function (key, string) {
-		return A2(
-			_VirtualDom_property,
-			key,
-			elm$json$Json$Encode$string(string));
-	});
 var elm$html$Html$Attributes$id = elm$html$Html$Attributes$stringProperty('id');
 var elm$virtual_dom$VirtualDom$Normal = function (a) {
 	return {$: 'Normal', a: a};
 };
-var elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
 var elm$html$Html$Events$on = F2(
 	function (event, decoder) {
 		return A2(
@@ -8148,37 +8514,6 @@ var elm$html$Html$Events$onClick = function (msg) {
 		elm$html$Html$Events$on,
 		'click',
 		elm$json$Json$Decode$succeed(msg));
-};
-var elm$html$Html$Events$alwaysStop = function (x) {
-	return _Utils_Tuple2(x, true);
-};
-var elm$virtual_dom$VirtualDom$MayStopPropagation = function (a) {
-	return {$: 'MayStopPropagation', a: a};
-};
-var elm$html$Html$Events$stopPropagationOn = F2(
-	function (event, decoder) {
-		return A2(
-			elm$virtual_dom$VirtualDom$on,
-			event,
-			elm$virtual_dom$VirtualDom$MayStopPropagation(decoder));
-	});
-var elm$json$Json$Decode$at = F2(
-	function (fields, decoder) {
-		return A3(elm$core$List$foldr, elm$json$Json$Decode$field, decoder, fields);
-	});
-var elm$html$Html$Events$targetValue = A2(
-	elm$json$Json$Decode$at,
-	_List_fromArray(
-		['target', 'value']),
-	elm$json$Json$Decode$string);
-var elm$html$Html$Events$onInput = function (tagger) {
-	return A2(
-		elm$html$Html$Events$stopPropagationOn,
-		'input',
-		A2(
-			elm$json$Json$Decode$map,
-			elm$html$Html$Events$alwaysStop,
-			A2(elm$json$Json$Decode$map, tagger, elm$html$Html$Events$targetValue)));
 };
 var author$project$Main$viewSetUsername = function (model) {
 	return (!model.usernameSet) ? _List_fromArray(
@@ -8222,73 +8557,38 @@ var joakin$elm_canvas$Canvas$circle = F2(
 	});
 var author$project$Main$viewToken = F3(
 	function (highlighted, trans, t) {
-		if (t.$ === 'Doodad') {
-			var d = t.a;
-			return _Utils_eq(highlighted, d.id) ? A2(
-				joakin$elm_canvas$Canvas$shapes,
-				_Utils_ap(
-					trans,
-					_List_fromArray(
-						[
-							joakin$elm_canvas$Canvas$Settings$fill(d.color),
-							joakin$elm_canvas$Canvas$Settings$stroke(
-							A3(avh4$elm_color$Color$rgb, 1, 1, 1))
-						])),
+		var d = t.a;
+		return _Utils_eq(highlighted, d.id) ? A2(
+			joakin$elm_canvas$Canvas$shapes,
+			_Utils_ap(
+				trans,
 				_List_fromArray(
 					[
-						A2(
-						joakin$elm_canvas$Canvas$circle,
-						_Utils_Tuple2(d.x, d.y),
-						d.radius)
-					])) : A2(
-				joakin$elm_canvas$Canvas$shapes,
-				_Utils_ap(
-					trans,
-					_List_fromArray(
-						[
-							joakin$elm_canvas$Canvas$Settings$fill(d.color)
-						])),
+						joakin$elm_canvas$Canvas$Settings$fill(d.color),
+						joakin$elm_canvas$Canvas$Settings$stroke(
+						A3(avh4$elm_color$Color$rgb, 1, 1, 1))
+					])),
+			_List_fromArray(
+				[
+					A2(
+					joakin$elm_canvas$Canvas$circle,
+					_Utils_Tuple2(d.x, d.y),
+					d.radius)
+				])) : A2(
+			joakin$elm_canvas$Canvas$shapes,
+			_Utils_ap(
+				trans,
 				_List_fromArray(
 					[
-						A2(
-						joakin$elm_canvas$Canvas$circle,
-						_Utils_Tuple2(d.x, d.y),
-						d.radius)
-					]));
-		} else {
-			var d = t.a;
-			return _Utils_eq(highlighted, d.id) ? A2(
-				joakin$elm_canvas$Canvas$shapes,
-				_Utils_ap(
-					trans,
-					_List_fromArray(
-						[
-							joakin$elm_canvas$Canvas$Settings$fill(d.color),
-							joakin$elm_canvas$Canvas$Settings$stroke(
-							A3(avh4$elm_color$Color$rgb, 1, 1, 1))
-						])),
-				_List_fromArray(
-					[
-						A2(
-						joakin$elm_canvas$Canvas$circle,
-						_Utils_Tuple2(d.x, d.y),
-						d.radius)
-					])) : A2(
-				joakin$elm_canvas$Canvas$shapes,
-				_Utils_ap(
-					trans,
-					_List_fromArray(
-						[
-							joakin$elm_canvas$Canvas$Settings$fill(d.color)
-						])),
-				_List_fromArray(
-					[
-						A2(
-						joakin$elm_canvas$Canvas$circle,
-						_Utils_Tuple2(d.x, d.y),
-						d.radius)
-					]));
-		}
+						joakin$elm_canvas$Canvas$Settings$fill(d.color)
+					])),
+			_List_fromArray(
+				[
+					A2(
+					joakin$elm_canvas$Canvas$circle,
+					_Utils_Tuple2(d.x, d.y),
+					d.radius)
+				]));
 	});
 var elm$virtual_dom$VirtualDom$style = _VirtualDom_style;
 var elm$html$Html$Attributes$style = elm$virtual_dom$VirtualDom$style;
@@ -8442,7 +8742,6 @@ var joakin$elm_canvas$Canvas$renderLineSegment = F2(
 					cmds);
 		}
 	});
-var elm$json$Json$Encode$bool = _Json_wrap;
 var joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$arc = F6(
 	function (x, y, radius, startAngle, endAngle, anticlockwise) {
 		return A2(
@@ -8836,13 +9135,6 @@ var elm$core$Basics$composeR = F3(
 		return g(
 			f(x));
 	});
-var elm$html$Html$img = _VirtualDom_node('img');
-var elm$html$Html$Attributes$src = function (url) {
-	return A2(
-		elm$html$Html$Attributes$stringProperty,
-		'src',
-		_VirtualDom_noJavaScriptOrHtmlUri(url));
-};
 var joakin$elm_canvas$Canvas$decodeTextureImageInfo = A2(
 	elm$json$Json$Decode$andThen,
 	function (target) {
@@ -8952,7 +9244,6 @@ var elm$html$Html$Events$custom = F2(
 			event,
 			elm$virtual_dom$VirtualDom$Custom(decoder));
 	});
-var elm$json$Json$Decode$map6 = _Json_map6;
 var mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$Event = F6(
 	function (keys, button, clientPos, offsetPos, pagePos, screenPos) {
 		return {button: button, clientPos: clientPos, keys: keys, offsetPos: offsetPos, pagePos: pagePos, screenPos: screenPos};
@@ -9097,51 +9388,114 @@ var author$project$Main$view = function (model) {
 			elm$core$List$append,
 			_List_fromArray(
 				[
-					A3(
-					joakin$elm_canvas$Canvas$toHtml,
-					_Utils_Tuple2(dim.canvasWidth, dim.canvasHeight),
+					A2(
+					elm$html$Html$div,
 					_List_fromArray(
 						[
-							mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onDown(
-							function (event) {
-								return author$project$Main$MousePress(event);
-							}),
-							mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onMove(
-							function (event) {
-								return author$project$Main$MouseMotion(event);
-							}),
-							mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onUp(
-							function (event) {
-								return author$project$Main$MouseRelease(event);
-							}),
-							mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$onWheel(
-							function (event) {
-								return author$project$Main$MouseWheel(event);
-							}),
-							A2(
-							elm$html$Html$Events$on,
-							'keydown',
-							A2(elm$json$Json$Decode$map, author$project$Main$KeyDown, Gizra$elm_keyboard_event$Keyboard$Event$decodeKeyboardEvent)),
-							elm$html$Html$Attributes$tabindex(0),
-							elm$html$Html$Attributes$id('canvas')
+							elm$html$Html$Attributes$id('main-screen')
 						]),
-					elm$core$List$concat(
-						_List_fromArray(
-							[
-								_List_fromArray(
+					_List_fromArray(
+						[
+							A2(
+							elm$html$Html$div,
+							_List_fromArray(
 								[
-									A2(author$project$Main$clearCanvas, dim.canvasWidth, dim.canvasHeight)
+									elm$html$Html$Attributes$id('toolbar'),
+									A2(
+									elm$html$Html$Attributes$style,
+									'height',
+									elm$core$String$fromInt(dim.toolbarHeight)),
+									A2(
+									elm$html$Html$Attributes$style,
+									'width',
+									elm$core$String$fromInt(dim.toolbarWidth))
 								]),
-								_List_fromArray(
+							_List_fromArray(
 								[
-									A3(author$project$Main$viewGrid, 5, model, dim)
+									A3(
+									author$project$Main$radioButton,
+									author$project$Main$MsgSetCreateMode(author$project$Main$ModeCreateToken),
+									'images/circle.png',
+									_Utils_eq(model.createMode, author$project$Main$ModeCreateToken)),
+									A3(
+									author$project$Main$radioButton,
+									author$project$Main$MsgSetCreateMode(author$project$Main$ModeCreateLine),
+									'images/line.png',
+									_Utils_eq(model.createMode, author$project$Main$ModeCreateLine)),
+									A2(
+									elm$html$Html$button,
+									_List_fromArray(
+										[
+											elm$html$Html$Attributes$id('button-clear-doodads'),
+											elm$html$Html$Events$onClick(author$project$Main$MsgSendClearDoodads)
+										]),
+									_List_fromArray(
+										[
+											elm$html$Html$text('Clear Doodads')
+										])),
+									A2(
+									elm$html$Html$button,
+									_List_fromArray(
+										[
+											elm$html$Html$Attributes$id('button-clear-tokens'),
+											elm$html$Html$Events$onClick(author$project$Main$MsgSendClearTokens)
+										]),
+									_List_fromArray(
+										[
+											elm$html$Html$text('Clear Tokens')
+										]))
+								])),
+							A3(
+							joakin$elm_canvas$Canvas$toHtml,
+							_Utils_Tuple2(dim.canvasWidth, dim.canvasHeight),
+							_List_fromArray(
+								[
+									mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onDown(
+									function (event) {
+										return author$project$Main$MousePress(event);
+									}),
+									mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onMove(
+									function (event) {
+										return author$project$Main$MouseMotion(event);
+									}),
+									mpizenberg$elm_pointer_events$Html$Events$Extra$Mouse$onUp(
+									function (event) {
+										return author$project$Main$MouseRelease(event);
+									}),
+									mpizenberg$elm_pointer_events$Html$Events$Extra$Wheel$onWheel(
+									function (event) {
+										return author$project$Main$MouseWheel(event);
+									}),
+									A2(
+									elm$html$Html$Events$on,
+									'keydown',
+									A2(elm$json$Json$Decode$map, author$project$Main$KeyDown, Gizra$elm_keyboard_event$Keyboard$Event$decodeKeyboardEvent)),
+									elm$html$Html$Attributes$tabindex(0),
+									elm$html$Html$Attributes$id('canvas')
 								]),
-								A2(
-								elm$core$List$map,
-								A2(author$project$Main$viewToken, model.selected, trans),
-								model.tokens),
-								A3(author$project$Main$viewDistanceLine, model, dim, trans)
-							]))),
+							elm$core$List$concat(
+								_List_fromArray(
+									[
+										_List_fromArray(
+										[
+											A2(author$project$Main$clearCanvas, dim.canvasWidth, dim.canvasHeight)
+										]),
+										_List_fromArray(
+										[
+											A3(author$project$Main$viewGrid, 5, model, dim)
+										]),
+										A2(
+										elm$core$List$map,
+										author$project$Main$viewDoodad(trans),
+										model.doodads),
+										A2(author$project$Main$viewCurrentDoodad, trans, model),
+										A2(
+										elm$core$List$map,
+										A2(author$project$Main$viewToken, model.selected, trans),
+										model.tokens),
+										A3(author$project$Main$viewDistanceLine, model, dim, trans)
+									])))
+						])),
 					A2(
 					elm$html$Html$div,
 					_List_fromArray(

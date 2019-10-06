@@ -60,13 +60,20 @@ data RawPacket = RawPacket { rpt :: String }
 instance J.FromJSON RawPacket where
   parseJSON (J.Object v) = RawPacket <$> v J..: "type"
  
-data Packet = CreateCreature { ccX :: Float, ccY :: Float }
-            | MoveCreature { mcId :: Int, mcX :: Float, mcY :: Float }
-            | DeleteCreature { dcId :: Int }
+data Packet = CreateToken { ccX :: Float, ccY :: Float }
+            | MoveToken { mcId :: Int, mcX :: Float, mcY :: Float }
+            | DeleteToken { dcId :: Int }
             | InitState { initTokens :: [Token]
+                        , initDoodads :: [Doodad]
                         , initNextId :: Int
                         , initNextColor :: Int }
-            | Chat { chatSender :: String, chatMessage :: String }          
+            | Chat { chatSender :: String, chatMessage :: String }
+            | CreateDoodadLine { lSx :: Float
+                               , lSy :: Float
+                               , lEx :: Float
+                               , lEy :: Float }
+            | ClearDoodads
+            | ClearTokens
 
 instance J.FromJSON Packet where
   parseJSON j = do
@@ -79,22 +86,32 @@ instance J.FromJSON Packet where
         case mdata of
           Just rawd -> do
             d :: J.Object <- J.parseJSON rawd
-            if s == "CreateCreature" then
-              CreateCreature
+            if s == "CreateToken" then
+              CreateToken
               <$> d J..: "x" 
               <*> d J..: "y" 
-            else if s == "MoveCreature" then
-              MoveCreature
+            else if s == "MoveToken" then
+              MoveToken
               <$> d J..: "id" 
               <*> d J..: "x" 
               <*> d J..: "y" 
-            else if s == "DeleteCreature" then
-              DeleteCreature
+            else if s == "DeleteToken" then
+              DeleteToken
               <$> d J..: "id" 
             else if s == "Chat" then
               Chat 
               <$> d J..: "sender" 
               <*> d J..: "message" 
+            else if s == "CreateDoodadLine" then
+              CreateDoodadLine 
+              <$> d J..: "sx" 
+              <*> d J..: "sy" 
+              <*> d J..: "ex" 
+              <*> d J..: "ey" 
+            else if s == "ClearDoodads" then
+              return ClearDoodads 
+            else if s == "ClearTokens" then
+              return ClearTokens 
             else
               fail ("Unknown type " ++ s) :: (J.Parser Packet)
           Nothing ->
@@ -105,39 +122,57 @@ instance J.FromJSON Packet where
 instance J.ToJSON Packet where
   toJSON p =
     case p of
-      CreateCreature x y ->
-        J.object [ "type" J..= ("CreateCreature" :: Text), "data" J..= J.object [
+      CreateToken x y ->
+        J.object [ "type" J..= ("CreateToken" :: Text), "data" J..= J.object [
                    "x" J..= x,
                    "y" J..= y
                  ]]
-      MoveCreature id x y ->
-        J.object [ "type" J..= ("MoveCreature" :: Text), "data" J..= J.object [
+      MoveToken id x y ->
+        J.object [ "type" J..= ("MoveToken" :: Text), "data" J..= J.object [
                    "id" J..= id,
                    "x" J..= x,
                    "y" J..= y
                  ]]
-      DeleteCreature id ->
-        J.object [ "type" J..= ("DeleteCreature" :: Text), "data" J..= J.object [
+      DeleteToken id ->
+        J.object [ "type" J..= ("DeleteToken" :: Text), "data" J..= J.object [
                    "id" J..= id
                  ]]
-      InitState tokens ni nc ->
+      InitState tokens doodads ni nc ->
         J.object ["type" J..= ("Init" :: Text)
-                 , "data" J..= J.object [ "tokens" J..= J.toJSON tokens
-                 , "nextId" J..=  ni
-                 , "nextColor" J..=  nc
-                 ]]
+                 , "data" J..= J.object 
+                                 [ "tokens" J..= J.toJSON tokens
+                                 , "doodads" J..= J.toJSON doodads 
+                                 , "nextId" J..=  ni
+                                 , "nextColor" J..=  nc
+                                 ]
+                 ]
       Chat sender message ->
         J.object ["type" J..= ("Chat" :: Text)
                  , "data" J..= J.object [
                    "sender" J..= sender
                  , "message" J..= message
                  ]]
+      CreateDoodadLine sx sy ex ey ->
+        J.object ["type" J..= ("CreateDoodadLine" :: Text)
+                 , "data" J..= J.object [
+                   "sx" J..= sx 
+                 , "sy" J..= sy
+                 , "ex" J..= ex
+                 , "ey" J..= ey
+                 ]]
+      ClearDoodads ->
+        J.object ["type" J..= ("ClearDoodads" :: Text)
+                 , "data" J..= J.object []]
+      ClearTokens ->
+        J.object ["type" J..= ("ClearTokens" :: Text)
+                 , "data" J..= J.object []]
 
 
 initPacket :: Model -> Text
 initPacket model =
   TL.toStrict $ ECL.decodeUtf8 $ J.encode $ 
     InitState { initTokens = tokens model
+              , initDoodads = doodads model
               , initNextId = nextId model
               , initNextColor = nextColor model
               }
@@ -155,6 +190,14 @@ data Token = Token { tokenId :: Int
                    , tokenB :: Float
                    }
 
+data Doodad = DoodadLine { doodadId :: Int
+                         , doodadSx :: Float
+                         , doodadSy :: Float
+                         , doodadEx :: Float
+                         , doodadEy :: Float
+                         }
+                    
+
 instance J.ToJSON Token where
   toJSON t =
     J.object [ "id" J..= tokenId t
@@ -167,11 +210,30 @@ instance J.ToJSON Token where
              ]
 
 
-data Model = Model { tokens :: [Token], nextId :: Int, nextColor :: Int
+instance J.ToJSON Doodad where
+  toJSON d =
+    case d of
+      DoodadLine {} ->
+        J.object [ "id" J..= doodadId d
+                 , "type" J..= ("line" :: String)
+                 , "sx" J..= doodadSx d
+                 , "sy" J..= doodadSy d
+                 , "ex" J..= doodadEx d
+                 , "ey" J..= doodadEy d
+                 ]
+
+data Model = Model { tokens :: [Token]
+                   , doodads :: [Doodad]
+                   , nextId :: Int
+                   , nextColor :: Int
                    , mRand :: R.StdGen}
 
 initModel :: R.StdGen -> Model
-initModel rand = Model { tokens = [], nextId = 0, nextColor = 0, mRand = rand}
+initModel rand = Model { tokens = []
+                       , doodads = []
+                       , nextId = 0
+                       , nextColor = 0
+                       , mRand = rand}
 
 update :: Text -> Model -> (Model, Response)
 update input model =
@@ -181,19 +243,25 @@ update input model =
   case p of
     Just v ->
       case v of
-        CreateCreature _ _ ->
-          (onCreateCreature v model, Forward)
-        MoveCreature _ _ _ ->
-          (onMoveCreature v model, Forward)
-        DeleteCreature _ ->
-          (onDeleteCreature v model, Forward)
-        Chat _ _ ->
+        CreateToken {} ->
+          (onCreateToken v model, Forward)
+        MoveToken {} ->
+          (onMoveToken v model, Forward)
+        DeleteToken {} ->
+          (onDeleteToken v model, Forward)
+        Chat {} ->
           onChat v model
+        CreateDoodadLine {} ->
+          (onDoodadLine v model, Forward)
+        ClearDoodads ->
+          (onClearDoodads v model, Forward)
+        ClearTokens ->
+          (onClearTokens v model, Forward)
     Nothing ->
      (model, Forward)
 
-onCreateCreature :: Packet -> Model -> Model
-onCreateCreature p model =
+onCreateToken :: Packet -> Model -> Model
+onCreateToken p model =
   let
     (r, g, b) = colors A.! (nextColor model) 
   in
@@ -210,15 +278,15 @@ onCreateCreature p model =
     , nextColor = mod ((nextColor model) + 1) numColors
     }
 
-onMoveCreature :: Packet -> Model -> Model
-onMoveCreature p model =
+onMoveToken :: Packet -> Model -> Model
+onMoveToken p model =
   model { tokens =
-            applyToCreature (\t -> t {tokenX = mcX p, tokenY = mcY p})
+            applyToToken (\t -> t {tokenX = mcX p, tokenY = mcY p})
                             (mcId p)
                             (tokens model)
         }
-onDeleteCreature :: Packet -> Model -> Model
-onDeleteCreature p model =
+onDeleteToken :: Packet -> Model -> Model
+onDeleteToken p model =
   let 
     i = dcId p
   in
@@ -234,15 +302,39 @@ onChat p model =
     sender = chatSender p
   in
     if length msg > 0 && head msg == '/' then
-      if List.isPrefixOf "/roll" msg then
+      if List.isPrefixOf "/roll " msg then
         let 
           (resp, nrand) = (cmdRoll (mRand model) sender msg)
         in
           (model {mRand = nrand}, Broadcast $ toJsonText $ Chat "Server" resp)
+      else if List.isPrefixOf "/rollp " msg then
+        let 
+          (resp, nrand) = (cmdRoll (mRand model) sender msg)
+        in
+          (model {mRand = nrand}, Reply $ toJsonText $ Chat "Server to you" resp)
       else
-        (model, Reply $ toJsonText $ Chat "Server" ("Unknown command: " ++ msg))
+        (model, Reply $ toJsonText $ Chat "Server to you" ("Unknown command: " ++ msg))
     else
       (model, Forward)
+
+onDoodadLine :: Packet -> Model -> Model
+onDoodadLine p model =
+  model {
+     doodads = DoodadLine { doodadId = 0
+                          , doodadSx = lSx p
+                          , doodadSy = lSy p
+                          , doodadEx = lEx p
+                          , doodadEy = lEy p
+                          } : (doodads model)
+  }
+
+onClearDoodads :: Packet -> Model -> Model
+onClearDoodads p model =
+  model { doodads = [] }
+
+onClearTokens :: Packet -> Model -> Model
+onClearTokens p model =
+  model { tokens = [] }
 
 rollList :: R.StdGen -> Int -> [Int] -> ([Int], R.StdGen)
 rollList rand min []    = ([], rand)
@@ -275,6 +367,6 @@ cmdRoll rand who t =
      
 
 -- util functions
-applyToCreature :: (Token -> Token) -> Int -> [Token] -> [Token]
-applyToCreature f id l =
+applyToToken :: (Token -> Token) -> Int -> [Token] -> [Token]
+applyToToken f id l =
   map (\t -> if (tokenId t) == id then f t  else t) l
