@@ -17,37 +17,24 @@ import Data.List.Split (splitOn)
 import qualified Data.List as List
 import System.Random as R
 import Text.Read (readMaybe)
+import qualified Debug.Trace as D
 
 -- constants
 
-colors = A.listArray (0, 23)
-                     [ (201, 42, 42)
-                     , (166, 30, 77)
-                     , (134, 46, 156)
-                     , (95, 61, 196)
-                     , (54, 79, 199)
-                     , (24, 100, 171)
-                     , (11, 114, 133)
-                     , (8, 127, 91)
-                     , (43, 138, 62)
-                     , (92, 148, 13)
-                     , (230, 119, 0)
-                     , (217, 72, 15)
-                     -- Light colors
-                     , (255, 84, 84)
-                     , (186, 90, 170)
-                     , (154, 92, 186)
-                     , (190, 122, 220)
-                     , (138, 160, 220)
-                     , (100, 190, 220)
-                     , (42, 184, 183)
-                     , (32, 200, 170)
-                     , (110, 198, 120)
-                     , (142, 220, 66)
-                     , (255, 179, 50)
-                     , (255, 190, 70)
-                     ] 
-numColors = 24
+colors = A.listArray (0, 10)
+                     [ (240, 50, 50) -- red 
+                     , (176, 30, 90) -- burgund
+                     , (201, 20, 201) -- pink
+                     , (120, 61, 196) -- purple
+                     , (24, 100, 171) -- blue
+                     , (24, 172, 171) -- turquoise 
+                     , (8, 127, 91) -- blue-green
+                     , (92, 148, 13) -- red-green
+                     , (217, 72, 15)  -- orange
+                     , (129, 96, 65)  -- brown 
+                     ]
+
+numColors = 10
 
 -- networking
 
@@ -74,6 +61,9 @@ data Packet = CreateToken { ccX :: Float, ccY :: Float }
                                , lEy :: Float }
             | ClearDoodads
             | ClearTokens
+            | TokenToggleFoe { ttfId  :: Int }
+            | InitSession { isUid :: String}
+            | Session { sId :: Int, sPlayerName :: String }
 
 instance J.FromJSON Packet where
   parseJSON j = do
@@ -112,6 +102,12 @@ instance J.FromJSON Packet where
               return ClearDoodads 
             else if s == "ClearTokens" then
               return ClearTokens 
+            else if s == "TokenToggleFoe" then
+              TokenToggleFoe 
+              <$> d J..: "id" 
+            else if s == "InitSession" then
+              InitSession 
+              <$> d J..: "uid" 
             else
               fail ("Unknown type " ++ s) :: (J.Parser Packet)
           Nothing ->
@@ -166,6 +162,17 @@ instance J.ToJSON Packet where
       ClearTokens ->
         J.object ["type" J..= ("ClearTokens" :: Text)
                  , "data" J..= J.object []]
+      TokenToggleFoe i ->
+        J.object ["type" J..= ("CreateDoodadLine" :: Text)
+                 , "data" J..= J.object [
+                   "id" J..= i
+                 ]]
+      Session i name ->
+        J.object ["type" J..= ("Session" :: Text)
+                 , "data" J..= J.object [
+                   "id" J..= i
+                 , "name" J..= name
+                 ]]
 
 
 initPacket :: Model -> Text
@@ -173,12 +180,16 @@ initPacket model =
   TL.toStrict $ ECL.decodeUtf8 $ J.encode $ 
     InitState { initTokens = tokens model
               , initDoodads = doodads model
-              , initNextId = nextId model
+              , initNextId = nextTokenId model
               , initNextColor = nextColor model
               }
 
 toJsonText :: (J.ToJSON a) => a -> Text
 toJsonText = TL.toStrict . ECL.decodeUtf8 . J.encode
+
+playerToSessionPacket :: Player -> Packet 
+playerToSessionPacket p =
+  Session { sId = playerId p, sPlayerName = playerName p}
 
 -- the model
 data Token = Token { tokenId :: Int
@@ -188,6 +199,7 @@ data Token = Token { tokenId :: Int
                    , tokenR :: Float
                    , tokenG :: Float
                    , tokenB :: Float
+                   , tokenFoe :: Bool
                    }
 
 data Doodad = DoodadLine { doodadId :: Int
@@ -197,6 +209,17 @@ data Doodad = DoodadLine { doodadId :: Int
                          , doodadEy :: Float
                          }
                     
+data Player = Player { playerId :: Int
+                     , playerName :: String
+                     }
+
+data Model = Model { tokens :: [Token]
+                   , doodads :: [Doodad]
+                   , players :: M.HashMap String Player 
+                   , nextTokenId :: Int
+                   , nextPlayerId :: Int 
+                   , nextColor :: Int
+                   , mRand :: R.StdGen}
 
 instance J.ToJSON Token where
   toJSON t =
@@ -207,6 +230,7 @@ instance J.ToJSON Token where
              , "r" J..= tokenR t
              , "g" J..= tokenG t
              , "b" J..= tokenB t
+             , "foe" J..= tokenFoe t
              ]
 
 
@@ -222,18 +246,24 @@ instance J.ToJSON Doodad where
                  , "ey" J..= doodadEy d
                  ]
 
-data Model = Model { tokens :: [Token]
-                   , doodads :: [Doodad]
-                   , nextId :: Int
-                   , nextColor :: Int
-                   , mRand :: R.StdGen}
-
 initModel :: R.StdGen -> Model
 initModel rand = Model { tokens = []
                        , doodads = []
-                       , nextId = 0
+                       , players = M.empty
+                       , nextTokenId = 0
+                       , nextPlayerId = 0
                        , nextColor = 0
                        , mRand = rand}
+
+newPlayer :: String -> Model -> (Model, Player)
+newPlayer uid model =
+  let
+    player = Player (nextPlayerId model) ""
+    nmodel = model { nextPlayerId = (nextPlayerId model) + 1
+                   , players = M.insert uid player (players model) 
+                   }
+  in
+    (nmodel, player)
 
 update :: Text -> Model -> (Model, Response)
 update input model =
@@ -257,6 +287,10 @@ update input model =
           (onClearDoodads v model, Forward)
         ClearTokens ->
           (onClearTokens v model, Forward)
+        TokenToggleFoe {} ->
+          (onTokenToggleFoe v model, Forward)
+        InitSession {} ->
+          onInitSession v model
     Nothing ->
      (model, Forward)
 
@@ -266,14 +300,15 @@ onCreateToken p model =
     (r, g, b) = colors A.! (nextColor model) 
   in
     model {
-       nextId = (nextId model) + 1
-     , tokens = Token { tokenId = nextId model
+       nextTokenId = (nextTokenId model) + 1
+     , tokens = Token { tokenId = nextTokenId model
                       , tokenX = ccX p
                       , tokenY = ccY p
                       , tokenRadius = 0.25
                       , tokenR = r
                       , tokenG = g
                       , tokenB = b
+                      , tokenFoe = False
                       } : (tokens model)
     , nextColor = mod ((nextColor model) + 1) numColors
     }
@@ -293,6 +328,17 @@ onDeleteToken p model =
     model { tokens =
               filter (\t -> tokenId t /= i)
                      (tokens model)
+          }
+
+onTokenToggleFoe :: Packet -> Model -> Model
+onTokenToggleFoe p model =
+  let
+    (r, g, b) = colors A.! (nextColor model) 
+  in
+    model { tokens =
+              applyToToken (\t -> t {tokenFoe = not $ tokenFoe t})
+                              (ttfId p)
+                              (tokens model) 
           }
   
 onChat :: Packet -> Model -> (Model, Response)
@@ -335,6 +381,21 @@ onClearDoodads p model =
 onClearTokens :: Packet -> Model -> Model
 onClearTokens p model =
   model { tokens = [] }
+
+onInitSession :: Packet -> Model -> (Model, Response)
+onInitSession p model =
+  let
+    stored = M.lookup (isUid p) (players model)
+  in
+    case stored of
+        Just player -> (model
+                       , Reply $ toJsonText $ playerToSessionPacket player)
+        Nothing ->
+          let
+            (nmodel, nplayer) = newPlayer (isUid p) model
+          in
+            ( nmodel
+            , Reply $ toJsonText $ playerToSessionPacket nplayer)
 
 rollList :: R.StdGen -> Int -> [Int] -> ([Int], R.StdGen)
 rollList rand min []    = ([], rand)

@@ -36,6 +36,7 @@ dependencies:
 - array
 - random
 - split
+- ghc
 
 library:
   source-dirs: src

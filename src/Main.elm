@@ -32,34 +32,19 @@ main =
 -- Model
 
 baseColors = Array.fromList
-              [ Color.rgb255 201 42 42 
-              , Color.rgb255 166 30 77 
-              , Color.rgb255 134 46 156 
-              , Color.rgb255 95 61 196 
-              , Color.rgb255 54 79 199 
-              , Color.rgb255 24 100 171 
-              , Color.rgb255 11 114 133 
-              , Color.rgb255 8 127 91 
-              , Color.rgb255 43 138 62 
-              , Color.rgb255 92 148 13 
-              , Color.rgb255 230 119 0 
-              , Color.rgb255 217 72 15 
-              -- Light colors
-              , Color.rgb255 255 84 84
-              , Color.rgb255 186 90 170
-              , Color.rgb255 154 92 186 
-              , Color.rgb255 190 122 220 
-              , Color.rgb255 138 160 220 
-              , Color.rgb255 100 190 220 
-              , Color.rgb255 42 184 183 
-              , Color.rgb255 32 200 170
-              , Color.rgb255 110 198 120 
-              , Color.rgb255 142 220 66
-              , Color.rgb255 255 179 50 
-              , Color.rgb255 255 190 70 
+              [ Color.rgb255 240 50 50 -- red 
+              , Color.rgb255 176 30 90 -- burgund
+              , Color.rgb255 201 20 201 -- pink
+              , Color.rgb255 120 61 196 -- purple
+              , Color.rgb255 24 100 171 -- blue
+              , Color.rgb255 24 172 171 -- turquoise 
+              , Color.rgb255 8 127 91 -- blue-green
+              , Color.rgb255 92 148 13 -- red-green
+              , Color.rgb255 217 72 15  -- orange
+              , Color.rgb255 129 96 65  -- brown 
               ]
 numBaseColors : Int
-numBaseColors = 24
+numBaseColors = 10
 
 gmId : Int
 gmId = 0
@@ -83,6 +68,7 @@ type Token = Token { id : Int
                    , radius : Float
                    , color : Color 
                    , owner : Int
+                   , foe : Bool
                    }
 
 type Doodad = DoodadLine { id : Int
@@ -116,8 +102,8 @@ type alias Model = { tokens : List Token
                    , createMode : CreateMode
                    }
 
-init : (Int, Int) -> (Model,  Cmd Msg)
-init (w, h) =
+init : (Int, Int, String) -> (Model,  Cmd Msg)
+init (w, h, uid) =
   ({ tokens = []
    , doodads = []
    , selected = -1 
@@ -134,7 +120,7 @@ init (w, h) =
    , sentMessagePos = 0
    , usernameSet = False
    , createMode = ModeCreateToken
-   }, Cmd.none)
+   }, wsSend (encodeInitSession {uid = uid}))
 
 screenToWorld : Model -> (Float, Float) -> (Float, Float)
 screenToWorld m (x, y) =
@@ -164,6 +150,8 @@ type Packet = CreateToken Json.Value
             | CreateDoodadLine Json.Value
             | ClearDoodads Json.Value
             | ClearTokens Json.Value
+            | TokenToggleFoe Json.Value
+            | InitSession Json.Value
 
 type alias PacketCreateToken = { x : Float
                                , y : Float
@@ -183,6 +171,7 @@ type alias InitToken = { id : Int
                        , r : Float
                        , g : Float
                        , b : Float
+                       , foe : Bool
                        }
 
 type alias InitDoodad = { id : Int
@@ -208,8 +197,12 @@ type alias PacketCreateDoodadLine = { sx : Float
                                     , ey : Float
                                     }
 
+type alias PacketTokenToggleFoe = { id : Int }
+
 type alias PacketClearDoodads = {}
 type alias PacketClearTokens = {}
+
+type alias PacketInitSession = { uid : String }
 
 initTokenToToken : InitToken -> Token
 initTokenToToken t =
@@ -220,6 +213,7 @@ initTokenToToken t =
     , radius = t.radius
     , color = Color.rgb255 (round t.r) (round t.g) (round t.b)
     , owner = 0
+    , foe = t.foe
     }
 
 initDoodadToDoodad : InitDoodad -> Doodad
@@ -250,6 +244,8 @@ rawPacketToPacket rawPacket =
     Ok (ClearDoodads rawPacket.d)
   else if rawPacket.t == "ClearTokens" then
     Ok (ClearTokens rawPacket.d)
+  else if rawPacket.t == "TokenToggleFoe" then
+    Ok (TokenToggleFoe rawPacket.d)
   else
     Err <| "Unknown packet type " ++ rawPacket.t
 
@@ -291,6 +287,12 @@ encodePacket p =
     ClearTokens v -> JE.object [ ("type", JE.string "ClearTokens")
                                , ("data", v)
                                ]
+    TokenToggleFoe v -> JE.object [ ("type", JE.string "TokenToggleFoe")
+                                  , ("data", v)
+                                  ]
+    InitSession v -> JE.object [ ("type", JE.string "InitSession")
+                                  , ("data", v)
+                                  ]
 
 decodeCreateToken : Json.Value -> Result String PacketCreateToken 
 decodeCreateToken v =
@@ -367,7 +369,7 @@ decodeInit v =
   let
     d = Json.map4 PacketInit
           (Json.field "tokens" <| Json.list (
-            Json.map7 InitToken
+            Json.map8 InitToken
                       (Json.field "id" Json.int)  
                       (Json.field "x" Json.float)  
                       (Json.field "y" Json.float)  
@@ -375,6 +377,7 @@ decodeInit v =
                       (Json.field "r" Json.float)  
                       (Json.field "g" Json.float)  
                       (Json.field "b" Json.float)  
+                      (Json.field "foe" Json.bool)  
 
           )) 
           (Json.field "doodads" <| Json.list (
@@ -468,6 +471,37 @@ encodeClearTokens cc =
   in
   encodePacket packet
 
+decodeTokenToggleFoe : Json.Value -> Result String PacketTokenToggleFoe 
+decodeTokenToggleFoe v =
+  let
+    d = Json.map PacketTokenToggleFoe
+          (Json.field "id" Json.int) 
+    cc = Json.decodeValue d v
+  in
+    case cc of
+      Ok p -> Ok p
+      Err e -> Err <| Json.errorToString e
+
+encodeTokenToggleFoe : PacketTokenToggleFoe -> Json.Value
+encodeTokenToggleFoe cc = 
+  let
+    val = JE.object
+      [ ("id", JE.int cc.id)
+      ]
+    packet = TokenToggleFoe val
+  in
+  encodePacket packet
+
+encodeInitSession : PacketInitSession -> Json.Value
+encodeInitSession cc = 
+  let
+    val = JE.object
+      [ ("uid", JE.string cc.uid)
+      ]
+    packet = InitSession val
+  in
+  encodePacket packet
+
 -- Update
 type Msg = Move Int (Float, Float)
          | Create (Float, Float)
@@ -491,6 +525,7 @@ type Msg = Move Int (Float, Float)
          | MsgClearDoodads
          | MsgSendClearTokens
          | MsgClearTokens
+         | MsgToggleFoe Int
          | MsgShowError String
          | MsgDoNothing -- TODO: there is probably a nicer solution for this
 
@@ -548,6 +583,17 @@ tokenSetPosition : Float -> Float -> Token -> Token
 tokenSetPosition x y t =
   case t of
     Token c -> Token { c | x = x, y = y }
+
+tokenToggleFoe : Token -> Token
+tokenToggleFoe t =
+  case t of
+    Token c -> Token { c | foe = not c.foe }
+
+tokenSetFoe : Bool -> Token -> Token
+tokenSetFoe b t =
+  case t of
+    Token c -> Token { c | foe = b }
+
 
 tokenIdAt : Float -> Float -> List Token -> Int
 tokenIdAt x y l =
@@ -747,6 +793,8 @@ onKeyDown event model =
   if event.keyCode == Key.Delete  &&  model.selected >= 0 then
     ( {model | selected = -1}
     , wsSend (encodeDeleteToken ({id = model.selected})))
+  else if event.keyCode == Key.F then
+    (model, wsSend (encodeTokenToggleFoe ({id = model.selected})))
   else
     (model, Cmd.none)
 
@@ -763,6 +811,7 @@ onCreate (x, y) model =
                            (remainderBy numBaseColors model.nextId)
                            baseColors)
             , owner = 0
+            , foe = False
             } :: model.tokens,
      nextId = model.nextId + 1 
    }
@@ -871,7 +920,16 @@ onMsgSendClearTokens model =
 onMsgClearTokens : Model -> (Model, Cmd Msg)
 onMsgClearTokens model =
   ( { model | tokens = [] }
-  , Cmd.none)
+  , Cmd.none
+  )
+
+onMsgToggleFoe : Int -> Model -> (Model, Cmd Msg)
+onMsgToggleFoe i model =
+  ( { model
+    | tokens = applyToToken tokenToggleFoe i model.tokens
+    }
+  , Cmd.none
+  )
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model = 
@@ -901,6 +959,7 @@ update msg model =
     MsgClearDoodads -> onMsgClearDoodads model
     MsgSendClearTokens -> onMsgSendClearTokens model
     MsgClearTokens -> onMsgClearTokens model
+    MsgToggleFoe i -> onMsgToggleFoe i model
     MsgDoNothing -> (model, Cmd.none)
     MsgShowError e ->
       let
@@ -983,6 +1042,15 @@ onClearTokens v =
       Ok o -> MsgClearTokens
       Err e -> MsgShowError e 
 
+onTokenToggleFoe : JE.Value -> Msg
+onTokenToggleFoe v = 
+  let
+    p = decodeTokenToggleFoe v
+  in
+    case p of
+      Ok o -> MsgToggleFoe o.id 
+      Err e -> MsgShowError e 
+
 
 onPacket : Packet -> Msg
 onPacket p =
@@ -995,6 +1063,8 @@ onPacket p =
     CreateDoodadLine d -> onCreateDoodadLine d 
     ClearDoodads d -> onClearDoodads d 
     ClearTokens d -> onClearTokens d 
+    TokenToggleFoe d -> onTokenToggleFoe d 
+    InitSession d -> MsgShowError "Unexpected init session packet received." 
 
 onWsReceive : JE.Value -> Msg
 onWsReceive v =
@@ -1101,11 +1171,16 @@ viewToken : Int -> List C.Setting -> Token -> C.Renderable
 viewToken highlighted trans t =
   case t of
     Token d ->
-      if highlighted == d.id then
-        C.shapes (trans ++ [d.color |> C.fill, Color.rgb 1 1 1 |> C.stroke])
-                 [C.circle (d.x, d.y) d.radius]
-      else
-        C.shapes (trans ++ [d.color |> C.fill])
+      let
+        stroke = if highlighted == d.id then Color.rgb 1 1 1
+                 else if d.foe then Color.rgb 1 0 0
+                 else Color.rgba 0 0 0 0
+        strokeSize = if d.foe then 0.05 else 0
+      in
+        C.shapes ( trans ++
+                 [ d.color |> C.fill
+                 , stroke |> C.stroke
+                 , strokeSize |> C.lineWidth ])
                  [C.circle (d.x, d.y) d.radius]
 
 viewDoodad : List C.Setting -> Doodad -> C.Renderable
@@ -1258,7 +1333,7 @@ view model =
                          , A.value model.chatText
                          , onInput ChatInput 
                          , Html.Events.on "keydown"
-                           <| Debug.log "on keydown" <| Json.map ChatKeyDown Keyboard.decodeKeyboardEvent] []]
+                           <| Json.map ChatKeyDown Keyboard.decodeKeyboardEvent] []]
           ]
       ] (viewSetUsername model))
       

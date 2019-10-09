@@ -10,13 +10,16 @@ util = (function() {
     }
   }
 
-  function connect() {
+  function connect(onopen = null) {
     port = ''
     if (window.location.port != null) {
       port = ':' + window.location.port
     }
     socket = new WebSocket('wss://' + window.location.hostname + port);
     socket.onmessage = onmessage;
+    if (onopen) {
+      socket.onopen = onopen
+    }
   }
 
   function send(data) {
@@ -28,10 +31,25 @@ util = (function() {
     socket = null;
   }
 
+  function uid() {
+    if (localStorage.uid) {
+      return localStorage.uid
+    }
+    uid = ""
+    for (var i = 0; i < 32; i++) {
+      // pick a char from [33;126]
+      v = 33 + Math.round(Math.random() * 93.5);
+      uid += String.fromCharCode(v);
+    }
+    localStorage.uid = uid
+    return uid
+  }
+
   return {
     connect : connect,
     disconnect : disconnect,
     send : send,
-    setOnmessage : setOnmessage
+    setOnmessage : setOnmessage,
+    uid : uid
   };
 })();

@@ -4349,11 +4349,33 @@ var _Bitwise_shiftRightZfBy = F2(function(offset, a)
 });
 var author$project$Main$ModeCreateToken = {$: 'ModeCreateToken'};
 var author$project$Main$None = {$: 'None'};
+var author$project$Main$InitSession = function (a) {
+	return {$: 'InitSession', a: a};
+};
+var elm$core$List$foldl = F3(
+	function (func, acc, list) {
+		foldl:
+		while (true) {
+			if (!list.b) {
+				return acc;
+			} else {
+				var x = list.a;
+				var xs = list.b;
+				var $temp$func = func,
+					$temp$acc = A2(func, x, acc),
+					$temp$list = xs;
+				func = $temp$func;
+				acc = $temp$acc;
+				list = $temp$list;
+				continue foldl;
+			}
+		}
+	});
+var elm$core$Array$branchFactor = 32;
 var elm$core$Array$Array_elm_builtin = F4(
 	function (a, b, c, d) {
 		return {$: 'Array_elm_builtin', a: a, b: b, c: c, d: d};
 	});
-var elm$core$Array$branchFactor = 32;
 var elm$core$Basics$EQ = {$: 'EQ'};
 var elm$core$Basics$GT = {$: 'GT'};
 var elm$core$Basics$LT = {$: 'LT'};
@@ -4445,18 +4467,6 @@ var elm$core$Array$shiftStep = elm$core$Basics$ceiling(
 	A2(elm$core$Basics$logBase, 2, elm$core$Array$branchFactor));
 var elm$core$Elm$JsArray$empty = _JsArray_empty;
 var elm$core$Array$empty = A4(elm$core$Array$Array_elm_builtin, 0, elm$core$Array$shiftStep, elm$core$Elm$JsArray$empty, elm$core$Elm$JsArray$empty);
-var elm$core$Basics$False = {$: 'False'};
-var elm$core$Basics$negate = function (n) {
-	return -n;
-};
-var elm$core$Basics$True = {$: 'True'};
-var elm$core$Result$isOk = function (result) {
-	if (result.$ === 'Ok') {
-		return true;
-	} else {
-		return false;
-	}
-};
 var elm$core$Array$Leaf = function (a) {
 	return {$: 'Leaf', a: a};
 };
@@ -4464,25 +4474,6 @@ var elm$core$Array$SubTree = function (a) {
 	return {$: 'SubTree', a: a};
 };
 var elm$core$Elm$JsArray$initializeFromList = _JsArray_initializeFromList;
-var elm$core$List$foldl = F3(
-	function (func, acc, list) {
-		foldl:
-		while (true) {
-			if (!list.b) {
-				return acc;
-			} else {
-				var x = list.a;
-				var xs = list.b;
-				var $temp$func = func,
-					$temp$acc = A2(func, x, acc),
-					$temp$list = xs;
-				func = $temp$func;
-				acc = $temp$acc;
-				list = $temp$list;
-				continue foldl;
-			}
-		}
-	});
 var elm$core$List$reverse = function (list) {
 	return A3(elm$core$List$foldl, elm$core$List$cons, _List_Nil, list);
 };
@@ -4570,6 +4561,7 @@ var elm$core$Array$builderToArray = F2(
 				builder.tail);
 		}
 	});
+var elm$core$Basics$False = {$: 'False'};
 var elm$core$Basics$idiv = _Basics_idiv;
 var elm$core$Basics$lt = _Utils_lt;
 var elm$core$Elm$JsArray$initialize = _JsArray_initialize;
@@ -4621,6 +4613,14 @@ var elm$core$Result$Err = function (a) {
 };
 var elm$core$Result$Ok = function (a) {
 	return {$: 'Ok', a: a};
+};
+var elm$core$Basics$True = {$: 'True'};
+var elm$core$Result$isOk = function (result) {
+	if (result.$ === 'Ok') {
+		return true;
+	} else {
+		return false;
+	}
 };
 var elm$json$Json$Decode$Failure = F2(
 	function (a, b) {
@@ -4827,11 +4827,144 @@ var elm$json$Json$Decode$errorToStringHelp = F2(
 			}
 		}
 	});
-var elm$core$Platform$Cmd$batch = _Platform_batch;
-var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
+var elm$json$Json$Encode$object = function (pairs) {
+	return _Json_wrap(
+		A3(
+			elm$core$List$foldl,
+			F2(
+				function (_n0, obj) {
+					var k = _n0.a;
+					var v = _n0.b;
+					return A3(_Json_addField, k, v, obj);
+				}),
+			_Json_emptyObject(_Utils_Tuple0),
+			pairs));
+};
+var elm$json$Json$Encode$string = _Json_wrap;
+var author$project$Main$encodePacket = function (p) {
+	switch (p.$) {
+		case 'CreateToken':
+			var v = p.a;
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('CreateToken')),
+						_Utils_Tuple2('data', v)
+					]));
+		case 'DeleteToken':
+			var v = p.a;
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('DeleteToken')),
+						_Utils_Tuple2('data', v)
+					]));
+		case 'MoveToken':
+			var v = p.a;
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('MoveToken')),
+						_Utils_Tuple2('data', v)
+					]));
+		case 'Init':
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('unsupported'))
+					]));
+		case 'Chat':
+			var v = p.a;
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('Chat')),
+						_Utils_Tuple2('data', v)
+					]));
+		case 'CreateDoodadLine':
+			var v = p.a;
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('CreateDoodadLine')),
+						_Utils_Tuple2('data', v)
+					]));
+		case 'ClearDoodads':
+			var v = p.a;
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('ClearDoodads')),
+						_Utils_Tuple2('data', v)
+					]));
+		case 'ClearTokens':
+			var v = p.a;
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('ClearTokens')),
+						_Utils_Tuple2('data', v)
+					]));
+		case 'TokenToggleFoe':
+			var v = p.a;
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('TokenToggleFoe')),
+						_Utils_Tuple2('data', v)
+					]));
+		default:
+			var v = p.a;
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						elm$json$Json$Encode$string('InitSession')),
+						_Utils_Tuple2('data', v)
+					]));
+	}
+};
+var author$project$Main$encodeInitSession = function (cc) {
+	var val = elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'uid',
+				elm$json$Json$Encode$string(cc.uid))
+			]));
+	var packet = author$project$Main$InitSession(val);
+	return author$project$Main$encodePacket(packet);
+};
+var elm$core$Basics$identity = function (x) {
+	return x;
+};
+var author$project$Main$wsSend = _Platform_outgoingPort('wsSend', elm$core$Basics$identity);
+var elm$core$Basics$negate = function (n) {
+	return -n;
+};
 var author$project$Main$init = function (_n0) {
 	var w = _n0.a;
 	var h = _n0.b;
+	var uid = _n0.c;
 	return _Utils_Tuple2(
 		{
 			action: author$project$Main$None,
@@ -4854,7 +4987,9 @@ var author$project$Main$init = function (_n0) {
 			view: {height: 8, x: 0, y: 0},
 			window: {height: h, width: w}
 		},
-		elm$core$Platform$Cmd$none);
+		author$project$Main$wsSend(
+			author$project$Main$encodeInitSession(
+				{uid: uid})));
 };
 var author$project$Main$OnResize = function (a) {
 	return {$: 'OnResize', a: a};
@@ -4895,6 +5030,9 @@ var author$project$Main$Init = function (a) {
 var author$project$Main$MoveToken = function (a) {
 	return {$: 'MoveToken', a: a};
 };
+var author$project$Main$TokenToggleFoe = function (a) {
+	return {$: 'TokenToggleFoe', a: a};
+};
 var author$project$Main$rawPacketToPacket = function (rawPacket) {
 	return (rawPacket.t === 'CreateToken') ? elm$core$Result$Ok(
 		author$project$Main$CreateToken(rawPacket.d)) : ((rawPacket.t === 'DeleteToken') ? elm$core$Result$Ok(
@@ -4904,7 +5042,8 @@ var author$project$Main$rawPacketToPacket = function (rawPacket) {
 		author$project$Main$Chat(rawPacket.d)) : ((rawPacket.t === 'CreateDoodadLine') ? elm$core$Result$Ok(
 		author$project$Main$CreateDoodadLine(rawPacket.d)) : ((rawPacket.t === 'ClearDoodads') ? elm$core$Result$Ok(
 		author$project$Main$ClearDoodads(rawPacket.d)) : ((rawPacket.t === 'ClearTokens') ? elm$core$Result$Ok(
-		author$project$Main$ClearTokens(rawPacket.d)) : elm$core$Result$Err('Unknown packet type ' + rawPacket.t))))))));
+		author$project$Main$ClearTokens(rawPacket.d)) : ((rawPacket.t === 'TokenToggleFoe') ? elm$core$Result$Ok(
+		author$project$Main$TokenToggleFoe(rawPacket.d)) : elm$core$Result$Err('Unknown packet type ' + rawPacket.t)))))))));
 };
 var elm$json$Json$Decode$decodeValue = _Json_run;
 var elm$json$Json$Decode$field = _Json_decodeField;
@@ -5102,17 +5241,18 @@ var author$project$Main$InitDoodad = F6(
 	function (id, doodadType, sx, sy, ex, ey) {
 		return {doodadType: doodadType, ex: ex, ey: ey, id: id, sx: sx, sy: sy};
 	});
-var author$project$Main$InitToken = F7(
-	function (id, x, y, radius, r, g, b) {
-		return {b: b, g: g, id: id, r: r, radius: radius, x: x, y: y};
+var author$project$Main$InitToken = F8(
+	function (id, x, y, radius, r, g, b, foe) {
+		return {b: b, foe: foe, g: g, id: id, r: r, radius: radius, x: x, y: y};
 	});
 var author$project$Main$PacketInit = F4(
 	function (tokens, doodads, nextColor, nextId) {
 		return {doodads: doodads, nextColor: nextColor, nextId: nextId, tokens: tokens};
 	});
+var elm$json$Json$Decode$bool = _Json_decodeBool;
 var elm$json$Json$Decode$list = _Json_decodeList;
 var elm$json$Json$Decode$map6 = _Json_map6;
-var elm$json$Json$Decode$map7 = _Json_map7;
+var elm$json$Json$Decode$map8 = _Json_map8;
 var author$project$Main$decodeInit = function (v) {
 	var d = A5(
 		elm$json$Json$Decode$map4,
@@ -5121,8 +5261,8 @@ var author$project$Main$decodeInit = function (v) {
 			elm$json$Json$Decode$field,
 			'tokens',
 			elm$json$Json$Decode$list(
-				A8(
-					elm$json$Json$Decode$map7,
+				A9(
+					elm$json$Json$Decode$map8,
 					author$project$Main$InitToken,
 					A2(elm$json$Json$Decode$field, 'id', elm$json$Json$Decode$int),
 					A2(elm$json$Json$Decode$field, 'x', elm$json$Json$Decode$float),
@@ -5130,7 +5270,8 @@ var author$project$Main$decodeInit = function (v) {
 					A2(elm$json$Json$Decode$field, 'radius', elm$json$Json$Decode$float),
 					A2(elm$json$Json$Decode$field, 'r', elm$json$Json$Decode$float),
 					A2(elm$json$Json$Decode$field, 'g', elm$json$Json$Decode$float),
-					A2(elm$json$Json$Decode$field, 'b', elm$json$Json$Decode$float)))),
+					A2(elm$json$Json$Decode$field, 'b', elm$json$Json$Decode$float),
+					A2(elm$json$Json$Decode$field, 'foe', elm$json$Json$Decode$bool)))),
 		A2(
 			elm$json$Json$Decode$field,
 			'doodads',
@@ -5205,6 +5346,37 @@ var author$project$Main$onMoveToken = function (v) {
 		return author$project$Main$MsgShowError(e);
 	}
 };
+var author$project$Main$MsgToggleFoe = function (a) {
+	return {$: 'MsgToggleFoe', a: a};
+};
+var author$project$Main$PacketTokenToggleFoe = function (id) {
+	return {id: id};
+};
+var author$project$Main$decodeTokenToggleFoe = function (v) {
+	var d = A2(
+		elm$json$Json$Decode$map,
+		author$project$Main$PacketTokenToggleFoe,
+		A2(elm$json$Json$Decode$field, 'id', elm$json$Json$Decode$int));
+	var cc = A2(elm$json$Json$Decode$decodeValue, d, v);
+	if (cc.$ === 'Ok') {
+		var p = cc.a;
+		return elm$core$Result$Ok(p);
+	} else {
+		var e = cc.a;
+		return elm$core$Result$Err(
+			elm$json$Json$Decode$errorToString(e));
+	}
+};
+var author$project$Main$onTokenToggleFoe = function (v) {
+	var p = author$project$Main$decodeTokenToggleFoe(v);
+	if (p.$ === 'Ok') {
+		var o = p.a;
+		return author$project$Main$MsgToggleFoe(o.id);
+	} else {
+		var e = p.a;
+		return author$project$Main$MsgShowError(e);
+	}
+};
 var author$project$Main$onPacket = function (p) {
 	switch (p.$) {
 		case 'CreateToken':
@@ -5228,9 +5400,15 @@ var author$project$Main$onPacket = function (p) {
 		case 'ClearDoodads':
 			var d = p.a;
 			return author$project$Main$onClearDoodads(d);
-		default:
+		case 'ClearTokens':
 			var d = p.a;
 			return author$project$Main$onClearTokens(d);
+		case 'TokenToggleFoe':
+			var d = p.a;
+			return author$project$Main$onTokenToggleFoe(d);
+		default:
+			var d = p.a;
+			return author$project$Main$MsgShowError('Unexpected init session packet received.');
 	}
 };
 var author$project$Main$onWsReceive = function (v) {
@@ -5307,9 +5485,6 @@ var elm$core$Basics$never = function (_n0) {
 		_n0 = $temp$_n0;
 		continue never;
 	}
-};
-var elm$core$Basics$identity = function (x) {
-	return x;
 };
 var elm$core$Task$Perform = function (a) {
 	return {$: 'Perform', a: a};
@@ -5981,102 +6156,6 @@ var author$project$Main$subscriptions = function (_n0) {
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Down = {$: 'Down'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Enter = {$: 'Enter'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Up = {$: 'Up'};
-var elm$json$Json$Encode$object = function (pairs) {
-	return _Json_wrap(
-		A3(
-			elm$core$List$foldl,
-			F2(
-				function (_n0, obj) {
-					var k = _n0.a;
-					var v = _n0.b;
-					return A3(_Json_addField, k, v, obj);
-				}),
-			_Json_emptyObject(_Utils_Tuple0),
-			pairs));
-};
-var elm$json$Json$Encode$string = _Json_wrap;
-var author$project$Main$encodePacket = function (p) {
-	switch (p.$) {
-		case 'CreateToken':
-			var v = p.a;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('CreateToken')),
-						_Utils_Tuple2('data', v)
-					]));
-		case 'DeleteToken':
-			var v = p.a;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('DeleteToken')),
-						_Utils_Tuple2('data', v)
-					]));
-		case 'MoveToken':
-			var v = p.a;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('MoveToken')),
-						_Utils_Tuple2('data', v)
-					]));
-		case 'Init':
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('unsupported'))
-					]));
-		case 'Chat':
-			var v = p.a;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('Chat')),
-						_Utils_Tuple2('data', v)
-					]));
-		case 'CreateDoodadLine':
-			var v = p.a;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('CreateDoodadLine')),
-						_Utils_Tuple2('data', v)
-					]));
-		case 'ClearDoodads':
-			var v = p.a;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('ClearDoodads')),
-						_Utils_Tuple2('data', v)
-					]));
-		default:
-			var v = p.a;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('ClearTokens')),
-						_Utils_Tuple2('data', v)
-					]));
-	}
-};
 var author$project$Main$encodeChat = function (cc) {
 	var val = elm$json$Json$Encode$object(
 		_List_fromArray(
@@ -6091,7 +6170,6 @@ var author$project$Main$encodeChat = function (cc) {
 	var packet = author$project$Main$Chat(val);
 	return author$project$Main$encodePacket(packet);
 };
-var author$project$Main$wsSend = _Platform_outgoingPort('wsSend', elm$core$Basics$identity);
 var elm$core$Array$fromListHelp = F3(
 	function (list, nodeList, nodeListSize) {
 		fromListHelp:
@@ -6312,6 +6390,8 @@ var elm$core$Maybe$withDefault = F2(
 			return _default;
 		}
 	});
+var elm$core$Platform$Cmd$batch = _Platform_batch;
+var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
 var author$project$Main$onChatKeyDown = F2(
 	function (event, model) {
 		if (_Utils_eq(event.keyCode, SwiftsNamesake$proper_keyboard$Keyboard$Key$Enter)) {
@@ -6388,32 +6468,18 @@ var avh4$elm_color$Color$rgb255 = F3(
 var author$project$Main$baseColors = elm$core$Array$fromList(
 	_List_fromArray(
 		[
-			A3(avh4$elm_color$Color$rgb255, 201, 42, 42),
-			A3(avh4$elm_color$Color$rgb255, 166, 30, 77),
-			A3(avh4$elm_color$Color$rgb255, 134, 46, 156),
-			A3(avh4$elm_color$Color$rgb255, 95, 61, 196),
-			A3(avh4$elm_color$Color$rgb255, 54, 79, 199),
+			A3(avh4$elm_color$Color$rgb255, 240, 50, 50),
+			A3(avh4$elm_color$Color$rgb255, 176, 30, 90),
+			A3(avh4$elm_color$Color$rgb255, 201, 20, 201),
+			A3(avh4$elm_color$Color$rgb255, 120, 61, 196),
 			A3(avh4$elm_color$Color$rgb255, 24, 100, 171),
-			A3(avh4$elm_color$Color$rgb255, 11, 114, 133),
+			A3(avh4$elm_color$Color$rgb255, 24, 172, 171),
 			A3(avh4$elm_color$Color$rgb255, 8, 127, 91),
-			A3(avh4$elm_color$Color$rgb255, 43, 138, 62),
 			A3(avh4$elm_color$Color$rgb255, 92, 148, 13),
-			A3(avh4$elm_color$Color$rgb255, 230, 119, 0),
 			A3(avh4$elm_color$Color$rgb255, 217, 72, 15),
-			A3(avh4$elm_color$Color$rgb255, 255, 84, 84),
-			A3(avh4$elm_color$Color$rgb255, 186, 90, 170),
-			A3(avh4$elm_color$Color$rgb255, 154, 92, 186),
-			A3(avh4$elm_color$Color$rgb255, 190, 122, 220),
-			A3(avh4$elm_color$Color$rgb255, 138, 160, 220),
-			A3(avh4$elm_color$Color$rgb255, 100, 190, 220),
-			A3(avh4$elm_color$Color$rgb255, 42, 184, 183),
-			A3(avh4$elm_color$Color$rgb255, 32, 200, 170),
-			A3(avh4$elm_color$Color$rgb255, 110, 198, 120),
-			A3(avh4$elm_color$Color$rgb255, 142, 220, 66),
-			A3(avh4$elm_color$Color$rgb255, 255, 179, 50),
-			A3(avh4$elm_color$Color$rgb255, 255, 190, 70)
+			A3(avh4$elm_color$Color$rgb255, 129, 96, 65)
 		]));
-var author$project$Main$numBaseColors = 24;
+var author$project$Main$numBaseColors = 10;
 var avh4$elm_color$Color$rgb = F3(
 	function (r, g, b) {
 		return A4(avh4$elm_color$Color$RgbaSpace, r, g, b, 1.0);
@@ -6435,6 +6501,7 @@ var author$project$Main$onCreate = F2(
 									elm$core$Maybe$withDefault,
 									A3(avh4$elm_color$Color$rgb, 0.7, 0, 0.7),
 									A2(elm$core$Array$get, model.nextId % author$project$Main$numBaseColors, author$project$Main$baseColors)),
+								foe: false,
 								id: model.nextId,
 								owner: 0,
 								radius: 0.25,
@@ -6470,6 +6537,7 @@ var author$project$Main$onDestroy = F2(
 			elm$core$Platform$Cmd$none);
 	});
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Delete = {$: 'Delete'};
+var SwiftsNamesake$proper_keyboard$Keyboard$Key$F = {$: 'F'};
 var elm$json$Json$Encode$int = _Json_wrap;
 var author$project$Main$encodeDeleteToken = function (cc) {
 	var val = elm$json$Json$Encode$object(
@@ -6482,6 +6550,17 @@ var author$project$Main$encodeDeleteToken = function (cc) {
 	var packet = author$project$Main$DeleteToken(val);
 	return author$project$Main$encodePacket(packet);
 };
+var author$project$Main$encodeTokenToggleFoe = function (cc) {
+	var val = elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'id',
+				elm$json$Json$Encode$int(cc.id))
+			]));
+	var packet = author$project$Main$TokenToggleFoe(val);
+	return author$project$Main$encodePacket(packet);
+};
 var author$project$Main$onKeyDown = F2(
 	function (event, model) {
 		return (_Utils_eq(event.keyCode, SwiftsNamesake$proper_keyboard$Keyboard$Key$Delete) && (model.selected >= 0)) ? _Utils_Tuple2(
@@ -6490,7 +6569,11 @@ var author$project$Main$onKeyDown = F2(
 				{selected: -1}),
 			author$project$Main$wsSend(
 				author$project$Main$encodeDeleteToken(
-					{id: model.selected}))) : _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+					{id: model.selected}))) : (_Utils_eq(event.keyCode, SwiftsNamesake$proper_keyboard$Keyboard$Key$F) ? _Utils_Tuple2(
+			model,
+			author$project$Main$wsSend(
+				author$project$Main$encodeTokenToggleFoe(
+					{id: model.selected}))) : _Utils_Tuple2(model, elm$core$Platform$Cmd$none));
 	});
 var author$project$Main$ActionCreateLine = function (a) {
 	return {$: 'ActionCreateLine', a: a};
@@ -6980,6 +7063,7 @@ var author$project$Main$initTokenToToken = function (t) {
 				elm$core$Basics$round(t.r),
 				elm$core$Basics$round(t.g),
 				elm$core$Basics$round(t.b)),
+			foe: t.foe,
 			id: t.id,
 			owner: 0,
 			radius: t.radius,
@@ -7021,6 +7105,24 @@ var author$project$Main$onMsgSendClearTokens = function (model) {
 		author$project$Main$wsSend(
 			author$project$Main$encodeClearTokens(author$project$Main$PacketClearTokens)));
 };
+var elm$core$Basics$not = _Basics_not;
+var author$project$Main$tokenToggleFoe = function (t) {
+	var c = t.a;
+	return author$project$Main$Token(
+		_Utils_update(
+			c,
+			{foe: !c.foe}));
+};
+var author$project$Main$onMsgToggleFoe = F2(
+	function (i, model) {
+		return _Utils_Tuple2(
+			_Utils_update(
+				model,
+				{
+					tokens: A3(author$project$Main$applyToToken, author$project$Main$tokenToggleFoe, i, model.tokens)
+				}),
+			elm$core$Platform$Cmd$none);
+	});
 var elm$core$Debug$log = _Debug_log;
 var author$project$Main$update = F2(
 	function (msg, model) {
@@ -7117,6 +7219,9 @@ var author$project$Main$update = F2(
 				return author$project$Main$onMsgSendClearTokens(model);
 			case 'MsgClearTokens':
 				return author$project$Main$onMsgClearTokens(model);
+			case 'MsgToggleFoe':
+				var i = msg.a;
+				return A2(author$project$Main$onMsgToggleFoe, i, model);
 			case 'MsgDoNothing':
 				return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 			default:
@@ -7183,7 +7288,6 @@ var SwiftsNamesake$proper_keyboard$Keyboard$Key$E = {$: 'E'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Eight = {$: 'Eight'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$End = {$: 'End'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Escape = {$: 'Escape'};
-var SwiftsNamesake$proper_keyboard$Keyboard$Key$F = {$: 'F'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$F1 = {$: 'F1'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$F10 = {$: 'F10'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$F11 = {$: 'F11'};
@@ -7438,7 +7542,7 @@ var SwiftsNamesake$proper_keyboard$Keyboard$Key$fromCode = function (keyCode) {
 			return SwiftsNamesake$proper_keyboard$Keyboard$Key$Unknown(keyCode);
 	}
 };
-var elm$json$Json$Decode$bool = _Json_decodeBool;
+var elm$json$Json$Decode$map7 = _Json_map7;
 var Gizra$elm_keyboard_event$Keyboard$Event$decodeKeyboardEvent = A8(
 	elm$json$Json$Decode$map7,
 	Gizra$elm_keyboard_event$Keyboard$Event$KeyboardEvent,
@@ -8030,7 +8134,6 @@ var joakin$elm_canvas$Canvas$Settings$Text$font = function (_n0) {
 		joakin$elm_canvas$Canvas$Internal$CustomElementJsonApi$font(
 			elm$core$String$fromInt(size) + ('px ' + family)));
 };
-var elm$core$Basics$not = _Basics_not;
 var elm$core$Basics$abs = function (n) {
 	return (n < 0) ? (-n) : n;
 };
@@ -8547,6 +8650,10 @@ var author$project$Main$viewSetUsername = function (model) {
 				]))
 		]) : _List_Nil;
 };
+var avh4$elm_color$Color$rgba = F4(
+	function (r, g, b, a) {
+		return A4(avh4$elm_color$Color$RgbaSpace, r, g, b, a);
+	});
 var joakin$elm_canvas$Canvas$Internal$Canvas$Circle = F2(
 	function (a, b) {
 		return {$: 'Circle', a: a, b: b};
@@ -8558,29 +8665,17 @@ var joakin$elm_canvas$Canvas$circle = F2(
 var author$project$Main$viewToken = F3(
 	function (highlighted, trans, t) {
 		var d = t.a;
-		return _Utils_eq(highlighted, d.id) ? A2(
+		var strokeSize = d.foe ? 5.0e-2 : 0;
+		var stroke = _Utils_eq(highlighted, d.id) ? A3(avh4$elm_color$Color$rgb, 1, 1, 1) : (d.foe ? A3(avh4$elm_color$Color$rgb, 1, 0, 0) : A4(avh4$elm_color$Color$rgba, 0, 0, 0, 0));
+		return A2(
 			joakin$elm_canvas$Canvas$shapes,
 			_Utils_ap(
 				trans,
 				_List_fromArray(
 					[
 						joakin$elm_canvas$Canvas$Settings$fill(d.color),
-						joakin$elm_canvas$Canvas$Settings$stroke(
-						A3(avh4$elm_color$Color$rgb, 1, 1, 1))
-					])),
-			_List_fromArray(
-				[
-					A2(
-					joakin$elm_canvas$Canvas$circle,
-					_Utils_Tuple2(d.x, d.y),
-					d.radius)
-				])) : A2(
-			joakin$elm_canvas$Canvas$shapes,
-			_Utils_ap(
-				trans,
-				_List_fromArray(
-					[
-						joakin$elm_canvas$Canvas$Settings$fill(d.color)
+						joakin$elm_canvas$Canvas$Settings$stroke(stroke),
+						joakin$elm_canvas$Canvas$Settings$Line$lineWidth(strokeSize)
 					])),
 			_List_fromArray(
 				[
@@ -9552,10 +9647,7 @@ var author$project$Main$view = function (model) {
 											A2(
 											elm$html$Html$Events$on,
 											'keydown',
-											A2(
-												elm$core$Debug$log,
-												'on keydown',
-												A2(elm$json$Json$Decode$map, author$project$Main$ChatKeyDown, Gizra$elm_keyboard_event$Keyboard$Event$decodeKeyboardEvent)))
+											A2(elm$json$Json$Decode$map, author$project$Main$ChatKeyDown, Gizra$elm_keyboard_event$Keyboard$Event$decodeKeyboardEvent))
 										]),
 									_List_Nil)
 								]))
@@ -9576,8 +9668,13 @@ _Platform_export({'Main':{'init':author$project$Main$main(
 			return A2(
 				elm$json$Json$Decode$andThen,
 				function (x1) {
-					return elm$json$Json$Decode$succeed(
-						_Utils_Tuple2(x0, x1));
+					return A2(
+						elm$json$Json$Decode$andThen,
+						function (x2) {
+							return elm$json$Json$Decode$succeed(
+								_Utils_Tuple3(x0, x1, x2));
+						},
+						A2(elm$json$Json$Decode$index, 2, elm$json$Json$Decode$string));
 				},
 				A2(elm$json$Json$Decode$index, 1, elm$json$Json$Decode$int));
 		},
