@@ -4841,119 +4841,156 @@ var elm$json$Json$Encode$object = function (pairs) {
 			pairs));
 };
 var elm$json$Json$Encode$string = _Json_wrap;
-var author$project$Main$encodePacket = function (p) {
-	switch (p.$) {
-		case 'CreateToken':
-			var v = p.a;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('CreateToken')),
-						_Utils_Tuple2('data', v)
-					]));
-		case 'DeleteToken':
-			var v = p.a;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('DeleteToken')),
-						_Utils_Tuple2('data', v)
-					]));
-		case 'MoveToken':
-			var v = p.a;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('MoveToken')),
-						_Utils_Tuple2('data', v)
-					]));
-		case 'Init':
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('unsupported'))
-					]));
-		case 'Chat':
-			var v = p.a;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('Chat')),
-						_Utils_Tuple2('data', v)
-					]));
-		case 'CreateDoodadLine':
-			var v = p.a;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('CreateDoodadLine')),
-						_Utils_Tuple2('data', v)
-					]));
-		case 'ClearDoodads':
-			var v = p.a;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('ClearDoodads')),
-						_Utils_Tuple2('data', v)
-					]));
-		case 'ClearTokens':
-			var v = p.a;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('ClearTokens')),
-						_Utils_Tuple2('data', v)
-					]));
-		case 'TokenToggleFoe':
-			var v = p.a;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('TokenToggleFoe')),
-						_Utils_Tuple2('data', v)
-					]));
-		default:
-			var v = p.a;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						elm$json$Json$Encode$string('InitSession')),
-						_Utils_Tuple2('data', v)
-					]));
-	}
-};
-var author$project$Main$encodeInitSession = function (cc) {
-	var val = elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'uid',
-				elm$json$Json$Encode$string(cc.uid))
-			]));
-	var packet = author$project$Main$InitSession(val);
-	return author$project$Main$encodePacket(packet);
-};
+var author$project$Main$encodePacket = F2(
+	function (uid, p) {
+		switch (p.$) {
+			case 'CreateToken':
+				var v = p.a;
+				return elm$json$Json$Encode$object(
+					_List_fromArray(
+						[
+							_Utils_Tuple2(
+							'type',
+							elm$json$Json$Encode$string('CreateToken')),
+							_Utils_Tuple2(
+							'uid',
+							elm$json$Json$Encode$string(uid)),
+							_Utils_Tuple2('data', v)
+						]));
+			case 'DeleteToken':
+				var v = p.a;
+				return elm$json$Json$Encode$object(
+					_List_fromArray(
+						[
+							_Utils_Tuple2(
+							'type',
+							elm$json$Json$Encode$string('DeleteToken')),
+							_Utils_Tuple2(
+							'uid',
+							elm$json$Json$Encode$string(uid)),
+							_Utils_Tuple2('data', v)
+						]));
+			case 'MoveToken':
+				var v = p.a;
+				return elm$json$Json$Encode$object(
+					_List_fromArray(
+						[
+							_Utils_Tuple2(
+							'type',
+							elm$json$Json$Encode$string('MoveToken')),
+							_Utils_Tuple2(
+							'uid',
+							elm$json$Json$Encode$string(uid)),
+							_Utils_Tuple2('data', v)
+						]));
+			case 'Init':
+				return elm$json$Json$Encode$object(
+					_List_fromArray(
+						[
+							_Utils_Tuple2(
+							'type',
+							elm$json$Json$Encode$string('unsupported'))
+						]));
+			case 'Chat':
+				var v = p.a;
+				return elm$json$Json$Encode$object(
+					_List_fromArray(
+						[
+							_Utils_Tuple2(
+							'type',
+							elm$json$Json$Encode$string('Chat')),
+							_Utils_Tuple2(
+							'uid',
+							elm$json$Json$Encode$string(uid)),
+							_Utils_Tuple2('data', v)
+						]));
+			case 'CreateDoodadLine':
+				var v = p.a;
+				return elm$json$Json$Encode$object(
+					_List_fromArray(
+						[
+							_Utils_Tuple2(
+							'type',
+							elm$json$Json$Encode$string('CreateDoodadLine')),
+							_Utils_Tuple2(
+							'uid',
+							elm$json$Json$Encode$string(uid)),
+							_Utils_Tuple2('data', v)
+						]));
+			case 'ClearDoodads':
+				var v = p.a;
+				return elm$json$Json$Encode$object(
+					_List_fromArray(
+						[
+							_Utils_Tuple2(
+							'type',
+							elm$json$Json$Encode$string('ClearDoodads')),
+							_Utils_Tuple2(
+							'uid',
+							elm$json$Json$Encode$string(uid)),
+							_Utils_Tuple2('data', v)
+						]));
+			case 'ClearTokens':
+				var v = p.a;
+				return elm$json$Json$Encode$object(
+					_List_fromArray(
+						[
+							_Utils_Tuple2(
+							'type',
+							elm$json$Json$Encode$string('ClearTokens')),
+							_Utils_Tuple2(
+							'uid',
+							elm$json$Json$Encode$string(uid)),
+							_Utils_Tuple2('data', v)
+						]));
+			case 'TokenToggleFoe':
+				var v = p.a;
+				return elm$json$Json$Encode$object(
+					_List_fromArray(
+						[
+							_Utils_Tuple2(
+							'type',
+							elm$json$Json$Encode$string('TokenToggleFoe')),
+							_Utils_Tuple2(
+							'uid',
+							elm$json$Json$Encode$string(uid)),
+							_Utils_Tuple2('data', v)
+						]));
+			case 'InitSession':
+				var v = p.a;
+				return elm$json$Json$Encode$object(
+					_List_fromArray(
+						[
+							_Utils_Tuple2(
+							'type',
+							elm$json$Json$Encode$string('InitSession')),
+							_Utils_Tuple2(
+							'uid',
+							elm$json$Json$Encode$string(uid)),
+							_Utils_Tuple2('data', v)
+						]));
+			default:
+				return elm$json$Json$Encode$object(
+					_List_fromArray(
+						[
+							_Utils_Tuple2(
+							'type',
+							elm$json$Json$Encode$string('Error'))
+						]));
+		}
+	});
+var author$project$Main$encodeInitSession = F2(
+	function (uid, cc) {
+		var val = elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'uid',
+					elm$json$Json$Encode$string(cc.uid))
+				]));
+		var packet = author$project$Main$InitSession(val);
+		return A2(author$project$Main$encodePacket, uid, packet);
+	});
 var elm$core$Basics$identity = function (x) {
 	return x;
 };
@@ -4975,12 +5012,14 @@ var author$project$Main$init = function (_n0) {
 			chatText: '',
 			createMode: author$project$Main$ModeCreateToken,
 			doodads: _List_Nil,
+			id: 128,
 			mouse: {x: 0, y: 0},
 			nextId: 0,
 			selected: -1,
 			sentMessagePos: 0,
 			sentMessages: elm$core$Array$empty,
 			tokens: _List_Nil,
+			uid: uid,
 			user: {id: 0},
 			username: '',
 			usernameSet: false,
@@ -4988,7 +5027,9 @@ var author$project$Main$init = function (_n0) {
 			window: {height: h, width: w}
 		},
 		author$project$Main$wsSend(
-			author$project$Main$encodeInitSession(
+			A2(
+				author$project$Main$encodeInitSession,
+				uid,
 				{uid: uid})));
 };
 var author$project$Main$OnResize = function (a) {
@@ -5030,6 +5071,9 @@ var author$project$Main$Init = function (a) {
 var author$project$Main$MoveToken = function (a) {
 	return {$: 'MoveToken', a: a};
 };
+var author$project$Main$Session = function (a) {
+	return {$: 'Session', a: a};
+};
 var author$project$Main$TokenToggleFoe = function (a) {
 	return {$: 'TokenToggleFoe', a: a};
 };
@@ -5043,7 +5087,8 @@ var author$project$Main$rawPacketToPacket = function (rawPacket) {
 		author$project$Main$CreateDoodadLine(rawPacket.d)) : ((rawPacket.t === 'ClearDoodads') ? elm$core$Result$Ok(
 		author$project$Main$ClearDoodads(rawPacket.d)) : ((rawPacket.t === 'ClearTokens') ? elm$core$Result$Ok(
 		author$project$Main$ClearTokens(rawPacket.d)) : ((rawPacket.t === 'TokenToggleFoe') ? elm$core$Result$Ok(
-		author$project$Main$TokenToggleFoe(rawPacket.d)) : elm$core$Result$Err('Unknown packet type ' + rawPacket.t)))))))));
+		author$project$Main$TokenToggleFoe(rawPacket.d)) : ((rawPacket.t === 'Session') ? elm$core$Result$Ok(
+		author$project$Main$Session(rawPacket.d)) : elm$core$Result$Err('Unknown packet type ' + rawPacket.t))))))))));
 };
 var elm$json$Json$Decode$decodeValue = _Json_run;
 var elm$json$Json$Decode$field = _Json_decodeField;
@@ -5346,6 +5391,39 @@ var author$project$Main$onMoveToken = function (v) {
 		return author$project$Main$MsgShowError(e);
 	}
 };
+var author$project$Main$MsgRestoreSession = function (a) {
+	return {$: 'MsgRestoreSession', a: a};
+};
+var author$project$Main$PacketSession = F2(
+	function (id, name) {
+		return {id: id, name: name};
+	});
+var author$project$Main$decodeSession = function (v) {
+	var d = A3(
+		elm$json$Json$Decode$map2,
+		author$project$Main$PacketSession,
+		A2(elm$json$Json$Decode$field, 'id', elm$json$Json$Decode$int),
+		A2(elm$json$Json$Decode$field, 'name', elm$json$Json$Decode$string));
+	var cc = A2(elm$json$Json$Decode$decodeValue, d, v);
+	if (cc.$ === 'Ok') {
+		var p = cc.a;
+		return elm$core$Result$Ok(p);
+	} else {
+		var e = cc.a;
+		return elm$core$Result$Err(
+			elm$json$Json$Decode$errorToString(e));
+	}
+};
+var author$project$Main$onSession = function (v) {
+	var p = author$project$Main$decodeSession(v);
+	if (p.$ === 'Ok') {
+		var o = p.a;
+		return author$project$Main$MsgRestoreSession(o);
+	} else {
+		var e = p.a;
+		return author$project$Main$MsgShowError(e);
+	}
+};
 var author$project$Main$MsgToggleFoe = function (a) {
 	return {$: 'MsgToggleFoe', a: a};
 };
@@ -5406,6 +5484,12 @@ var author$project$Main$onPacket = function (p) {
 		case 'TokenToggleFoe':
 			var d = p.a;
 			return author$project$Main$onTokenToggleFoe(d);
+		case 'InitSession':
+			var d = p.a;
+			return author$project$Main$MsgShowError('Unexpected init session packet received.');
+		case 'Session':
+			var d = p.a;
+			return author$project$Main$onSession(d);
 		default:
 			var d = p.a;
 			return author$project$Main$MsgShowError('Unexpected init session packet received.');
@@ -6156,20 +6240,21 @@ var author$project$Main$subscriptions = function (_n0) {
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Down = {$: 'Down'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Enter = {$: 'Enter'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Up = {$: 'Up'};
-var author$project$Main$encodeChat = function (cc) {
-	var val = elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'sender',
-				elm$json$Json$Encode$string(cc.sender)),
-				_Utils_Tuple2(
-				'message',
-				elm$json$Json$Encode$string(cc.message))
-			]));
-	var packet = author$project$Main$Chat(val);
-	return author$project$Main$encodePacket(packet);
-};
+var author$project$Main$encodeChat = F2(
+	function (uid, cc) {
+		var val = elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'sender',
+					elm$json$Json$Encode$string(cc.sender)),
+					_Utils_Tuple2(
+					'message',
+					elm$json$Json$Encode$string(cc.message))
+				]));
+		var packet = author$project$Main$Chat(val);
+		return A2(author$project$Main$encodePacket, uid, packet);
+	});
 var elm$core$Array$fromListHelp = F3(
 	function (list, nodeList, nodeListSize) {
 		fromListHelp:
@@ -6411,7 +6496,9 @@ var author$project$Main$onChatKeyDown = F2(
 									elm$core$Array$toList(model.sentMessages))))
 					}),
 				author$project$Main$wsSend(
-					author$project$Main$encodeChat(
+					A2(
+						author$project$Main$encodeChat,
+						model.uid,
 						{message: model.chatText, sender: model.username})));
 		} else {
 			if (_Utils_eq(event.keyCode, SwiftsNamesake$proper_keyboard$Keyboard$Key$Up)) {
@@ -6539,28 +6626,30 @@ var author$project$Main$onDestroy = F2(
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Delete = {$: 'Delete'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$F = {$: 'F'};
 var elm$json$Json$Encode$int = _Json_wrap;
-var author$project$Main$encodeDeleteToken = function (cc) {
-	var val = elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'id',
-				elm$json$Json$Encode$int(cc.id))
-			]));
-	var packet = author$project$Main$DeleteToken(val);
-	return author$project$Main$encodePacket(packet);
-};
-var author$project$Main$encodeTokenToggleFoe = function (cc) {
-	var val = elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'id',
-				elm$json$Json$Encode$int(cc.id))
-			]));
-	var packet = author$project$Main$TokenToggleFoe(val);
-	return author$project$Main$encodePacket(packet);
-};
+var author$project$Main$encodeDeleteToken = F2(
+	function (uid, cc) {
+		var val = elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'id',
+					elm$json$Json$Encode$int(cc.id))
+				]));
+		var packet = author$project$Main$DeleteToken(val);
+		return A2(author$project$Main$encodePacket, uid, packet);
+	});
+var author$project$Main$encodeTokenToggleFoe = F2(
+	function (uid, cc) {
+		var val = elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'id',
+					elm$json$Json$Encode$int(cc.id))
+				]));
+		var packet = author$project$Main$TokenToggleFoe(val);
+		return A2(author$project$Main$encodePacket, uid, packet);
+	});
 var author$project$Main$onKeyDown = F2(
 	function (event, model) {
 		return (_Utils_eq(event.keyCode, SwiftsNamesake$proper_keyboard$Keyboard$Key$Delete) && (model.selected >= 0)) ? _Utils_Tuple2(
@@ -6568,11 +6657,15 @@ var author$project$Main$onKeyDown = F2(
 				model,
 				{selected: -1}),
 			author$project$Main$wsSend(
-				author$project$Main$encodeDeleteToken(
+				A2(
+					author$project$Main$encodeDeleteToken,
+					model.uid,
 					{id: model.selected}))) : (_Utils_eq(event.keyCode, SwiftsNamesake$proper_keyboard$Keyboard$Key$F) ? _Utils_Tuple2(
 			model,
 			author$project$Main$wsSend(
-				author$project$Main$encodeTokenToggleFoe(
+				A2(
+					author$project$Main$encodeTokenToggleFoe,
+					model.uid,
 					{id: model.selected}))) : _Utils_Tuple2(model, elm$core$Platform$Cmd$none));
 	});
 var author$project$Main$ActionCreateLine = function (a) {
@@ -6602,26 +6695,27 @@ var author$project$Main$applyToToken = F3(
 		}
 	});
 var elm$json$Json$Encode$float = _Json_wrap;
-var author$project$Main$encodeCreateDoodadLine = function (cc) {
-	var val = elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'sx',
-				elm$json$Json$Encode$float(cc.sx)),
-				_Utils_Tuple2(
-				'sy',
-				elm$json$Json$Encode$float(cc.sy)),
-				_Utils_Tuple2(
-				'ex',
-				elm$json$Json$Encode$float(cc.ex)),
-				_Utils_Tuple2(
-				'ey',
-				elm$json$Json$Encode$float(cc.ey))
-			]));
-	var packet = author$project$Main$CreateDoodadLine(val);
-	return author$project$Main$encodePacket(packet);
-};
+var author$project$Main$encodeCreateDoodadLine = F2(
+	function (uid, cc) {
+		var val = elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'sx',
+					elm$json$Json$Encode$float(cc.sx)),
+					_Utils_Tuple2(
+					'sy',
+					elm$json$Json$Encode$float(cc.sy)),
+					_Utils_Tuple2(
+					'ex',
+					elm$json$Json$Encode$float(cc.ex)),
+					_Utils_Tuple2(
+					'ey',
+					elm$json$Json$Encode$float(cc.ey))
+				]));
+		var packet = author$project$Main$CreateDoodadLine(val);
+		return A2(author$project$Main$encodePacket, uid, packet);
+	});
 var author$project$Main$computeCanvasHeight = function (h) {
 	return h - 48;
 };
@@ -6697,7 +6791,9 @@ var author$project$Main$onMouseMotion = F2(
 									{ex: x, ey: y, sx: l.ex, sy: l.ey}))
 						}),
 					author$project$Main$wsSend(
-						author$project$Main$encodeCreateDoodadLine(
+						A2(
+							author$project$Main$encodeCreateDoodadLine,
+							model.uid,
 							{ex: l.ex, ey: l.ey, sx: l.sx, sy: l.sy}))) : _Utils_Tuple2(
 					_Utils_update(
 						model,
@@ -6762,20 +6858,21 @@ var author$project$Main$creatureIdAt = F3(
 				c.radius) < 0) ? c.id : A3(author$project$Main$tokenIdAt, x, y, t);
 		}
 	});
-var author$project$Main$encodeCreateToken = function (cc) {
-	var val = elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'x',
-				elm$json$Json$Encode$float(cc.x)),
-				_Utils_Tuple2(
-				'y',
-				elm$json$Json$Encode$float(cc.y))
-			]));
-	var packet = author$project$Main$CreateToken(val);
-	return author$project$Main$encodePacket(packet);
-};
+var author$project$Main$encodeCreateToken = F2(
+	function (uid, cc) {
+		var val = elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'x',
+					elm$json$Json$Encode$float(cc.x)),
+					_Utils_Tuple2(
+					'y',
+					elm$json$Json$Encode$float(cc.y))
+				]));
+		var packet = author$project$Main$CreateToken(val);
+		return A2(author$project$Main$encodePacket, uid, packet);
+	});
 var author$project$Main$getToken = F2(
 	function (i, l) {
 		getToken:
@@ -6873,7 +6970,9 @@ var author$project$Main$onMousePress = F2(
 								_List_fromArray(
 									[
 										author$project$Main$wsSend(
-										author$project$Main$encodeCreateToken(
+										A2(
+											author$project$Main$encodeCreateToken,
+											model.uid,
 											{x: x, y: y})),
 										setFocus
 									])));
@@ -6907,23 +7006,24 @@ var author$project$Main$onMousePress = F2(
 				return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 		}
 	});
-var author$project$Main$encodeMoveToken = function (cc) {
-	var val = elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'id',
-				elm$json$Json$Encode$int(cc.id)),
-				_Utils_Tuple2(
-				'x',
-				elm$json$Json$Encode$float(cc.x)),
-				_Utils_Tuple2(
-				'y',
-				elm$json$Json$Encode$float(cc.y))
-			]));
-	var packet = author$project$Main$MoveToken(val);
-	return author$project$Main$encodePacket(packet);
-};
+var author$project$Main$encodeMoveToken = F2(
+	function (uid, cc) {
+		var val = elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'id',
+					elm$json$Json$Encode$int(cc.id)),
+					_Utils_Tuple2(
+					'x',
+					elm$json$Json$Encode$float(cc.x)),
+					_Utils_Tuple2(
+					'y',
+					elm$json$Json$Encode$float(cc.y))
+				]));
+		var packet = author$project$Main$MoveToken(val);
+		return A2(author$project$Main$encodePacket, uid, packet);
+	});
 var author$project$Main$onMouseRelease = F2(
 	function (event, model) {
 		var _n0 = A2(author$project$Main$screenToWorld, model, event.offsetPos);
@@ -6939,13 +7039,17 @@ var author$project$Main$onMouseRelease = F2(
 						model,
 						{action: author$project$Main$None}),
 					author$project$Main$wsSend(
-						author$project$Main$encodeMoveToken(
+						A2(
+							author$project$Main$encodeMoveToken,
+							model.uid,
 							{id: model.selected, x: d.x, y: d.y}))) : _Utils_Tuple2(
 					_Utils_update(
 						model,
 						{action: author$project$Main$None}),
 					author$project$Main$wsSend(
-						author$project$Main$encodeMoveToken(
+						A2(
+							author$project$Main$encodeMoveToken,
+							model.uid,
 							{id: model.selected, x: d.startx, y: d.starty})));
 			case 'ActionCreateLine':
 				var l = _n1.a;
@@ -6954,7 +7058,9 @@ var author$project$Main$onMouseRelease = F2(
 						model,
 						{action: author$project$Main$None}),
 					author$project$Main$wsSend(
-						author$project$Main$encodeCreateDoodadLine(
+						A2(
+							author$project$Main$encodeCreateDoodadLine,
+							model.uid,
 							{ex: l.ex, ey: l.ey, sx: l.sx, sy: l.sy})));
 			default:
 				return _Utils_Tuple2(
@@ -7083,27 +7189,38 @@ var author$project$Main$onMsgInit = F2(
 				}),
 			elm$core$Platform$Cmd$none);
 	});
-var author$project$Main$encodeClearDoodads = function (cc) {
-	var val = elm$json$Json$Encode$object(_List_Nil);
-	var packet = author$project$Main$ClearDoodads(val);
-	return author$project$Main$encodePacket(packet);
-};
+var elm$core$Basics$neq = _Utils_notEqual;
+var author$project$Main$onMsgRestoreSession = F2(
+	function (p, model) {
+		return _Utils_Tuple2(
+			_Utils_update(
+				model,
+				{id: p.id, username: p.name, usernameSet: model.usernameSet || (p.name !== '')}),
+			elm$core$Platform$Cmd$none);
+	});
+var author$project$Main$encodeClearDoodads = F2(
+	function (uid, cc) {
+		var val = elm$json$Json$Encode$object(_List_Nil);
+		var packet = author$project$Main$ClearDoodads(val);
+		return A2(author$project$Main$encodePacket, uid, packet);
+	});
 var author$project$Main$onMsgSendClearDoodads = function (model) {
 	return _Utils_Tuple2(
 		model,
 		author$project$Main$wsSend(
-			author$project$Main$encodeClearDoodads(author$project$Main$PacketClearDoodads)));
+			A2(author$project$Main$encodeClearDoodads, model.uid, author$project$Main$PacketClearDoodads)));
 };
-var author$project$Main$encodeClearTokens = function (cc) {
-	var val = elm$json$Json$Encode$object(_List_Nil);
-	var packet = author$project$Main$ClearTokens(val);
-	return author$project$Main$encodePacket(packet);
-};
+var author$project$Main$encodeClearTokens = F2(
+	function (uid, cc) {
+		var val = elm$json$Json$Encode$object(_List_Nil);
+		var packet = author$project$Main$ClearTokens(val);
+		return A2(author$project$Main$encodePacket, uid, packet);
+	});
 var author$project$Main$onMsgSendClearTokens = function (model) {
 	return _Utils_Tuple2(
 		model,
 		author$project$Main$wsSend(
-			author$project$Main$encodeClearTokens(author$project$Main$PacketClearTokens)));
+			A2(author$project$Main$encodeClearTokens, model.uid, author$project$Main$PacketClearTokens)));
 };
 var elm$core$Basics$not = _Basics_not;
 var author$project$Main$tokenToggleFoe = function (t) {
@@ -7222,6 +7339,9 @@ var author$project$Main$update = F2(
 			case 'MsgToggleFoe':
 				var i = msg.a;
 				return A2(author$project$Main$onMsgToggleFoe, i, model);
+			case 'MsgRestoreSession':
+				var p = msg.a;
+				return A2(author$project$Main$onMsgRestoreSession, p, model);
 			case 'MsgDoNothing':
 				return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 			default:
@@ -8177,7 +8297,6 @@ var elm$core$String$padRight = F3(
 				elm$core$String$fromChar(_char)));
 	});
 var elm$core$String$reverse = _String_reverse;
-var elm$core$Basics$neq = _Utils_notEqual;
 var elm$core$List$any = F2(
 	function (isOkay, list) {
 		any:

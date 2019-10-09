@@ -100,6 +100,8 @@ type alias Model = { tokens : List Token
                    , username : String
                    , usernameSet : Bool
                    , createMode : CreateMode
+                   , uid : String
+                   , id : Int 
                    }
 
 init : (Int, Int, String) -> (Model,  Cmd Msg)
@@ -120,7 +122,9 @@ init (w, h, uid) =
    , sentMessagePos = 0
    , usernameSet = False
    , createMode = ModeCreateToken
-   }, wsSend (encodeInitSession {uid = uid}))
+   , uid = uid
+   , id = 128
+   }, wsSend (encodeInitSession uid {uid = uid}))
 
 screenToWorld : Model -> (Float, Float) -> (Float, Float)
 screenToWorld m (x, y) =
@@ -152,6 +156,8 @@ type Packet = CreateToken Json.Value
             | ClearTokens Json.Value
             | TokenToggleFoe Json.Value
             | InitSession Json.Value
+            | Session Json.Value
+            | SetUsername Json.Value
 
 type alias PacketCreateToken = { x : Float
                                , y : Float
@@ -204,6 +210,10 @@ type alias PacketClearTokens = {}
 
 type alias PacketInitSession = { uid : String }
 
+type alias PacketSession = { id : Int, name : String }
+
+type alias PacketSetUsername = { name : String }
+
 initTokenToToken : InitToken -> Token
 initTokenToToken t =
   Token
@@ -246,6 +256,8 @@ rawPacketToPacket rawPacket =
     Ok (ClearTokens rawPacket.d)
   else if rawPacket.t == "TokenToggleFoe" then
     Ok (TokenToggleFoe rawPacket.d)
+  else if rawPacket.t == "Session" then
+    Ok (Session rawPacket.d)
   else
     Err <| "Unknown packet type " ++ rawPacket.t
 
@@ -262,37 +274,48 @@ decodePacket v =
       Err e -> Err <| Json.errorToString e
 
 
-encodePacket : Packet -> Json.Value
-encodePacket p =
+encodePacket : String -> Packet -> Json.Value
+encodePacket uid p =
   case p of
     CreateToken v -> JE.object [ ("type", JE.string "CreateToken")
-                                  , ("data", v)
-                                  ]
+                               , ("uid", JE.string uid)
+                               , ("data", v)
+                               ]
     DeleteToken v -> JE.object [ ("type", JE.string "DeleteToken")
-                                  , ("data", v)
-                                  ]
+                               , ("uid", JE.string uid)
+                               , ("data", v)
+                               ]
     MoveToken v -> JE.object [ ("type", JE.string "MoveToken")
-                                , ("data", v)
-                                ]
+                             , ("uid", JE.string uid)
+                             , ("data", v)
+                             ]
     Init _ -> JE.object [("type", JE.string "unsupported")]
     Chat v -> JE.object [ ("type", JE.string "Chat")
+                        , ("uid", JE.string uid)
                         , ("data", v)
                         ]
     CreateDoodadLine v -> JE.object [ ("type", JE.string "CreateDoodadLine")
-                                    , ("data", v)
-                                    ]
+                               , ("uid", JE.string uid)
+                               , ("data", v)
+                               ]
     ClearDoodads v -> JE.object [ ("type", JE.string "ClearDoodads")
-                                , ("data", v)
-                                ]
+                               , ("uid", JE.string uid)
+                               , ("data", v)
+                               ]
     ClearTokens v -> JE.object [ ("type", JE.string "ClearTokens")
+                               , ("uid", JE.string uid)
                                , ("data", v)
                                ]
     TokenToggleFoe v -> JE.object [ ("type", JE.string "TokenToggleFoe")
-                                  , ("data", v)
-                                  ]
+                               , ("uid", JE.string uid)
+                               , ("data", v)
+                               ]
     InitSession v -> JE.object [ ("type", JE.string "InitSession")
-                                  , ("data", v)
-                                  ]
+                               , ("uid", JE.string uid)
+                               , ("data", v)
+                               ]
+    _ -> JE.object [ ("type", JE.string "Error") ]
+
 
 decodeCreateToken : Json.Value -> Result String PacketCreateToken 
 decodeCreateToken v =
@@ -307,8 +330,8 @@ decodeCreateToken v =
       Err e -> Err <| Json.errorToString e
 
 
-encodeCreateToken : PacketCreateToken -> Json.Value
-encodeCreateToken cc = 
+encodeCreateToken : String -> PacketCreateToken -> Json.Value
+encodeCreateToken uid cc = 
   let
     val = JE.object
       [ ("x", JE.float cc.x)
@@ -316,7 +339,7 @@ encodeCreateToken cc =
       ]
     packet = CreateToken val
   in
-  encodePacket packet
+  encodePacket uid packet
 
 decodeMoveToken : Json.Value -> Result String PacketMoveToken 
 decodeMoveToken v =
@@ -331,8 +354,8 @@ decodeMoveToken v =
       Ok p -> Ok p
       Err e -> Err <| Json.errorToString e
 
-encodeMoveToken : PacketMoveToken -> Json.Value
-encodeMoveToken cc = 
+encodeMoveToken : String -> PacketMoveToken -> Json.Value
+encodeMoveToken uid cc = 
   let
     val = JE.object
       [ ("id", JE.int cc.id)
@@ -341,7 +364,7 @@ encodeMoveToken cc =
       ]
     packet = MoveToken val
   in
-  encodePacket packet
+  encodePacket uid packet
 
 decodeDeleteToken : Json.Value -> Result String PacketDeleteToken 
 decodeDeleteToken v =
@@ -354,15 +377,15 @@ decodeDeleteToken v =
       Ok p -> Ok p
       Err e -> Err <| Json.errorToString e
 
-encodeDeleteToken : PacketDeleteToken -> Json.Value
-encodeDeleteToken cc = 
+encodeDeleteToken : String -> PacketDeleteToken -> Json.Value
+encodeDeleteToken uid cc = 
   let
     val = JE.object
       [ ("id", JE.int cc.id)
       ]
     packet = DeleteToken val
   in
-  encodePacket packet
+  encodePacket uid packet
 
 decodeInit : Json.Value -> Result String PacketInit
 decodeInit v =
@@ -411,8 +434,8 @@ decodeChat v =
       Ok p -> Ok p
       Err e -> Err <| Json.errorToString e
 
-encodeChat : PacketChat -> Json.Value
-encodeChat cc = 
+encodeChat : String -> PacketChat -> Json.Value
+encodeChat uid cc = 
   let
     val = JE.object
       [ ("sender", JE.string cc.sender)
@@ -420,7 +443,7 @@ encodeChat cc =
       ]
     packet = Chat val
   in
-  encodePacket packet
+  encodePacket uid packet
 
 decodeCreateDoodadLine : Json.Value -> Result String PacketCreateDoodadLine 
 decodeCreateDoodadLine v =
@@ -436,8 +459,8 @@ decodeCreateDoodadLine v =
       Ok p -> Ok p
       Err e -> Err <| Json.errorToString e
 
-encodeCreateDoodadLine : PacketCreateDoodadLine -> Json.Value
-encodeCreateDoodadLine cc = 
+encodeCreateDoodadLine : String -> PacketCreateDoodadLine -> Json.Value
+encodeCreateDoodadLine uid cc = 
   let
     val = JE.object
       [ ("sx", JE.float cc.sx)
@@ -447,29 +470,29 @@ encodeCreateDoodadLine cc =
       ]
     packet = CreateDoodadLine val
   in
-  encodePacket packet
+  encodePacket uid packet
 
 decodeClearDoodads : Json.Value -> Result String PacketClearDoodads 
 decodeClearDoodads _ = Ok PacketClearDoodads
 
-encodeClearDoodads : PacketClearDoodads -> Json.Value
-encodeClearDoodads cc = 
+encodeClearDoodads : String -> PacketClearDoodads -> Json.Value
+encodeClearDoodads uid cc = 
   let
     val = JE.object []
     packet = ClearDoodads val
   in
-  encodePacket packet
+  encodePacket uid packet
 
 decodeClearTokens : Json.Value -> Result String PacketClearTokens 
 decodeClearTokens _ = Ok PacketClearTokens
 
-encodeClearTokens : PacketClearTokens -> Json.Value
-encodeClearTokens cc = 
+encodeClearTokens : String -> PacketClearTokens -> Json.Value
+encodeClearTokens uid cc = 
   let
     val = JE.object []
     packet = ClearTokens val
   in
-  encodePacket packet
+  encodePacket uid packet
 
 decodeTokenToggleFoe : Json.Value -> Result String PacketTokenToggleFoe 
 decodeTokenToggleFoe v =
@@ -482,25 +505,47 @@ decodeTokenToggleFoe v =
       Ok p -> Ok p
       Err e -> Err <| Json.errorToString e
 
-encodeTokenToggleFoe : PacketTokenToggleFoe -> Json.Value
-encodeTokenToggleFoe cc = 
+encodeTokenToggleFoe : String -> PacketTokenToggleFoe -> Json.Value
+encodeTokenToggleFoe uid cc = 
   let
     val = JE.object
       [ ("id", JE.int cc.id)
       ]
     packet = TokenToggleFoe val
   in
-  encodePacket packet
+  encodePacket uid packet
 
-encodeInitSession : PacketInitSession -> Json.Value
-encodeInitSession cc = 
+encodeInitSession : String -> PacketInitSession -> Json.Value
+encodeInitSession uid cc = 
   let
     val = JE.object
       [ ("uid", JE.string cc.uid)
       ]
     packet = InitSession val
   in
-  encodePacket packet
+  encodePacket uid packet
+
+decodeSession : Json.Value -> Result String PacketSession 
+decodeSession v =
+  let
+    d = Json.map2 PacketSession
+          (Json.field "id" Json.int) 
+          (Json.field "name" Json.string) 
+    cc = Json.decodeValue d v
+  in
+    case cc of
+      Ok p -> Ok p
+      Err e -> Err <| Json.errorToString e
+
+encodeSetUsername : String -> PacketSetUsername -> Json.Value
+encodeSetUsername uid cc = 
+  let
+    val = JE.object
+      [ ("name", JE.string cc.name)
+      ]
+    packet = SetUsername val
+  in
+  encodePacket uid packet
 
 -- Update
 type Msg = Move Int (Float, Float)
@@ -527,6 +572,7 @@ type Msg = Move Int (Float, Float)
          | MsgClearTokens
          | MsgToggleFoe Int
          | MsgShowError String
+         | MsgRestoreSession PacketSession
          | MsgDoNothing -- TODO: there is probably a nicer solution for this
 
 -- Apply the given function to all tokens in the list with the given id
@@ -659,7 +705,7 @@ onMousePress event model =
                  }
                 , Cmd.batch
                     [ wsSend 
-                        (encodeCreateToken (
+                        (encodeCreateToken model.uid (
                           { x = x
                           , y = y
                           }  
@@ -695,7 +741,7 @@ onMouseRelease event model =
       DragToken d ->
         if sqrt ((d.startx - d.x)^2 + (d.starty - d.y)^2) > 0.1 then
           ({model | action = None},
-          wsSend (encodeMoveToken (
+          wsSend (encodeMoveToken model.uid (
               { id = model.selected
               , x = d.x
               , y = d.y
@@ -704,7 +750,7 @@ onMouseRelease event model =
           )
         else
           ({model | action = None},
-          wsSend (encodeMoveToken (
+          wsSend (encodeMoveToken model.uid (
               { id = model.selected
               , x = d.startx
               , y = d.starty
@@ -713,7 +759,7 @@ onMouseRelease event model =
           )
       ActionCreateLine l ->
         ({model | action = None},
-        wsSend (encodeCreateDoodadLine (
+        wsSend (encodeCreateDoodadLine model.uid (
                  { sx = l.sx 
                  , sy = l.sy
                  , ex = l.ex
@@ -758,7 +804,7 @@ onMouseMotion event model =
             ({ model |
                action = ActionCreateLine { l | sx = l.ex, sy = l.ey, ex = x, ey = y }
              }
-            , wsSend (encodeCreateDoodadLine (
+            , wsSend (encodeCreateDoodadLine model.uid (
                        { sx = l.sx 
                        , sy = l.sy
                        , ex = l.ex
@@ -792,9 +838,9 @@ onKeyDown: Keyboard.KeyboardEvent -> Model -> (Model, Cmd Msg)
 onKeyDown event model =
   if event.keyCode == Key.Delete  &&  model.selected >= 0 then
     ( {model | selected = -1}
-    , wsSend (encodeDeleteToken ({id = model.selected})))
+    , wsSend (encodeDeleteToken model.uid ({id = model.selected})))
   else if event.keyCode == Key.F then
-    (model, wsSend (encodeTokenToggleFoe ({id = model.selected})))
+    (model, wsSend (encodeTokenToggleFoe model.uid ({id = model.selected})))
   else
     (model, Cmd.none)
 
@@ -853,7 +899,7 @@ onChatKeyDown event model =
                             (Array.toList model.sentMessages)))
      , sentMessagePos = 0
      }
-    , wsSend (encodeChat ({sender=model.username, message=model.chatText})))
+    , wsSend (encodeChat model.uid ({sender=model.username, message=model.chatText})))
   else if event.keyCode == Key.Up then
     let
       tm = Array.get (model.sentMessagePos) model.sentMessages
@@ -903,7 +949,7 @@ onMsgCreateDoodadLine (sx, sy) (ex, ey) model =
 onMsgSendClearDoodads :  Model -> (Model, Cmd Msg)
 onMsgSendClearDoodads model =
   ( model
-  , wsSend <| encodeClearDoodads PacketClearDoodads
+  , wsSend <| encodeClearDoodads model.uid PacketClearDoodads
   )
 
 onMsgClearDoodads : Model -> (Model, Cmd Msg)
@@ -914,7 +960,7 @@ onMsgClearDoodads model =
 onMsgSendClearTokens :  Model -> (Model, Cmd Msg)
 onMsgSendClearTokens model =
   ( model
-  , wsSend <| encodeClearTokens PacketClearTokens
+  , wsSend <| encodeClearTokens model.uid PacketClearTokens
   )
 
 onMsgClearTokens : Model -> (Model, Cmd Msg)
@@ -930,6 +976,15 @@ onMsgToggleFoe i model =
     }
   , Cmd.none
   )
+
+onMsgRestoreSession : PacketSession -> Model -> (Model, Cmd Msg)
+onMsgRestoreSession p model =
+  ( { model
+    | id = p.id
+    , username = p.name
+    , usernameSet = model.usernameSet || (p.name /= "") 
+    }
+  , Cmd.none)
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model = 
@@ -954,12 +1009,14 @@ update msg model =
     MsgChat s m -> onMsgChat s m model
     ChatInput s -> onMsgChatInput s model 
     MsgSetCreateMode m -> ({model | createMode = m}, Cmd.none)
-    MsgCreateDoodadLine m -> onMsgCreateDoodadLine (m.sx, m.sy) (m.ex, m.ey)  model
+    MsgCreateDoodadLine m -> onMsgCreateDoodadLine (m.sx, m.sy)
+                                                   (m.ex, m.ey) model
     MsgSendClearDoodads -> onMsgSendClearDoodads model
     MsgClearDoodads -> onMsgClearDoodads model
     MsgSendClearTokens -> onMsgSendClearTokens model
     MsgClearTokens -> onMsgClearTokens model
     MsgToggleFoe i -> onMsgToggleFoe i model
+    MsgRestoreSession p -> onMsgRestoreSession p model
     MsgDoNothing -> (model, Cmd.none)
     MsgShowError e ->
       let
@@ -1051,6 +1108,14 @@ onTokenToggleFoe v =
       Ok o -> MsgToggleFoe o.id 
       Err e -> MsgShowError e 
 
+onSession : JE.Value -> Msg
+onSession v = 
+  let
+    p = decodeSession v
+  in
+    case p of
+      Ok o -> MsgRestoreSession o 
+      Err e -> MsgShowError e 
 
 onPacket : Packet -> Msg
 onPacket p =
@@ -1065,6 +1130,10 @@ onPacket p =
     ClearTokens d -> onClearTokens d 
     TokenToggleFoe d -> onTokenToggleFoe d 
     InitSession d -> MsgShowError "Unexpected init session packet received." 
+    Session d -> onSession d 
+    SetUsername d -> MsgShowError "Unexpected init session packet received." 
+
+    
 
 onWsReceive : JE.Value -> Msg
 onWsReceive v =

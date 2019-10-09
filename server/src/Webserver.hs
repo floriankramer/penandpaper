@@ -23,24 +23,24 @@ import qualified Data.ByteString.UTF8 as UTF8
 import  Data.ByteString (ByteString)
 import Debug.Trace (traceId, traceShow)
 
-start :: IO ()
-start = W.run 8080 handleRequest
+start :: String -> IO ()
+start key = W.run 8080 $ handleRequest key
 
-isKeyQuery :: (ByteString, Maybe ByteString) -> Bool
-isKeyQuery (a, b) =
+isKeyQuery :: String -> (ByteString, Maybe ByteString) -> Bool
+isKeyQuery key (a, b) =
   if a == "key" then
     case b of
-      Just v ->  v == "e7ngvq6JY1WR0gSsq-g6"
+      Just v -> v == UTF8.fromString key 
       Nothing -> False
   else False
 
 
-handleRequest :: W.Application
-handleRequest req f =
+handleRequest :: String -> W.Application
+handleRequest key req f =
   let 
     pathlist = W.pathInfo req
     path = List.intercalate "/" $ map Text.unpack pathlist
-    qsa = filter isKeyQuery (W.queryString req)
+    qsa = filter (isKeyQuery key) (W.queryString req)
     hasKey = length qsa > 0
   in
     if | path == "index.html" && hasKey -> f $ fileToResponse path
