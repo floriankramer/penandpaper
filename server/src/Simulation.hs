@@ -18,6 +18,7 @@ import qualified Data.List as List
 import System.Random as R
 import Text.Read (readMaybe)
 import qualified Debug.Trace as D
+import qualified Data.Maybe as Maybe
 
 -- constants
 
@@ -41,73 +42,83 @@ numColors = 10
 data Response = Reply Text
               | Broadcast Text
               | Forward
+              | Ignore
 
 data RawPacket = RawPacket { rpt :: String }
 
 instance J.FromJSON RawPacket where
   parseJSON (J.Object v) = RawPacket <$> v J..: "type"
  
-data Packet = CreateToken { ccX :: Float, ccY :: Float }
-            | MoveToken { mcId :: Int, mcX :: Float, mcY :: Float }
-            | DeleteToken { dcId :: Int }
-            | InitState { initTokens :: [Token]
+data Packet = CreateToken { pUid :: String, ccX :: Float, ccY :: Float }
+            | MoveToken { pUid :: String, mcId :: Int, mcX :: Float, mcY :: Float }
+            | DeleteToken { pUid :: String, dcId :: Int }
+            | InitState { pUid :: String
+                        , initTokens :: [Token]
                         , initDoodads :: [Doodad]
                         , initNextId :: Int
                         , initNextColor :: Int }
-            | Chat { chatSender :: String, chatMessage :: String }
-            | CreateDoodadLine { lSx :: Float
+            | Chat { pUid :: String, chatSender :: String, chatMessage :: String }
+            | CreateDoodadLine { pUid :: String
+                               , lSx :: Float
                                , lSy :: Float
                                , lEx :: Float
                                , lEy :: Float }
-            | ClearDoodads
-            | ClearTokens
-            | TokenToggleFoe { ttfId  :: Int }
-            | InitSession { isUid :: String}
-            | Session { sId :: Int, sPlayerName :: String }
+            | ClearDoodads { pUid :: String }
+            | ClearTokens { pUid :: String }
+            | TokenToggleFoe { pUid :: String, ttfId  :: Int }
+            | InitSession { pUid :: String, isUid :: String}
+            | Session { pUid :: String, sId :: Int, sPlayerName :: String }
+            | SetUsername { pUid :: String, suName :: String }
 
 instance J.FromJSON Packet where
   parseJSON j = do
     o <- J.parseJSON j
     let t = M.lookup "type" (o :: J.Object)
+    let rawUid = M.lookup "uid" (o :: J.Object)
     let mdata = M.lookup "data" (o :: J.Object)
     case t of
       Just raws -> do
         s :: String <- J.parseJSON raws
+        uid :: String <- J.parseJSON $ Maybe.fromMaybe "" rawUid
         case mdata of
           Just rawd -> do
             d :: J.Object <- J.parseJSON rawd
             if s == "CreateToken" then
-              CreateToken
+              CreateToken uid
               <$> d J..: "x" 
               <*> d J..: "y" 
             else if s == "MoveToken" then
-              MoveToken
+              MoveToken uid
               <$> d J..: "id" 
               <*> d J..: "x" 
               <*> d J..: "y" 
             else if s == "DeleteToken" then
-              DeleteToken
+              DeleteToken uid
               <$> d J..: "id" 
             else if s == "Chat" then
-              Chat 
+              Chat uid
               <$> d J..: "sender" 
               <*> d J..: "message" 
             else if s == "CreateDoodadLine" then
-              CreateDoodadLine 
+              CreateDoodadLine uid
               <$> d J..: "sx" 
               <*> d J..: "sy" 
               <*> d J..: "ex" 
               <*> d J..: "ey" 
             else if s == "ClearDoodads" then
-              return ClearDoodads 
+              return $ ClearDoodads uid
             else if s == "ClearTokens" then
-              return ClearTokens 
+              return $ ClearTokens uid
+
             else if s == "TokenToggleFoe" then
-              TokenToggleFoe 
+              TokenToggleFoe uid
               <$> d J..: "id" 
             else if s == "InitSession" then
-              InitSession 
+              InitSession uid
               <$> d J..: "uid" 
+            else if s == "SetUsername" then
+              SetUsername uid
+              <$> d J..: "name" 
             else
               fail ("Unknown type " ++ s) :: (J.Parser Packet)
           Nothing ->
@@ -118,22 +129,22 @@ instance J.FromJSON Packet where
 instance J.ToJSON Packet where
   toJSON p =
     case p of
-      CreateToken x y ->
+      CreateToken uid x y ->
         J.object [ "type" J..= ("CreateToken" :: Text), "data" J..= J.object [
                    "x" J..= x,
                    "y" J..= y
                  ]]
-      MoveToken id x y ->
+      MoveToken uid id x y ->
         J.object [ "type" J..= ("MoveToken" :: Text), "data" J..= J.object [
                    "id" J..= id,
                    "x" J..= x,
                    "y" J..= y
                  ]]
-      DeleteToken id ->
+      DeleteToken uid id ->
         J.object [ "type" J..= ("DeleteToken" :: Text), "data" J..= J.object [
                    "id" J..= id
                  ]]
-      InitState tokens doodads ni nc ->
+      InitState uid tokens doodads ni nc ->
         J.object ["type" J..= ("Init" :: Text)
                  , "data" J..= J.object 
                                  [ "tokens" J..= J.toJSON tokens
@@ -142,13 +153,13 @@ instance J.ToJSON Packet where
                                  , "nextColor" J..=  nc
                                  ]
                  ]
-      Chat sender message ->
+      Chat uid sender message ->
         J.object ["type" J..= ("Chat" :: Text)
                  , "data" J..= J.object [
                    "sender" J..= sender
                  , "message" J..= message
                  ]]
-      CreateDoodadLine sx sy ex ey ->
+      CreateDoodadLine uid sx sy ex ey ->
         J.object ["type" J..= ("CreateDoodadLine" :: Text)
                  , "data" J..= J.object [
                    "sx" J..= sx 
@@ -156,29 +167,36 @@ instance J.ToJSON Packet where
                  , "ex" J..= ex
                  , "ey" J..= ey
                  ]]
-      ClearDoodads ->
+      ClearDoodads uid ->
         J.object ["type" J..= ("ClearDoodads" :: Text)
                  , "data" J..= J.object []]
-      ClearTokens ->
+      ClearTokens uid ->
         J.object ["type" J..= ("ClearTokens" :: Text)
                  , "data" J..= J.object []]
-      TokenToggleFoe i ->
+      TokenToggleFoe uid i ->
         J.object ["type" J..= ("CreateDoodadLine" :: Text)
                  , "data" J..= J.object [
                    "id" J..= i
                  ]]
-      Session i name ->
+      Session uid i name ->
         J.object ["type" J..= ("Session" :: Text)
                  , "data" J..= J.object [
                    "id" J..= i
                  , "name" J..= name
                  ]]
+      SetUsername uid name ->
+        J.object ["type" J..= ("Session" :: Text)
+                 , "data" J..= J.object [
+                     "name" J..= name
+                   ]
+                 ]
 
 
 initPacket :: Model -> Text
 initPacket model =
   TL.toStrict $ ECL.decodeUtf8 $ J.encode $ 
-    InitState { initTokens = tokens model
+    InitState { pUid = ""
+              , initTokens = tokens model
               , initDoodads = doodads model
               , initNextId = nextTokenId model
               , initNextColor = nextColor model
@@ -189,7 +207,7 @@ toJsonText = TL.toStrict . ECL.decodeUtf8 . J.encode
 
 playerToSessionPacket :: Player -> Packet 
 playerToSessionPacket p =
-  Session { sId = playerId p, sPlayerName = playerName p}
+  Session { pUid = "", sId = playerId p, sPlayerName = playerName p}
 
 -- the model
 data Token = Token { tokenId :: Int
@@ -283,14 +301,16 @@ update input model =
           onChat v model
         CreateDoodadLine {} ->
           (onDoodadLine v model, Forward)
-        ClearDoodads ->
+        ClearDoodads {} ->
           (onClearDoodads v model, Forward)
-        ClearTokens ->
+        ClearTokens {} ->
           (onClearTokens v model, Forward)
         TokenToggleFoe {} ->
           (onTokenToggleFoe v model, Forward)
         InitSession {} ->
           onInitSession v model
+        SetUsername {} ->
+          onSetUsername v model
     Nothing ->
      (model, Forward)
 
@@ -352,14 +372,14 @@ onChat p model =
         let 
           (resp, nrand) = (cmdRoll (mRand model) sender msg)
         in
-          (model {mRand = nrand}, Broadcast $ toJsonText $ Chat "Server" resp)
+          (model {mRand = nrand}, Broadcast $ toJsonText $ Chat "" "Server" resp)
       else if List.isPrefixOf "/rollp " msg then
         let 
           (resp, nrand) = (cmdRoll (mRand model) sender msg)
         in
-          (model {mRand = nrand}, Reply $ toJsonText $ Chat "Server to you" resp)
+          (model {mRand = nrand}, Reply $ toJsonText $ Chat "" "Server to you" resp)
       else
-        (model, Reply $ toJsonText $ Chat "Server to you" ("Unknown command: " ++ msg))
+        (model, Reply $ toJsonText $ Chat "" "Server to you" ("Unknown command: " ++ msg))
     else
       (model, Forward)
 
@@ -396,6 +416,21 @@ onInitSession p model =
           in
             ( nmodel
             , Reply $ toJsonText $ playerToSessionPacket nplayer)
+
+onSetUsername :: Packet -> Model -> (Model, Response)
+onSetUsername p model =
+  let
+    uid = pUid p
+    name = suName p 
+    stored = M.lookup uid (players model)
+  in
+    case stored of
+        Just player ->
+          ( model {
+            players = M.insert uid (player {playerName = name}) (players model) 
+          }, Ignore)
+        Nothing ->
+          (model, Ignore)
 
 rollList :: R.StdGen -> Int -> [Int] -> ([Int], R.StdGen)
 rollList rand min []    = ([], rand)

@@ -120,7 +120,7 @@ init (w, h, uid) =
    , username = ""
    , sentMessages = Array.empty
    , sentMessagePos = 0
-   , usernameSet = False
+   , usernameSet = True 
    , createMode = ModeCreateToken
    , uid = uid
    , id = 128
@@ -141,6 +141,10 @@ worldToScreen m (x, y) =
   in
     ( (x - m.view.x) * scale + 0.5 * toFloat (computeCanvasWidth m.window.width)
     , (y - m.view.y) * scale + 0.5 * toFloat (computeCanvasHeight m.window.height))
+
+isGm : Model -> Bool
+isGm model =
+  model.id == 0
 
 -- Network
 
@@ -311,6 +315,10 @@ encodePacket uid p =
                                , ("data", v)
                                ]
     InitSession v -> JE.object [ ("type", JE.string "InitSession")
+                               , ("uid", JE.string uid)
+                               , ("data", v)
+                               ]
+    SetUsername v -> JE.object [ ("type", JE.string "SetUsername")
                                , ("uid", JE.string uid)
                                , ("data", v)
                                ]
@@ -696,7 +704,7 @@ onMousePress event model =
                                       , x = cx, y = cy}
           setFocus = Task.attempt ChangedFocus (Dom.focus "canvas")
         in
-          if s < 0 && event.keys.ctrl then
+          if s < 0 && event.keys.ctrl && isGm model then
             case model.createMode of
               ModeCreateToken ->
                 ({ model
@@ -982,7 +990,7 @@ onMsgRestoreSession p model =
   ( { model
     | id = p.id
     , username = p.name
-    , usernameSet = model.usernameSet || (p.name /= "") 
+    , usernameSet = (p.name /= "") 
     }
   , Cmd.none)
 
@@ -998,7 +1006,8 @@ update msg model =
     MsgSetUsername s ->
       ({ model | username = s}, Cmd.none)
     MsgFinishUsername ->
-      ({ model | usernameSet = True}, Cmd.none)
+      ({ model | usernameSet = True}
+      , wsSend <| encodeSetUsername model.uid (PacketSetUsername model.username))
     MousePress e -> onMousePress e model
     MouseMotion e -> onMouseMotion e model
     MouseRelease e -> onMouseRelease e model
@@ -1353,22 +1362,24 @@ view model =
                      , A.style "height" <| String.fromInt dim.toolbarHeight
                      , A.style "width" <| String.fromInt dim.toolbarWidth
                      ]
-                     [ radioButton (MsgSetCreateMode ModeCreateToken)
-                                   "images/circle.png" 
-                                   <| model.createMode == ModeCreateToken
-                     , radioButton (MsgSetCreateMode ModeCreateLine)
-                                   "images/line.png"
-                                   <| model.createMode == ModeCreateLine
+                     (if isGm model then
+                       [ radioButton (MsgSetCreateMode ModeCreateToken)
+                                     "images/circle.png" 
+                                     <| model.createMode == ModeCreateToken
+                       , radioButton (MsgSetCreateMode ModeCreateLine)
+                                     "images/line.png"
+                                     <| model.createMode == ModeCreateLine
 
-                     , Html.button [A.id "button-clear-doodads"
-                                   , onClick MsgSendClearDoodads 
-                                   ]
-                                   [Html.text "Clear Doodads"]
-                     , Html.button [A.id "button-clear-tokens"
-                                   , onClick MsgSendClearTokens
-                                   ]
-                                   [Html.text "Clear Tokens"]
-                     ]
+                       , Html.button [A.id "button-clear-doodads"
+                                     , onClick MsgSendClearDoodads 
+                                     ]
+                                     [Html.text "Clear Doodads"]
+                       , Html.button [A.id "button-clear-tokens"
+                                     , onClick MsgSendClearTokens
+                                     ]
+                                     [Html.text "Clear Tokens"]
+                       ]
+                     else [])
           , C.toHtml (dim.canvasWidth, dim.canvasHeight) 
                      [ Mouse.onDown (\event -> MousePress event)
                      , Mouse.onMove (\event -> MouseMotion event)

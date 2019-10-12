@@ -4969,6 +4969,19 @@ var author$project$Main$encodePacket = F2(
 							elm$json$Json$Encode$string(uid)),
 							_Utils_Tuple2('data', v)
 						]));
+			case 'SetUsername':
+				var v = p.a;
+				return elm$json$Json$Encode$object(
+					_List_fromArray(
+						[
+							_Utils_Tuple2(
+							'type',
+							elm$json$Json$Encode$string('SetUsername')),
+							_Utils_Tuple2(
+							'uid',
+							elm$json$Json$Encode$string(uid)),
+							_Utils_Tuple2('data', v)
+						]));
 			default:
 				return elm$json$Json$Encode$object(
 					_List_fromArray(
@@ -5022,7 +5035,7 @@ var author$project$Main$init = function (_n0) {
 			uid: uid,
 			user: {id: 0},
 			username: '',
-			usernameSet: false,
+			usernameSet: true,
 			view: {height: 8, x: 0, y: 0},
 			window: {height: h, width: w}
 		},
@@ -6237,6 +6250,24 @@ var author$project$Main$subscriptions = function (_n0) {
 				author$project$Main$wsReceive(author$project$Main$onWsReceive)
 			]));
 };
+var author$project$Main$PacketSetUsername = function (name) {
+	return {name: name};
+};
+var author$project$Main$SetUsername = function (a) {
+	return {$: 'SetUsername', a: a};
+};
+var author$project$Main$encodeSetUsername = F2(
+	function (uid, cc) {
+		var val = elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'name',
+					elm$json$Json$Encode$string(cc.name))
+				]));
+		var packet = author$project$Main$SetUsername(val);
+		return A2(author$project$Main$encodePacket, uid, packet);
+	});
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Down = {$: 'Down'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Enter = {$: 'Enter'};
 var SwiftsNamesake$proper_keyboard$Keyboard$Key$Up = {$: 'Up'};
@@ -6896,6 +6927,9 @@ var author$project$Main$getToken = F2(
 			}
 		}
 	});
+var author$project$Main$isGm = function (model) {
+	return !model.id;
+};
 var elm$browser$Browser$Dom$focus = _Browser_call('focus');
 var elm$core$Basics$composeL = F3(
 	function (g, f, x) {
@@ -6959,7 +6993,7 @@ var author$project$Main$onMousePress = F2(
 				var a = (s < 0) ? author$project$Main$DragView(
 					{lastX: sx, lastY: sy}) : author$project$Main$DragToken(
 					{ox: x - cx, oy: y - cy, startx: cx, starty: cy, x: cx, y: cy});
-				if ((s < 0) && event.keys.ctrl) {
+				if ((s < 0) && (event.keys.ctrl && author$project$Main$isGm(model))) {
 					var _n3 = model.createMode;
 					if (_n3.$ === 'ModeCreateToken') {
 						return _Utils_Tuple2(
@@ -7195,7 +7229,7 @@ var author$project$Main$onMsgRestoreSession = F2(
 		return _Utils_Tuple2(
 			_Utils_update(
 				model,
-				{id: p.id, username: p.name, usernameSet: model.usernameSet || (p.name !== '')}),
+				{id: p.id, username: p.name, usernameSet: p.name !== ''}),
 			elm$core$Platform$Cmd$none);
 	});
 var author$project$Main$encodeClearDoodads = F2(
@@ -7286,7 +7320,11 @@ var author$project$Main$update = F2(
 					_Utils_update(
 						model,
 						{usernameSet: true}),
-					elm$core$Platform$Cmd$none);
+					author$project$Main$wsSend(
+						A2(
+							author$project$Main$encodeSetUsername,
+							model.uid,
+							author$project$Main$PacketSetUsername(model.username))));
 			case 'MousePress':
 				var e = msg.a;
 				return A2(author$project$Main$onMousePress, e, model);
@@ -9624,7 +9662,7 @@ var author$project$Main$view = function (model) {
 									'width',
 									elm$core$String$fromInt(dim.toolbarWidth))
 								]),
-							_List_fromArray(
+							author$project$Main$isGm(model) ? _List_fromArray(
 								[
 									A3(
 									author$project$Main$radioButton,
@@ -9658,7 +9696,7 @@ var author$project$Main$view = function (model) {
 										[
 											elm$html$Html$text('Clear Tokens')
 										]))
-								])),
+								]) : _List_Nil),
 							A3(
 							joakin$elm_canvas$Canvas$toHtml,
 							_Utils_Tuple2(dim.canvasWidth, dim.canvasHeight),

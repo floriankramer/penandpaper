@@ -83,6 +83,8 @@ communicateForever mstate connection = do
           mapM_ (\ c -> WS.sendTextData (conn c) t) (clients nstate)
         S.Reply t ->
           WS.sendTextData connection t
+        S.Ignore ->
+          return ()
       MV.putMVar mstate nstate 
       communicateForever mstate connection
     )
