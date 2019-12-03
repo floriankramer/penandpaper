@@ -1,0 +1,56 @@
+<template>
+  <div class="error-overlay">
+    <div class="error-popup">
+      <div class="error-centered-content">
+        <span>A critical error occured: </span>
+        <slot></slot>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script lang="ts">
+import { Component, Prop, Vue } from 'vue-property-decorator'
+import Server from './server'
+
+@Component
+export default class CriticalError extends Vue {
+}
+</script>
+
+<!-- Add "scoped" attribute to limit CSS to this component only -->
+<style scoped>
+.error-overlay {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  left: 0px;
+  top: 0px;
+  background-color: rgba(70, 70, 70, 0.5);
+}
+
+.error-popup {
+  position: absolute;
+  width: 300px;
+  height: 200px;
+  margin-left: -150px;
+  margin-top: -100px;
+  left: 50%;
+  top: 50%;
+  background-color: rgb(51, 51, 51);
+  border-radius: 10px;
+  padding-top: auto;
+  padding-bottom: auto;
+}
+
+.error-centered-content {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.error-centered-content input {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+</style>
