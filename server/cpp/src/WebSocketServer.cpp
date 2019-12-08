@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <thread>
+#include <chrono>
 
 #include "Logger.h"
 
@@ -13,47 +14,52 @@ WebSocketServer::WebSocketServer(OnMsgHandler_t on_msg,
 }
 
 void WebSocketServer::run() {
-  _socket.clear_access_channels(websocketpp::log::alevel::all);
-  _socket.init_asio();
-
-  _socket.set_open_handler([this](websocketpp::connection_hdl conn_hdl) {
+  while (true) {
     try {
-      _connections.push_back(conn_hdl);
-      Response resp = _on_connect();
-      handleResponse(resp, conn_hdl);
-    } catch (const std::exception &e) {
-      LOG_ERROR << "Error while handling a new client: " << e.what() << LOG_END;
-    } catch (...) {
-      LOG_ERROR << "Unknown error while handling a new client." << LOG_END;
-    }
-  });
+      _socket.clear_access_channels(websocketpp::log::alevel::all);
+      _socket.init_asio();
 
-  _socket.set_close_handler([this](websocketpp::connection_hdl conn_hdl) {
-    for (size_t i = 0; i < _connections.size(); i++) {
-      websocketpp::connection_hdl hdl = _connections[i];
-      if (_socket.get_con_from_hdl(conn_hdl) == _socket.get_con_from_hdl(hdl)) {
-        _connections.erase(_connections.begin() + i);
-      }
-    }
-  });
+      _socket.set_open_handler([this](websocketpp::connection_hdl conn_hdl) {
+        try {
+          _connections.push_back(conn_hdl);
+          Response resp = _on_connect();
+          handleResponse(resp, conn_hdl);
+        } catch (const std::exception &e) {
+          LOG_ERROR << "Error while handling a new client: " << e.what()
+                    << LOG_END;
+        } catch (...) {
+          LOG_ERROR << "Unknown error while handling a new client." << LOG_END;
+        }
+      });
 
-  _socket.set_message_handler([this](websocketpp::connection_hdl conn_hdl,
-                                     Server::message_ptr msg) {
-    try {
-      Response resp = _on_msg(msg->get_payload());
-      if (resp.type == ResponseType::FORWARD) {
-        resp.text = msg->get_payload();
-      }
-      handleResponse(resp, conn_hdl);
-    } catch (const std::exception &e) {
-      LOG_ERROR << "Error while handling a message: " << e.what() << LOG_END;
-    } catch (...) {
-      LOG_ERROR << "Unknown error while handling a message." << LOG_END;
-    }
-  });
+      _socket.set_close_handler([this](websocketpp::connection_hdl conn_hdl) {
+        for (size_t i = 0; i < _connections.size(); i++) {
+          websocketpp::connection_hdl hdl = _connections[i];
+          if (_socket.get_con_from_hdl(conn_hdl) ==
+              _socket.get_con_from_hdl(hdl)) {
+            _connections.erase(_connections.begin() + i);
+          }
+        }
+      });
 
-  _socket.set_tls_init_handler(
-      [](websocketpp::connection_hdl conn) -> ssl_ctx_pt {
+      _socket.set_message_handler([this](websocketpp::connection_hdl conn_hdl,
+                                         Server::message_ptr msg) {
+        try {
+          Response resp = _on_msg(msg->get_payload());
+          if (resp.type == ResponseType::FORWARD) {
+            resp.text = msg->get_payload();
+          }
+          handleResponse(resp, conn_hdl);
+        } catch (const std::exception &e) {
+          LOG_ERROR << "Error while handling a message: " << e.what()
+                    << LOG_END;
+        } catch (...) {
+          LOG_ERROR << "Unknown error while handling a message." << LOG_END;
+        }
+      });
+
+      _socket.set_tls_init_handler([](websocketpp::connection_hdl conn)
+                                       -> ssl_ctx_pt {
         ssl_ctx_pt ctx =
             std::make_shared<asio::ssl::context>(asio::ssl::context::sslv23);
         try {
@@ -72,9 +78,16 @@ void WebSocketServer::run() {
         return ctx;
       });
 
-  _socket.listen(8081);
-  _socket.start_accept();
-  _socket.run();
+      _socket.listen(8081);
+      _socket.start_accept();
+      LOG_INFO << "Starting the wss server on 8081" << LOG_END;
+      _socket.run();
+    } catch (const std::exception &e) {
+      LOG_ERROR << "A socket error occured in the wss server: " << e.what()
+                << LOG_END;
+      std::this_thread::sleep_for(std::chrono::seconds(15));
+    }
+  }
 }
 
 void WebSocketServer::handleResponse(const Response &response,

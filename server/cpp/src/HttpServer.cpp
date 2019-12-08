@@ -2,10 +2,10 @@
 
 #define CPPHTTPLIB_OPENSSL_SUPPORT
 #include <httplib.h>
-
 #include <linux/limits.h>
 #include <unistd.h>
 
+#include <chrono>
 #include <cstdlib>
 #include <ctime>
 #include <fstream>
@@ -41,12 +41,11 @@ void HttpServer::run() {
       realpath = "/index.html";
     }
     if (realpath == "/index.html") {
-      LOG_WARN << "Key check disabled" << LOG_END;
-      //      if (!req.has_param("key") || req.get_param_value("key") != key) {
-      //        resp.body = "Invalid or missing key";
-      //        resp.status = 200;
-      //        return;
-      //      }
+      if (!req.has_param("key") || req.get_param_value("key") != key) {
+        resp.body = "Invalid or missing key";
+        resp.status = 200;
+        return;
+      }
     }
     {
       realpath = basepath + realpath;
@@ -81,7 +80,15 @@ void HttpServer::run() {
     resp.set_content(buffer.data(), buffer.size(), mimetype.c_str());
   });
 
-  server.listen("0.0.0.0", 8080);
+  while (true) {
+    try {
+      LOG_INFO << "Stating the http server on 8082..." << LOG_END;
+      server.listen("0.0.0.0", 8082);
+    } catch (const std::exception &e) {
+      LOG_ERROR << "Unable to listen on 0.0.0.0:8082 : " << e.what() << LOG_END;
+      std::this_thread::sleep_for(std::chrono::seconds(15));
+    }
+  }
 }
 
 std::string HttpServer::genKey() {

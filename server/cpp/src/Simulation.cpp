@@ -47,35 +47,42 @@ Token *Simulation::tokenById(uint64_t id) {
 
 WebSocketServer::Response Simulation::onNewClient() {
   using nlohmann::json;
-  // Assemble an init package
-  json answer;
-  answer["type"] = "Init";
-  json data;
+  std::string answer_str;
+  try {
+    // Assemble an init package
+    json answer;
+    answer["type"] = "Init";
+    json data;
 
-  std::vector<json> _encoded_tokens;
-  for (Token &t : _tokens) {
-    _encoded_tokens.emplace_back(t.serialize());
+    std::vector<json> _encoded_tokens;
+    for (Token &t : _tokens) {
+      _encoded_tokens.emplace_back(t.serialize());
+    }
+    data["tokens"] = _encoded_tokens;
+
+    std::vector<json> _encoded_doodads;
+    for (DoodadLine &d : _doodad_lines) {
+      _encoded_doodads.emplace_back(d.serialize());
+    }
+    data["doodads"] = _encoded_doodads;
+
+    data["nextId"] = _next_id;
+    data["nextColor"] = _next_color;
+    answer["data"] = data;
+    answer_str = answer.dump();
+  } catch (const std::exception &e) {
+    LOG_ERROR << "Unable to assemble an init packet for the new client: "
+              << e.what() << LOG_END;
   }
-  data["tokens"] = _encoded_tokens;
 
-  std::vector<json> _encoded_doodads;
-  for (DoodadLine &d : _doodad_lines) {
-    _encoded_doodads.emplace_back(d.serialize());
-  }
-  data["doodads"] = _encoded_doodads;
-
-  data["nextId"] = _next_id;
-  data["nextColor"] = _next_color;
-  answer["data"] = data;
-
-  return {answer.dump(), WebSocketServer::ResponseType::RETURN};
+  return {answer_str, WebSocketServer::ResponseType::RETURN};
 }
 
 WebSocketServer::Response Simulation::onMessage(const std::string &msg) {
   using nlohmann::json;
   try {
     json j = json::parse(msg);
-    std::string type = j["type"];
+    std::string type = j.at("type");
     LOG_DEBUG << "Received a message of type " << type << " : " << j.dump()
               << LOG_END;
     std::unordered_map<std::string, MemberMsgHandler_t>::const_iterator
@@ -110,8 +117,8 @@ Simulation::Color Simulation::nextColor() {
 
 WebSocketServer::Response Simulation::onCreateToken(const nlohmann::json &j) {
   _tokens.emplace_back();
-  float x = j["data"]["x"];
-  float y = j["data"]["y"];
+  float x = j.at("data").at("x");
+  float y = j.at("data").at("y");
   Token &t = _tokens.back();
   t.x() = x;
   t.y() = y;
@@ -127,19 +134,19 @@ WebSocketServer::Response Simulation::onCreateToken(const nlohmann::json &j) {
 }
 
 WebSocketServer::Response Simulation::onMoveToken(const nlohmann::json &j) {
-  nlohmann::json data = j["data"];
-  uint64_t id = data["id"].get<uint64_t>();
+  nlohmann::json data = j.at("data");
+  uint64_t id = data.at("id").get<uint64_t>();
   Token *t = tokenById(id);
   if (t != nullptr) {
-    t->x() = data["x"].get<float>();
-    t->y() = data["y"].get<float>();
+    t->x() = data.at("x").get<float>();
+    t->y() = data.at("y").get<float>();
   }
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
 WebSocketServer::Response Simulation::onDeleteToken(const nlohmann::json &j) {
-  nlohmann::json data = j["data"];
-  uint64_t id = data["id"].get<uint64_t>();
+  nlohmann::json data = j.at("data");
+  uint64_t id = data.at("id").get<uint64_t>();
   for (size_t i = 0; i < _tokens.size(); i++) {
     if (_tokens[i].id() == id) {
       std::iter_swap(_tokens.begin() + i, _tokens.end());
@@ -187,7 +194,7 @@ WebSocketServer::Response Simulation::onCreateDoodadLine(
     const nlohmann::json &j) {
   _doodad_lines.emplace_back();
   DoodadLine &d = _doodad_lines.back();
-  d.deserialize(j["data"]);
+  d.deserialize(j.at("data"));
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
@@ -203,8 +210,8 @@ WebSocketServer::Response Simulation::onClearTokens(const nlohmann::json &j) {
 
 WebSocketServer::Response Simulation::onTokenToggleFoe(
     const nlohmann::json &j) {
-  nlohmann::json data = j["data"];
-  uint64_t id = data["id"].get<uint64_t>();
+  nlohmann::json data = j.at("data");
+  uint64_t id = data.at("id").get<uint64_t>();
   Token *t = tokenById(id);
   if (t != nullptr) {
     t->is_enemy() = !t->is_enemy();
@@ -214,8 +221,8 @@ WebSocketServer::Response Simulation::onTokenToggleFoe(
 
 WebSocketServer::Response Simulation::onInitSession(const nlohmann::json &j) {
   using nlohmann::json;
-  json req_data = j["data"];
-  std::string uid = req_data["uid"];
+  json req_data = j.at("data");
+  std::string uid = req_data.at("uid");
   Player *player = nullptr;
   for (Player &p : _players) {
     if (p.uid == uid) {
@@ -250,8 +257,8 @@ WebSocketServer::Response Simulation::onInitSession(const nlohmann::json &j) {
 }
 
 WebSocketServer::Response Simulation::onSetUsername(const nlohmann::json &j) {
-  std::string uid = j["uid"];
-  std::string newname = j["data"]["name"];
+  std::string uid = j.at("uid");
+  std::string newname = j.at("data").at("name");
 
   LOG_INFO << "The player with uid " << uid << " is now called " << newname
            << LOG_END;
