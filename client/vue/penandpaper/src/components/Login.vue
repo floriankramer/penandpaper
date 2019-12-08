@@ -3,8 +3,8 @@
     <div class="login-popup">
       <div class="login-centered-content">
         <span>Please enter a username:</span>
-        <input autofocus="true"/>
-        <button>ok</button>
+        <input autofocus="true" v-on:keyup.enter="onInputEnter" v-model="username"/>
+        <button v-on:click="onOkClicked">ok</button>
       </div>
     </div>
   </div>
@@ -16,6 +16,15 @@ import Server from './server'
 
 @Component
 export default class Login extends Vue {
+  username: string = ''
+
+  onOkClicked (event : Event) {
+    this.$store.commit('setUsername', this.username)
+  }
+
+  onInputEnter (event : Event) {
+    this.$store.commit('setUsername', this.username)
+  }
 }
 </script>
 
