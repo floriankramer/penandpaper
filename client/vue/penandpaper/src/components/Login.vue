@@ -51,6 +51,7 @@ export default class Login extends Vue {
   border-radius: 10px;
   padding-top: auto;
   padding-bottom: auto;
+  text-align: center;
 }
 
 .login-centered-content {

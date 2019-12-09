@@ -70,7 +70,6 @@ body {
   font-family: 'Avenir', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-align: center;
   color: white;
   background-color: rgb(51, 51, 51);
   font-size: 14pt;
@@ -94,11 +93,20 @@ button {
   padding-left: 20px;
 }
 
+#app {
+  top: 0px;
+  left: 0px;
+  bottom: 0px;
+  right: 0px;
+  overflow: hidden;
+  position: absolute;
+}
+
 div .sidebar {
   width: 350px;
-  height: 100%;
   position: absolute;
   top: 0px;
+  bottom: 0px;
   right: 0px;
   background-color: rgb(51, 51, 51);
   color: white;
@@ -112,7 +120,7 @@ div .topbar {
   left: 0px;
   top: 0px;
   height: 40px;
-  width: calc(100% - 380px);
+  right: 380px;
   border-bottom: 2px solid black;
 }
 
@@ -120,8 +128,8 @@ div .topbar {
   position: absolute;
   top: 42px;
   left: 0px;
-  height: calc(100% - 42px);
-  width: calc(100% - 380px);
+  bottom: 0px;
+  right: 380px;
 }
 
 /** Image radio buttons: https://stackoverflow.com/questions/17541614/use-images-instead-of-radio-buttons*/

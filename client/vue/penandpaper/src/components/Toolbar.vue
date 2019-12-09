@@ -2,15 +2,15 @@
   <div class="toolbar-container">
     <label>
       <input type="radio" name="current_tool">
-      <img src="images/circle.png">
+      <img src="images/circle.png" width="38" height="38">
     </label>
     <label>
       <input type="radio" name="current_tool">
-      <img src="images/line.png">
+      <img src="images/line.png" width="38" height="38">
     </label>
 
-    <button class="toolbar-align-right">Clear Tokens</button>
-    <button class="toolbar-align-right">Clear Doodads</button>
+    <button class="toolbar-align-right toolbar-center-verticaly">Clear Tokens</button>
+    <button class="toolbar-align-right toolbar-margin-right toolbar-center-verticaly">Clear Doodads</button>
   </div>
 </template>
 
@@ -26,16 +26,23 @@ export default class Toolbar extends Vue {
 
 <style scoped>
 div .toolbar-container {
-  padding-right: 4px;
-  padding-left: 4px;
-  padding-right: 10px;
-  padding-left: 10px;
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 0px;
+  bottom: 0px;
 }
 
 .toolbar-align-right {
   float: right;
+}
+
+.toolbar-center-verticaly {
+  margin-top: 4px;
+}
+
+.toolbar-margin-right {
+  margin-right: 14px;
 }
 
 </style>

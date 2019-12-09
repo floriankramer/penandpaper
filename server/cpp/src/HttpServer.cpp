@@ -63,6 +63,7 @@ void HttpServer::run() {
     }
 
     std::string mimetype = guessMimeType(realpath);
+    LOG_DEBUG << realpath << " has mimetype " << mimetype << LOG_END;
     std::ifstream in(realpath);
     if (!in.is_open()) {
       LOG_DEBUG << "Not found" << LOG_END;
@@ -103,19 +104,21 @@ std::string HttpServer::genKey() {
 std::string HttpServer::guessMimeType(const std::string &path) {
   size_t pos = path.rfind('.');
   if (pos == std::string::npos) {
-    return "";
+    return "text/html";
   }
   std::string ending = path.substr(pos + 1);
 
-  if (ending == ".js") {
+  if (ending == "js") {
     return "applications/javascript";
-  } else if (ending == ".css") {
+  } else if (ending == "css") {
     return "applications/css";
-  } else if (ending == ".png") {
+  } else if (ending == "png") {
     return "image/png";
-  } else if (ending == ".jpeg") {
+  } else if (ending == "jpeg") {
     return "image/jpeg";
-  } else {
+  } else if (ending.empty() || ending == "htm" || ending == "html") {
     return "text/html";
+  } else {
+    return "application/octet-stream";
   }
 }
