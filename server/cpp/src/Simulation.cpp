@@ -19,7 +19,7 @@ const std::unordered_map<std::string, MemberMsgHandler_t> MSG_HANDLERS = {
     {"InitSession", &Simulation::onInitSession},
     {"SetUsername", &Simulation::onSetUsername}};
 
-const Simulation::Color Simulation::COLORS[10] = {
+const Simulation::Color Simulation::COLORS[Simulation::NUM_COLORS] = {
     {240, 50, 50},   // red
     {176, 30, 90},   // burgund
     {201, 20, 201},  // pink
@@ -29,7 +29,8 @@ const Simulation::Color Simulation::COLORS[10] = {
     {8, 127, 91},    // blue-green
     {92, 148, 13},   // red-green
     {217, 72, 15},   // orange
-    {129, 96, 65}    // brown
+    {129, 96, 65},   // brown
+    {201, 201, 30}   // yellow
 };
 
 Simulation::Simulation() : _next_id(0), _next_color(0) {

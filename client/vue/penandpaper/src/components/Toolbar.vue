@@ -9,8 +9,8 @@
       <img src="images/line.png" width="38" height="38">
     </label>
 
-    <button class="toolbar-align-right toolbar-center-verticaly">Clear Tokens</button>
-    <button class="toolbar-align-right toolbar-margin-right toolbar-center-verticaly">Clear Doodads</button>
+    <button class="toolbar-align-right toolbar-center-verticaly" v-on:click="clearTokens">Clear Tokens</button>
+    <button class="toolbar-align-right toolbar-margin-right toolbar-center-verticaly" v-on:click="clearDoodads">Clear Doodads</button>
   </div>
 </template>
 
@@ -21,6 +21,13 @@ import eventBus from '../eventbus'
 
 @Component
 export default class Toolbar extends Vue {
+  clearTokens () {
+    eventBus.$emit('/client/token/clear')
+  }
+
+  clearDoodads () {
+    eventBus.$emit('/client/doodad/clear')
+  }
 }
 </script>
 

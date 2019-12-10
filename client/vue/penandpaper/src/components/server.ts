@@ -5,12 +5,20 @@ import Vuex, { Store, MutationPayload } from 'vuex'
 import eventBus from '../eventbus'
 import * as Sim from '../simulation'
 
+// Used to communicate the simulation state of the server via the event bus
+export class ServerState {
+  tokens: Sim.Token[] = []
+}
+
 export default class Server {
     uid: string;
     socket?: WebSocket;
     store: Store<any>;
 
     nextId: number = 0
+    nextColor: number = 0
+
+    tokens: Sim.Token[] = []
 
     errorhandler?: () => void;
 
@@ -24,6 +32,9 @@ export default class Server {
       })
       eventBus.$on('/chat/send', (data:string) => { this.sendChat(data) })
       eventBus.$on('/client/token/create', (data:Sim.Point) => { this.clientCreateToken(data) })
+      eventBus.$on('/client/token/move', (data: Sim.TokenMoveOrder) => { this.onClientMoveToken(data) })
+      eventBus.$on('/client/token/clear', () => { this.clientClearTokens() })
+      eventBus.$on('/server/request_state', () => { this.onStateRequest() })
     }
 
     connect () {
@@ -61,6 +72,10 @@ export default class Server {
         this.oninit(data)
       } else if (type === 'CreateToken') {
         this.onServerCreateToken(data)
+      } else if (type === 'ClearTokens') {
+        this.serverClearTokens()
+      } else if (type === 'MoveToken') {
+        this.onServerMoveToken(data)
       }
     }
 
@@ -70,13 +85,19 @@ export default class Server {
 
     oninit (data: any) {
       this.nextId = data['nextId']
+      this.nextColor = data['nextColor']
       for (let rawToken of data.tokens) {
         let token = new Sim.Token()
         token.x = rawToken.x
         token.y = rawToken.y
         token.id = rawToken.id
+        token.isFoe = rawToken.foe
+        token.color.r = rawToken.r
+        token.color.g = rawToken.g
+        token.color.b = rawToken.b
         // TODO: The map does not yet exist. It will have to request the entire state.
         eventBus.$emit('/server/token/create', token)
+        this.tokens.push(token)
       }
       // TODO: handle the rest of the init packet
     }
@@ -94,15 +115,20 @@ export default class Server {
     }
 
     onServerCreateToken (data: any) {
-      let t = new Sim.Token()
-      t.x = data.x
-      t.y = data.y
-      t.radius = 0.25
-      t.id = this.nextId
+      let token = new Sim.Token()
+      token.x = data.x
+      token.y = data.y
+      token.radius = 0.25
+      token.id = this.nextId
+      token.isFoe = false
+      token.color = Sim.TOKEN_COLORS[this.nextColor]
 
-      eventBus.$emit('/server/token/create', t)
+      eventBus.$emit('/server/token/create', token)
+      this.tokens.push(token)
 
       this.nextId += 1
+      this.nextColor += 1
+      this.nextColor %= Sim.TOKEN_COLORS.length
     }
 
     clientCreateToken (pos: Sim.Point) {
@@ -115,6 +141,56 @@ export default class Server {
         }
       }
       this.send(JSON.stringify(packet))
+    }
+
+    clientClearTokens () {
+      let packet = {
+        type: 'ClearTokens',
+        uid: this.uid,
+        data: { }
+      }
+      this.send(JSON.stringify(packet))
+    }
+
+    serverClearTokens () {
+      eventBus.$emit('/server/token/clear')
+    }
+
+    onClientMoveToken (move: Sim.TokenMoveOrder) {
+      let packet = {
+        type: 'MoveToken',
+        uid: this.uid,
+        data: {
+          'x': move.x,
+          'y': move.y,
+          'id': move.token.id
+        }
+      }
+      this.send(JSON.stringify(packet))
+    }
+
+    onServerMoveToken (data: any) {
+      let token = this.findTokenById(data.id)
+      if (token !== undefined) {
+        let move = new Sim.TokenMoveOrder()
+        move.x = data.x
+        move.y = data.y
+        move.token = token
+
+        // Apply the move to our state
+        move.token.x = move.x
+        move.token.y = move.y
+
+        eventBus.$emit('/server/token/move', move)
+      } else {
+        console.log('Got a move order for a token with id ', data.id, ' but was unable to find such a token.')
+      }
+    }
+
+    onStateRequest () {
+      let state = new ServerState()
+      state.tokens = this.tokens
+      eventBus.$emit('/server/state', state)
     }
 
     onerror (err:Event) {
@@ -178,5 +254,9 @@ export default class Server {
           this.send(JSON.stringify(packet))
         }
       }
+    }
+
+    findTokenById (id: number) : Sim.Token | undefined {
+      return this.tokens.find((token: Sim.Token) => { return token.id === id })
     }
 }

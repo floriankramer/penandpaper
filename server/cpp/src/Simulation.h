@@ -57,6 +57,6 @@ class Simulation {
 
   std::vector<Player> _players;
 
-  static const Color COLORS[10];
-  static const int NUM_COLORS = 10;
+  static const int NUM_COLORS = 11;
+  static const Color COLORS[NUM_COLORS];
 };

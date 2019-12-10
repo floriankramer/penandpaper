@@ -8,7 +8,7 @@
         </template>
       </dl>
     </div>
-    <input class="chat-input" v-model="currentText" v-on:keyup.enter="send"/>
+    <input class="chat-input" v-model="currentText" v-on:keyup.up="up" v-on:keyup.down="down" v-on:keyup.enter="send"/>
   </div>
 </template>
 
@@ -29,6 +29,9 @@ export default class Chat extends Vue {
   nextId: number = 0
   currentText: string = ''
 
+  historyPos: number = 0
+  sentHistory: string[] = []
+
   constructor () {
     super()
     eventBus.$on('/chat/message', this.onMessage)
@@ -45,8 +48,40 @@ export default class Chat extends Vue {
     }
   }
 
+  up () {
+    if (this.sentHistory.length === 0) {
+      return
+    }
+    if (this.historyPos === 0) {
+      this.sentHistory.push(this.currentText)
+    }
+    this.historyPos++
+    this.historyPos = Math.min(this.historyPos, this.sentHistory.length - 1)
+    this.currentText = this.sentHistory[this.sentHistory.length - this.historyPos - 1]
+  }
+
+  down () {
+    if (this.sentHistory.length === 0 || this.historyPos === 0) {
+      return
+    }
+    this.historyPos--
+    this.currentText = this.sentHistory[this.sentHistory.length - this.historyPos - 1]
+    if (this.historyPos === 0) {
+      this.sentHistory.pop()
+    }
+  }
+
   send () {
     eventBus.$emit('/chat/send', this.currentText)
+
+    if (this.historyPos !== 0) {
+      this.historyPos = 0
+      this.sentHistory.pop()
+    }
+    this.sentHistory.push(this.currentText)
+    if (this.sentHistory.length > 100) {
+      this.sentHistory.splice(0, this.sentHistory.length - 100)
+    }
     this.currentText = ''
   }
 }
