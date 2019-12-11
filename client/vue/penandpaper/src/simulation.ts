@@ -40,6 +40,11 @@ export class Token {
   color: Color = new Color(255, 0, 255)
 }
 
+export class Line {
+  start: Point = new Point(0, 0)
+  stop: Point = new Point(0, 0)
+}
+
 export const TOKEN_COLORS = [
   new Color(240, 50, 50), //  red
   new Color(176, 30, 90), //  burgund

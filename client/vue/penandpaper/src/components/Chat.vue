@@ -35,6 +35,12 @@ export default class Chat extends Vue {
   constructor () {
     super()
     eventBus.$on('/chat/message', this.onMessage)
+
+    let greeting = new Message()
+    greeting.id = -1
+    greeting.from = 'Server'
+    greeting.text = 'Welcome to GOATS ROCK!'
+    this.chatHistory.push(greeting)
   }
 
   onMessage (data : any) {

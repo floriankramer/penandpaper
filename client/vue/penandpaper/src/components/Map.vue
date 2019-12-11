@@ -2,7 +2,8 @@
   <div>
     <canvas v-on:mousedown="onMouseDown" v-on:mouseup="onMouseUp"
             v-on:mousemove="onMouseMove" v-on:wheel="onMouseWheel"
-            v-on:contextmenu.prevent v-on:keydown="onKeyDown"/>
+            v-on:contextmenu.prevent v-on:keydown="onKeyDown"
+            tabindex="0"/>
   </div>
 </template>
 
@@ -14,15 +15,23 @@ import * as Sim from '../simulation'
 
 enum MouseAction {
   NONE,
-  DRAG
+  DRAG,
+  CREATE_LINE
+}
+
+enum ToolType {
+  TOKEN,
+  LINE
 }
 
 @Component
 export default class Map extends Vue {
-  tokens: Sim.Token[]
+  tokens: Sim.Token[] = []
+  lines: Sim.Line[] = []
   canvas?: HTMLCanvasElement
 
   mouseAction: MouseAction = MouseAction.NONE
+  toolType: ToolType = ToolType.TOKEN
 
   lastMouseX: number = 0
   lastMouseY: number = 0
@@ -35,16 +44,38 @@ export default class Map extends Vue {
 
   selected?: Sim.Token
 
+  renderQueued: boolean = false
+  lastRender: number = 0
+
+  lastLineStop: Sim.Point = new Sim.Point(0, 0)
+
   constructor () {
     super()
-    this.tokens = []
 
     eventBus.$on('/server/token/create', (data: Sim.Token) => { this.onNewToken(data) })
     eventBus.$on('/server/token/clear', () => { this.clearTokens() })
+    eventBus.$on('/server/token/delete', (data: Sim.Token) => { this.onServerDeleteToken(data) })
+    eventBus.$on('/server/token/move', (data: Sim.TokenMoveOrder) => { this.onServerMoveToken(data) })
+    eventBus.$on('/server/token/toggle_foe', (data: Sim.Token) => { this.onServerToggleFoe(data) })
+    eventBus.$on('/server/line/create', (data: Sim.Line) => { this.onServerCreateLine(data) })
+    eventBus.$on('/server/line/clear', () => { this.onServerClearLines() })
     eventBus.$on('/server/state', (data: ServerState) => { this.onServerState(data) })
+
+    eventBus.$on('/tools/tool_token', () => { this.onToolTokenSelected() })
+    eventBus.$on('/tools/tool_line', () => { this.onToolLineSelected() })
   }
 
   renderMap () {
+    // Limit the render framerate to once every 16 ms (60 fps)
+    let now = new Date().getTime()
+    let sinceLast = now - this.lastRender
+    if (sinceLast < 16) {
+      setTimeout(this.renderMap, 16 - sinceLast)
+      return
+    }
+    this.lastRender = now
+    this.renderQueued = false
+
     if (this.canvas) {
       // Assume that without zoom 10 meters are visible vertically
       // Determine the visible area
@@ -96,6 +127,16 @@ export default class Map extends Vue {
       ctx.strokeStyle = '#4c4c4c'
       ctx.stroke()
 
+      // Draw the lines
+      ctx.strokeStyle = '#FFFFEE'
+      ctx.lineWidth = 2 / this.pixelPerMeter / this.zoom
+      ctx.beginPath()
+      for (let line of this.lines) {
+        ctx.moveTo(line.start.x, line.start.y)
+        ctx.lineTo(line.stop.x, line.stop.y)
+      }
+      ctx.stroke()
+
       // Draw the tokens
       for (let token of this.tokens) {
         ctx.beginPath()
@@ -106,16 +147,16 @@ export default class Map extends Vue {
         if (this.selected !== undefined && this.selected.id === token.id) {
           if (token.isFoe) {
             ctx.strokeStyle = '#FF0000'
-            ctx.lineWidth = 0.025
+            ctx.lineWidth = 0.04
             ctx.stroke()
           } else {
             ctx.strokeStyle = '#FFFFFF'
-            ctx.lineWidth = 0.025
+            ctx.lineWidth = 0.03
             ctx.stroke()
           }
         } else if (token.isFoe) {
           ctx.strokeStyle = '#FF0000'
-          ctx.lineWidth = 0.0125
+          ctx.lineWidth = 0.05
           ctx.stroke()
         }
       }
@@ -155,13 +196,30 @@ export default class Map extends Vue {
   }
 
   onKeyDown (event: KeyboardEvent) {
+    console.log(event)
+    if (event.key === 'Delete') {
+      if (this.selected !== undefined) {
+        eventBus.$emit('/client/token/delete', this.selected)
+      }
+    } else if (event.key === 'f') {
+      if (this.selected !== undefined) {
+        eventBus.$emit('/client/token/toggle_foe', this.selected)
+      }
+    }
   }
 
   onMouseDown (event: MouseEvent) {
+    console.log(this)
     let worldPos = this.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
     if (event.button === 0) {
       if (event.ctrlKey) {
-        eventBus.$emit('/client/token/create', worldPos)
+        if (this.toolType === ToolType.TOKEN) {
+          eventBus.$emit('/client/token/create', worldPos)
+        } else if (this.toolType === ToolType.LINE) {
+          this.mouseAction = MouseAction.CREATE_LINE
+          this.lastLineStop.x = worldPos.x
+          this.lastLineStop.y = worldPos.y
+        }
       } else {
         let clickedToken: boolean = false
         for (let token of this.tokens) {
@@ -195,20 +253,49 @@ export default class Map extends Vue {
   }
 
   onMouseMove (event: MouseEvent) {
+    let doRender = false
     if (this.mouseAction === MouseAction.DRAG) {
       this.offx -= event.movementX / this.pixelPerMeter / this.zoom
       this.offy -= event.movementY / this.pixelPerMeter / this.zoom
-      this.renderMap()
+      doRender = true
+    } else if (this.mouseAction === MouseAction.CREATE_LINE) {
+      let lastLineScreen = this.worldToScreenPos(this.lastLineStop)
+      if (Math.hypot(lastLineScreen.x - event.offsetX, lastLineScreen.y - event.offsetY) > this.$el.clientHeight / 20) {
+        // create a new line
+        let worldPos = this.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
+        let line = new Sim.Line()
+        line.start.x = this.lastLineStop.x
+        line.start.y = this.lastLineStop.y
+        line.stop.x = worldPos.x
+        line.stop.y = worldPos.y
+        eventBus.$emit('/client/line/create', line)
+        this.lastLineStop = worldPos
+        doRender = true
+      }
     }
     this.lastMouseX = event.offsetX
     this.lastMouseY = event.offsetY
     if (this.selected !== undefined) {
       // Redraw for the distance measurement
+      doRender = true
+    }
+    if (doRender) {
       this.renderMap()
     }
   }
 
   onMouseUp (event: MouseEvent) {
+    if (this.mouseAction === MouseAction.CREATE_LINE) {
+      // create a new line
+      let worldPos = this.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
+      let line = new Sim.Line()
+      line.start.x = this.lastLineStop.x
+      line.start.y = this.lastLineStop.y
+      line.stop.x = worldPos.x
+      line.stop.y = worldPos.y
+      eventBus.$emit('/client/line/create', line)
+      this.lastLineStop = worldPos
+    }
     this.mouseAction = MouseAction.NONE
     this.lastMouseX = event.offsetX
     this.lastMouseY = event.offsetY
@@ -258,9 +345,8 @@ export default class Map extends Vue {
 
   onServerState (data: ServerState) {
     // Copy the list of tokens
-    console.log('onServerState', this.tokens)
     this.tokens.push(...data.tokens)
-    console.log('onServerState', this.tokens, data.tokens.slice())
+    this.lines.push(...data.lines)
     this.renderMap()
   }
 
@@ -268,9 +354,47 @@ export default class Map extends Vue {
     // We use the same tokens as the server
     this.renderMap()
   }
+
+  onServerDeleteToken (data : Sim.Token) {
+    if (this.selected !== undefined && this.selected.id === data.id) {
+      this.selected = undefined
+    }
+    let pos = this.tokens.findIndex((t : Sim.Token) => { return t.id === data.id })
+    if (pos > 0) {
+      this.tokens.splice(pos, 1)
+      this.renderMap()
+    } else {
+      console.log('Asked to delete token', data,
+        'but no token with that id is registered in the map.')
+    }
+  }
+
+  onServerCreateLine (data: Sim.Line) {
+    this.lines.push(data)
+    this.renderMap()
+  }
+
+  onServerClearLines () {
+    this.lines.splice(0, this.lines.length)
+    this.renderMap()
+  }
+
+  onToolLineSelected () {
+    this.toolType = ToolType.LINE
+  }
+
+  onToolTokenSelected () {
+    this.toolType = ToolType.TOKEN
+  }
+
+  onServerToggleFoe (token: Sim.Token) {
+    this.renderMap()
+  }
 }
 </script>
 
 <style scoped>
-
+canvas {
+  outline-width: 0px !important;
+}
 </style>

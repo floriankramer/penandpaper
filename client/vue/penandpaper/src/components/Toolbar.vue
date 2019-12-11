@@ -1,11 +1,11 @@
 <template>
   <div class="toolbar-container">
     <label>
-      <input type="radio" name="current_tool">
+      <input type="radio" name="current_tool" value='token' v-model='currentTool' v-on:change='onToolToken'>
       <img src="images/circle.png" width="38" height="38">
     </label>
     <label>
-      <input type="radio" name="current_tool">
+      <input type="radio" name="current_tool" value='line' v-model='currentTool' v-on:change='onToolLine'>
       <img src="images/line.png" width="38" height="38">
     </label>
 
@@ -21,12 +21,22 @@ import eventBus from '../eventbus'
 
 @Component
 export default class Toolbar extends Vue {
+  currentTool: string = 'token'
+
   clearTokens () {
     eventBus.$emit('/client/token/clear')
   }
 
   clearDoodads () {
-    eventBus.$emit('/client/doodad/clear')
+    eventBus.$emit('/client/line/clear')
+  }
+
+  onToolToken () {
+    eventBus.$emit('/tools/tool_' + this.currentTool)
+  }
+
+  onToolLine () {
+    eventBus.$emit('/tools/tool_' + this.currentTool)
   }
 }
 </script>

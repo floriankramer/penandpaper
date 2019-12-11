@@ -8,6 +8,7 @@ import * as Sim from '../simulation'
 // Used to communicate the simulation state of the server via the event bus
 export class ServerState {
   tokens: Sim.Token[] = []
+  lines: Sim.Line[] = []
 }
 
 export default class Server {
@@ -19,6 +20,7 @@ export default class Server {
     nextColor: number = 0
 
     tokens: Sim.Token[] = []
+    lines: Sim.Line[] = []
 
     errorhandler?: () => void;
 
@@ -34,6 +36,10 @@ export default class Server {
       eventBus.$on('/client/token/create', (data:Sim.Point) => { this.clientCreateToken(data) })
       eventBus.$on('/client/token/move', (data: Sim.TokenMoveOrder) => { this.onClientMoveToken(data) })
       eventBus.$on('/client/token/clear', () => { this.clientClearTokens() })
+      eventBus.$on('/client/token/toggle_foe', (data: Sim.Token) => { this.onClientTokenToggleFoe(data) })
+      eventBus.$on('/client/token/delete', (data: Sim.Token) => { this.onClientDeleteToken(data) })
+      eventBus.$on('/client/line/create', (data: Sim.Line) => { this.onClientCreateLine(data) })
+      eventBus.$on('/client/line/clear', () => { this.onClientClearLines() })
       eventBus.$on('/server/request_state', () => { this.onStateRequest() })
     }
 
@@ -69,13 +75,21 @@ export default class Server {
       } else if (type === 'Chat') {
         this.onchat(data)
       } else if (type === 'Init') {
-        this.oninit(data)
+        this.onServerInit(data)
       } else if (type === 'CreateToken') {
         this.onServerCreateToken(data)
       } else if (type === 'ClearTokens') {
         this.serverClearTokens()
       } else if (type === 'MoveToken') {
         this.onServerMoveToken(data)
+      } else if (type === 'DeleteToken') {
+        this.onServerDeleteToken(data)
+      } else if (type === 'CreateDoodadLine') {
+        this.onServerCreateLine(data)
+      } else if (type === 'ClearDoodads') {
+        this.onServerClearDoodads()
+      } else if (type === 'TokenToggleFoe') {
+        this.onServerTokenToggleFoe(data)
       }
     }
 
@@ -83,7 +97,7 @@ export default class Server {
       eventBus.$emit('/chat/message', { sender: data['sender'], message: data['message'] })
     }
 
-    oninit (data: any) {
+    onServerInit (data: any) {
       this.nextId = data['nextId']
       this.nextColor = data['nextColor']
       for (let rawToken of data.tokens) {
@@ -98,6 +112,14 @@ export default class Server {
         // TODO: The map does not yet exist. It will have to request the entire state.
         eventBus.$emit('/server/token/create', token)
         this.tokens.push(token)
+      }
+      for (let rawLine of data.doodads) {
+        let line = new Sim.Line()
+        line.start.x = rawLine.sx
+        line.start.y = rawLine.sy
+        line.stop.x = rawLine.ex
+        line.stop.y = rawLine.ey
+        this.lines.push(line)
       }
       // TODO: handle the rest of the init packet
     }
@@ -187,10 +209,92 @@ export default class Server {
       }
     }
 
+    onClientDeleteToken (data: Sim.Token) {
+      let packet = {
+        type: 'DeleteToken',
+        uid: this.uid,
+        data: {
+          'id': data.id
+        }
+      }
+      this.send(JSON.stringify(packet))
+    }
+
+    onServerDeleteToken (data: any) {
+      let token = this.findTokenById(data.id)
+      if (token !== undefined) {
+        eventBus.$emit('/server/token/delete', token)
+        let pos = this.tokens.findIndex((t: Sim.Token) => { return t.id === data.id })
+        this.tokens.splice(pos, 1)
+      } else {
+        console.log('Received a DeleteToken packet with data', data, 'but didn\'t find a token with a matching id')
+      }
+    }
+
+    onClientCreateLine (line: Sim.Line) {
+      let packet = {
+        type: 'CreateDoodadLine',
+        uid: this.uid,
+        data: {
+          'sx': line.start.x,
+          'sy': line.start.y,
+          'ex': line.stop.x,
+          'ey': line.stop.y
+        }
+      }
+      this.send(JSON.stringify(packet))
+    }
+
+    onServerCreateLine (data: any) {
+      let line = new Sim.Line()
+      line.start.x = data.sx
+      line.start.y = data.sy
+      line.stop.x = data.ex
+      line.stop.y = data.ey
+      eventBus.$emit('/server/line/create', line)
+      this.lines.push(line)
+    }
+
+    onClientClearLines () {
+      let packet = {
+        type: 'ClearDoodads',
+        uid: this.uid,
+        data: { }
+      }
+      this.send(JSON.stringify(packet))
+    }
+
+    onServerClearDoodads () {
+      eventBus.$emit('/server/line/clear')
+      this.lines.splice(0, this.lines.length)
+    }
+
     onStateRequest () {
       let state = new ServerState()
       state.tokens = this.tokens
+      state.lines = this.lines
       eventBus.$emit('/server/state', state)
+    }
+
+    onServerTokenToggleFoe (data: any) {
+      let token = this.findTokenById(data.id)
+      if (token !== undefined) {
+        token.isFoe = !token.isFoe
+        eventBus.$emit('/server/token/toggle_foe', token)
+      } else {
+        console.log('The server requested an is foe change, but no token with the given id exists: ', data)
+      }
+    }
+
+    onClientTokenToggleFoe (token: Sim.Token) {
+      let packet = {
+        type: 'TokenToggleFoe',
+        uid: this.uid,
+        data: {
+          'id': token.id
+        }
+      }
+      this.send(JSON.stringify(packet))
     }
 
     onerror (err:Event) {
