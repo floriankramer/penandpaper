@@ -32,6 +32,9 @@ include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/json/include/")
 #============================================================================== 
 # penandpaper
 #============================================================================== 
+
+add_subdirectory(atlas)
+
 add_executable(penandpaper-server main.cpp
   HttpServer.cpp HttpServer.h
   WebSocketServer.cpp WebSocketServer.h
@@ -41,5 +44,5 @@ add_executable(penandpaper-server main.cpp
   Doodad.cpp Doodad.h
   Serializeable.h)
 
-target_link_libraries(penandpaper-server OpenSSL::SSL ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(penandpaper-server atlas OpenSSL::SSL ${CMAKE_THREAD_LIBS_INIT})
 
