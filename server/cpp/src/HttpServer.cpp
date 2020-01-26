@@ -13,7 +13,7 @@
 
 #include "Logger.h"
 
-HttpServer::HttpServer() { run(); }
+HttpServer::HttpServer(bool do_keycheck) : _do_keycheck(do_keycheck) { run(); }
 
 void HttpServer::run() {
   httplib::SSLServer server("./cert/certificate.pem", "./cert/key.pem");
@@ -31,8 +31,11 @@ void HttpServer::run() {
     realpath(basepath.c_str(), buffer);
     basepath = buffer;
   }
-
-  LOG_INFO << "The key is: " << key << LOG_END;
+  if (!_do_keycheck) {
+    LOG_INFO << "Http server keychecking is disabled" << LOG_END;
+  } else {
+    LOG_INFO << "The key is: " << key << LOG_END;
+  }
 
   server.Get(".*", [this, &key, &basepath](const httplib::Request &req,
                                            httplib::Response &resp) {
@@ -41,7 +44,8 @@ void HttpServer::run() {
       realpath = "/index.html";
     }
     if (realpath == "/index.html") {
-      if (!req.has_param("key") || req.get_param_value("key") != key) {
+      if (_do_keycheck &&
+          (!req.has_param("key") || req.get_param_value("key") != key)) {
         resp.body = "Invalid or missing key";
         resp.status = 200;
         return;
@@ -109,9 +113,9 @@ std::string HttpServer::guessMimeType(const std::string &path) {
   std::string ending = path.substr(pos + 1);
 
   if (ending == "js") {
-    return "applications/javascript";
+    return "application/javascript";
   } else if (ending == "css") {
-    return "applications/css";
+    return "text/css";
   } else if (ending == "png") {
     return "image/png";
   } else if (ending == "jpeg") {

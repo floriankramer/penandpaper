@@ -4,10 +4,12 @@
 
 class HttpServer {
 public:
-  HttpServer();
+  HttpServer(bool do_keycheck=true);
 
 private:
   void run();
   std::string genKey();
   std::string guessMimeType(const std::string &path);
+
+  bool _do_keycheck;
 };
