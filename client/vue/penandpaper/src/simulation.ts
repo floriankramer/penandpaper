@@ -38,8 +38,11 @@ export class Token {
   id: number = -1;
   isFoe: boolean = false
   color: Color = new Color(255, 0, 255)
+
+  // Rendering variables
   displayX: number = 0
   displayY: number = 0
+  displaySpeed: number = 8
 }
 
 export class Line {

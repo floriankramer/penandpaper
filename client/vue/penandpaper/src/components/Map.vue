@@ -352,19 +352,18 @@ export default class Map extends Vue {
 
   updateMovingTokens () {
     let delta = 0.016
-    let speed = 8
     let toRemove : Sim.Token[] = []
     this.movingTokens.forEach(t => {
       let dx = t.x - t.displayX
       let dy = t.y - t.displayY
       let l = Math.hypot(dx, dy)
-      if (l < 1.1 * speed * delta) {
+      if (l < 1.1 * t.displaySpeed * delta) {
         t.displayX = t.x
         t.displayY = t.y
         toRemove.push(t)
       } else {
-        t.displayX += delta * speed * dx / l
-        t.displayY += delta * speed * dy / l
+        t.displayX += delta * t.displaySpeed * dx / l
+        t.displayY += delta * t.displaySpeed * dy / l
       }
     })
 
@@ -407,6 +406,7 @@ export default class Map extends Vue {
   onServerMoveToken (data : Sim.TokenMoveOrder) {
     // We use the same tokens as the server
     this.requestRedraw()
+    data.token.displaySpeed = Math.hypot(data.token.x - data.token.displayX, data.token.y - data.token.displayY)
     this.movingTokens.push(data.token)
     if (this.movingTokens.length === 1) {
       this.updateMovingTokens()
