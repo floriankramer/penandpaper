@@ -29,6 +29,12 @@ include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/websocketpp/")
 include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/json/include/")
 
 
+#==============================================================================
+# simple2d
+#==============================================================================
+# This is used for fast 2d vector graphic rendering for the maps
+include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/simple2d/include/")
+
 #============================================================================== 
 # penandpaper
 #============================================================================== 

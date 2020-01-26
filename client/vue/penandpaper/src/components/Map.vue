@@ -27,6 +27,7 @@ enum ToolType {
 @Component
 export default class Map extends Vue {
   tokens: Sim.Token[] = []
+  movingTokens: Sim.Token[] = []
   lines: Sim.Line[] = []
   canvas?: HTMLCanvasElement
 
@@ -63,6 +64,10 @@ export default class Map extends Vue {
 
     eventBus.$on('/tools/tool_token', () => { this.onToolTokenSelected() })
     eventBus.$on('/tools/tool_line', () => { this.onToolLineSelected() })
+  }
+
+  requestRedraw () {
+    requestAnimationFrame(this.renderMap)
   }
 
   renderMap () {
@@ -140,7 +145,7 @@ export default class Map extends Vue {
       // Draw the tokens
       for (let token of this.tokens) {
         ctx.beginPath()
-        ctx.arc(token.x, token.y, token.radius, 0, 2 * Math.PI)
+        ctx.arc(token.displayX, token.displayY, token.radius, 0, 2 * Math.PI)
         ctx.fillStyle = token.color.toHex()
         ctx.fill()
 
@@ -220,6 +225,8 @@ export default class Map extends Vue {
           this.lastLineStop.x = worldPos.x
           this.lastLineStop.y = worldPos.y
         }
+      } else if (event.altKey) {
+        this.clientMoveSelectedTo(worldPos.x, worldPos.y)
       } else {
         let clickedToken: boolean = false
         for (let token of this.tokens) {
@@ -239,17 +246,27 @@ export default class Map extends Vue {
       this.offy = 0
       this.zoom = 1
     } else if (event.button === 2) {
-      if (this.selected !== undefined) {
-        // move the selected token
-        let move = new Sim.TokenMoveOrder()
-        move.x = worldPos.x
-        move.y = worldPos.y
-        move.token = this.selected
-        eventBus.$emit('/client/token/move', move)
-      }
+      this.clientMoveSelectedTo(worldPos.x, worldPos.y)
     }
     this.lastMouseX = event.offsetX
     this.lastMouseY = event.offsetY
+  }
+
+  clientMoveSelectedTo (x: number, y: number) {
+    if (this.selected !== undefined) {
+      // move the selected token
+      let move = new Sim.TokenMoveOrder()
+      move.x = x
+      move.y = y
+      move.token = this.selected
+      eventBus.$emit('/client/token/move', move)
+
+      // Avoid having the token twice in the move queue
+      let midx = this.movingTokens.indexOf(this.selected)
+      if (midx !== undefined) {
+        this.movingTokens.splice(midx, 1)
+      }
+    }
   }
 
   onMouseMove (event: MouseEvent) {
@@ -280,7 +297,7 @@ export default class Map extends Vue {
       doRender = true
     }
     if (doRender) {
-      this.renderMap()
+      this.requestRedraw()
     }
   }
 
@@ -299,7 +316,7 @@ export default class Map extends Vue {
     this.mouseAction = MouseAction.NONE
     this.lastMouseX = event.offsetX
     this.lastMouseY = event.offsetY
-    this.renderMap()
+    this.requestRedraw()
   }
 
   onMouseWheel (event: WheelEvent) {
@@ -308,7 +325,7 @@ export default class Map extends Vue {
     } else if (event.deltaY < 0) {
       this.zoom *= 1.15
     }
-    this.renderMap()
+    this.requestRedraw()
   }
 
   mounted () {
@@ -326,33 +343,74 @@ export default class Map extends Vue {
       if (this.canvas) {
         this.canvas.width = this.$el.clientWidth
         this.canvas.height = this.$el.clientHeight
-        this.renderMap()
+        this.requestRedraw()
         this.pixelPerMeter = this.canvas.height / 10
       }
     })
-    this.renderMap()
+    this.requestRedraw()
+  }
+
+  updateMovingTokens () {
+    let delta = 0.016
+    let speed = 8
+    let toRemove : Sim.Token[] = []
+    this.movingTokens.forEach(t => {
+      let dx = t.x - t.displayX
+      let dy = t.y - t.displayY
+      let l = Math.hypot(dx, dy)
+      if (l < 1.1 * speed * delta) {
+        t.displayX = t.x
+        t.displayY = t.y
+        toRemove.push(t)
+      } else {
+        t.displayX += delta * speed * dx / l
+        t.displayY += delta * speed * dy / l
+      }
+    })
+
+    toRemove.forEach(t => {
+      this.movingTokens.splice(this.movingTokens.indexOf(t), 1)
+    })
+
+    this.requestRedraw()
+
+    if (this.movingTokens.length > 0) {
+      setTimeout(this.updateMovingTokens, 1000 * delta)
+    }
   }
 
   onNewToken (data: Sim.Token) {
+    data.displayX = data.x
+    data.displayY = data.y
     this.tokens.push(data)
-    this.renderMap()
+    this.requestRedraw()
   }
 
   clearTokens () {
     this.tokens.splice(0)
-    this.renderMap()
+    this.requestRedraw()
   }
 
   onServerState (data: ServerState) {
     // Copy the list of tokens
     this.tokens.push(...data.tokens)
     this.lines.push(...data.lines)
-    this.renderMap()
+
+    this.tokens.forEach(t => {
+      t.displayX = t.x
+      t.displayY = t.y
+    })
+
+    this.requestRedraw()
   }
 
   onServerMoveToken (data : Sim.TokenMoveOrder) {
     // We use the same tokens as the server
-    this.renderMap()
+    this.requestRedraw()
+    this.movingTokens.push(data.token)
+    if (this.movingTokens.length === 1) {
+      this.updateMovingTokens()
+    }
   }
 
   onServerDeleteToken (data : Sim.Token) {
@@ -362,7 +420,7 @@ export default class Map extends Vue {
     let pos = this.tokens.findIndex((t : Sim.Token) => { return t.id === data.id })
     if (pos > 0) {
       this.tokens.splice(pos, 1)
-      this.renderMap()
+      this.requestRedraw()
     } else {
       console.log('Asked to delete token', data,
         'but no token with that id is registered in the map.')
@@ -371,12 +429,12 @@ export default class Map extends Vue {
 
   onServerCreateLine (data: Sim.Line) {
     this.lines.push(data)
-    this.renderMap()
+    this.requestRedraw()
   }
 
   onServerClearLines () {
     this.lines.splice(0, this.lines.length)
-    this.renderMap()
+    this.requestRedraw()
   }
 
   onToolLineSelected () {
@@ -388,7 +446,7 @@ export default class Map extends Vue {
   }
 
   onServerToggleFoe (token: Sim.Token) {
-    this.renderMap()
+    this.requestRedraw()
   }
 }
 </script>

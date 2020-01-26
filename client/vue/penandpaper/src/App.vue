@@ -2,8 +2,14 @@
   <div id="app">
     <CriticalError v-if="hasCriticalError">{{criticalErrorString}}</CriticalError>
     <template v-else-if="hasUsername">
+      <div class="categorybar">
+        <button>Game</button>
+        <button>Map Editor</button>
+      </div>
       <div class="topbar">
-        <Toolbar></Toolbar>
+        <div v-if="isGamemaster">
+          <Toolbar></Toolbar>
+        </div>
       </div>
       <div class="sidebar">
         <Chat></Chat>
@@ -42,6 +48,7 @@ export default class App extends Vue {
   criticalErrorString:string = '';
 
   hasUsername: boolean = false;
+  isGamemaster: boolean = false;
 
   mounted () {
     console.log('The app has been mounted')
@@ -54,6 +61,9 @@ export default class App extends Vue {
         if (state.username.length > 0) {
           app.hasUsername = true
         }
+      }
+      if (mutation.type === 'setPermissions') {
+        app.isGamemaster = state.permissions > 0
       }
     })
   }
@@ -100,6 +110,23 @@ button {
   right: 0px;
   overflow: hidden;
   position: absolute;
+}
+
+div .categorybar {
+  position: absolute;
+  left: 0px;
+  width: 0px;
+  top: 0px;
+  bottom: 0px;
+  overflow: hidden;
+}
+
+div .categorybar button {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  text-align: center;
+  line-height: 0px;
+  width: 40px;
 }
 
 div .sidebar {

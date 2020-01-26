@@ -71,7 +71,7 @@ export default class Server {
       let data = packet['data']
       console.log('Received a message: ', packet)
       if (type === 'Session') {
-        this.store.commit('setUsername', data['name'])
+        this.onServerSession(data)
       } else if (type === 'Chat') {
         this.onchat(data)
       } else if (type === 'Init') {
@@ -297,6 +297,11 @@ export default class Server {
       this.send(JSON.stringify(packet))
     }
 
+    onServerSession (data: any) {
+      this.store.commit('setUsername', data['name'])
+      this.store.commit('setPermissions', parseInt(data['permissions']))
+    }
+
     onerror (err:Event) {
       err.stopPropagation()
       console.log('Unable to connect to the server')
@@ -335,8 +340,10 @@ export default class Server {
     }
 
     loadUid () {
-      if (localStorage.uid) {
-        this.uid = localStorage.uid
+      let uid : string | null = localStorage.getItem('uid')
+      if (uid !== null) {
+        this.uid = uid
+        return
       }
       this.uid = ''
       for (var i = 0; i < 32; i++) {
@@ -344,7 +351,7 @@ export default class Server {
         let v = 33 + Math.round(Math.random() * 93.5)
         this.uid += String.fromCharCode(v)
       }
-      localStorage.uid = this.uid
+      localStorage.setItem('uid', this.uid)
     }
 
     onmutation (mutation: MutationPayload, state: any) {

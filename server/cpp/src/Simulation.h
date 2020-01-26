@@ -8,7 +8,7 @@
 #include "WebSocketServer.h"
 
 class Simulation {
-  enum class Permissions { GAMEMASTER, PLAYER };
+  enum class Permissions { PLAYER, GAMEMASTER };
 
   struct Player {
     size_t id;
@@ -44,6 +44,15 @@ class Simulation {
   std::vector<std::string> splitWs(const std::string &s);
 
   std::string cmdRollDice(const std::string &who, const std::vector<std::string> &cmd);
+  std::string cmdSetname(const std::string &who, const std::string &uid, const std::vector<std::string> &cmd);
+  std::string cmdHelp(const std::string &who, const std::string &uid, const std::vector<std::string> &cmd);
+
+  /**
+   * @return  The player with the uid or nullptr if no such player exists.
+   */
+  Player *getPlayer(const std::string &uid);
+
+  bool checkPermissions(const nlohmann::json &packet, Permissions min_perm);
 
   Color nextColor();
 

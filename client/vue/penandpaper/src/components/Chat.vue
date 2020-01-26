@@ -4,7 +4,7 @@
       <dl>
         <template v-for="chat in chatHistory">
           <dt v-bind:key="'sender' + chat.id">{{chat.from}}</dt>
-          <dd v-bind:key="'msg' + chat.id">{{chat.text}}</dd>
+          <dd v-bind:key="'msg' + chat.id" v-html="chat.text"></dd>
         </template>
       </dl>
     </div>
