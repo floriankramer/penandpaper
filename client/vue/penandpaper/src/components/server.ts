@@ -16,9 +16,6 @@ export default class Server {
     socket?: WebSocket;
     store: Store<any>;
 
-    nextId: number = 0
-    nextColor: number = 0
-
     tokens: Sim.Token[] = []
     lines: Sim.Line[] = []
 
@@ -98,8 +95,6 @@ export default class Server {
     }
 
     onServerInit (data: any) {
-      this.nextId = data['nextId']
-      this.nextColor = data['nextColor']
       for (let rawToken of data.tokens) {
         let token = new Sim.Token()
         token.x = rawToken.x
@@ -141,16 +136,12 @@ export default class Server {
       token.x = data.x
       token.y = data.y
       token.radius = 0.25
-      token.id = this.nextId
-      token.isFoe = false
-      token.color = Sim.TOKEN_COLORS[this.nextColor]
+      token.id = data.id
+      token.isFoe = data.foe
+      token.color = new Sim.Color(data.r, data.g, data.b)
 
       eventBus.$emit('/server/token/create', token)
       this.tokens.push(token)
-
-      this.nextId += 1
-      this.nextColor += 1
-      this.nextColor %= Sim.TOKEN_COLORS.length
     }
 
     clientCreateToken (pos: Sim.Point) {

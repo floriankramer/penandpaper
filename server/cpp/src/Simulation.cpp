@@ -5,19 +5,18 @@
 
 #include "Logger.h"
 
-using MemberMsgHandler_t =
-    WebSocketServer::Response (Simulation::*)(const nlohmann::json &);
-const std::unordered_map<std::string, MemberMsgHandler_t> MSG_HANDLERS = {
-    {"CreateToken", &Simulation::onCreateToken},
-    {"MoveToken", &Simulation::onMoveToken},
-    {"DeleteToken", &Simulation::onDeleteToken},
-    {"Chat", &Simulation::onChat},
-    {"CreateDoodadLine", &Simulation::onCreateDoodadLine},
-    {"ClearDoodads", &Simulation::onClearDoodads},
-    {"ClearTokens", &Simulation::onClearTokens},
-    {"TokenToggleFoe", &Simulation::onTokenToggleFoe},
-    {"InitSession", &Simulation::onInitSession},
-    {"SetUsername", &Simulation::onSetUsername}};
+const std::unordered_map<std::string, Simulation::MemberMsgHandler_t>
+    Simulation::MSG_HANDLERS = {
+        {"CreateToken", &Simulation::onCreateToken},
+        {"MoveToken", &Simulation::onMoveToken},
+        {"DeleteToken", &Simulation::onDeleteToken},
+        {"Chat", &Simulation::onChat},
+        {"CreateDoodadLine", &Simulation::onCreateDoodadLine},
+        {"ClearDoodads", &Simulation::onClearDoodads},
+        {"ClearTokens", &Simulation::onClearTokens},
+        {"TokenToggleFoe", &Simulation::onTokenToggleFoe},
+        {"InitSession", &Simulation::onInitSession},
+        {"SetUsername", &Simulation::onSetUsername}};
 
 const Simulation::Color Simulation::COLORS[Simulation::NUM_COLORS] = {
     {240, 50, 50},   // red
@@ -47,6 +46,8 @@ Token *Simulation::tokenById(uint64_t id) {
 }
 
 WebSocketServer::Response Simulation::onNewClient() {
+  std::lock_guard<std::mutex> simulation_mutex_lock(_simulation_mutex);
+
   using nlohmann::json;
   std::string answer_str;
   try {
@@ -80,6 +81,7 @@ WebSocketServer::Response Simulation::onNewClient() {
 }
 
 WebSocketServer::Response Simulation::onMessage(const std::string &msg) {
+  std::lock_guard<std::mutex> simulation_mutex_lock(_simulation_mutex);
   using nlohmann::json;
   try {
     json j = json::parse(msg);
@@ -142,7 +144,12 @@ WebSocketServer::Response Simulation::onCreateToken(const nlohmann::json &j) {
   t.g() = c.g;
   t.b() = c.b;
   _next_id++;
-  return {"", WebSocketServer::ResponseType::FORWARD};
+
+  nlohmann::json response;
+  response["type"] = "CreateToken";
+  response["data"] = t.serialize();
+
+  return {response.dump(), WebSocketServer::ResponseType::BROADCAST};
 }
 
 WebSocketServer::Response Simulation::onMoveToken(const nlohmann::json &j) {
@@ -168,13 +175,22 @@ WebSocketServer::Response Simulation::onDeleteToken(const nlohmann::json &j) {
     response["data"] = resp_data;
     return {response.dump(), WebSocketServer::ResponseType::RETURN};
   }
+  bool did_delete = false;
   nlohmann::json data = j.at("data");
   uint64_t id = data.at("id").get<uint64_t>();
   for (size_t i = 0; i < _tokens.size(); i++) {
     if (_tokens[i].id() == id) {
-      std::iter_swap(_tokens.begin() + i, _tokens.end());
+      LOG_DEBUG << "Deleted token with id " << id << LOG_END;
+      std::iter_swap(_tokens.begin() + i,
+                     _tokens.begin() + (_tokens.size() - 1));
       _tokens.erase(_tokens.end());
+      did_delete = true;
+      break;
     }
+  }
+  if (!did_delete) {
+    LOG_WARN << "A client requested deletion of token " << id
+             << " but no token with that id exists." << LOG_END;
   }
   return {"", WebSocketServer::ResponseType::FORWARD};
 }

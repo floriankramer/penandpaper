@@ -2,12 +2,17 @@
 
 #include <string>
 #include <vector>
+#include <mutex>
 
 #include "Doodad.h"
 #include "Token.h"
 #include "WebSocketServer.h"
 
 class Simulation {
+
+  using MemberMsgHandler_t =
+      WebSocketServer::Response (Simulation::*)(const nlohmann::json &);
+
   enum class Permissions { PLAYER, GAMEMASTER };
 
   struct Player {
@@ -27,6 +32,8 @@ class Simulation {
   WebSocketServer::Response onNewClient();
   WebSocketServer::Response onMessage(const std::string &msg);
 
+ private:
+
   WebSocketServer::Response onCreateToken(const nlohmann::json &j);
   WebSocketServer::Response onMoveToken(const nlohmann::json &j);
   WebSocketServer::Response onDeleteToken(const nlohmann::json &j);
@@ -38,7 +45,6 @@ class Simulation {
   WebSocketServer::Response onInitSession(const nlohmann::json &j);
   WebSocketServer::Response onSetUsername(const nlohmann::json &j);
 
- private:
   Token *tokenById(uint64_t id);
 
   std::vector<std::string> splitWs(const std::string &s);
@@ -66,6 +72,10 @@ class Simulation {
 
   std::vector<Player> _players;
 
+  std::mutex _simulation_mutex;
+
   static const int NUM_COLORS = 11;
   static const Color COLORS[NUM_COLORS];
+
+  static const std::unordered_map<std::string, MemberMsgHandler_t> MSG_HANDLERS;
 };

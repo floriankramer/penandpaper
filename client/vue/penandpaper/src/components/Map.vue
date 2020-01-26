@@ -387,6 +387,7 @@ export default class Map extends Vue {
 
   clearTokens () {
     this.tokens.splice(0)
+    this.movingTokens.splice(0)
     this.requestRedraw()
   }
 
@@ -417,8 +418,14 @@ export default class Map extends Vue {
     if (this.selected !== undefined && this.selected.id === data.id) {
       this.selected = undefined
     }
-    let pos = this.tokens.findIndex((t : Sim.Token) => { return t.id === data.id })
-    if (pos > 0) {
+
+    let pos = this.movingTokens.indexOf(data)
+    if (pos !== undefined) {
+      this.movingTokens.splice(pos, 1)
+    }
+
+    pos = this.tokens.findIndex((t : Sim.Token) => { return t.id === data.id })
+    if (pos >= 0) {
       this.tokens.splice(pos, 1)
       this.requestRedraw()
     } else {
