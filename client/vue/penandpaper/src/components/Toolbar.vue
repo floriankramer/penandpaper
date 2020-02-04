@@ -1,6 +1,10 @@
 <template>
   <div class="toolbar-container">
     <label>
+      <input type="radio" name="current_tool" value='view' v-model='currentTool' v-on:change='onToolView'>
+      <img src="images/eye.svg" width="38" height="38">
+    </label>
+    <label>
       <input type="radio" name="current_tool" value='token' v-model='currentTool' v-on:change='onToolToken'>
       <img src="images/circle.png" width="38" height="38">
     </label>
@@ -31,12 +35,16 @@ export default class Toolbar extends Vue {
     eventBus.$emit('/client/line/clear')
   }
 
+  onToolView () {
+    eventBus.$emit('/tools/select_tool', 'view')
+  }
+
   onToolToken () {
-    eventBus.$emit('/tools/tool_' + this.currentTool)
+    eventBus.$emit('/tools/select_tool', 'token')
   }
 
   onToolLine () {
-    eventBus.$emit('/tools/tool_' + this.currentTool)
+    eventBus.$emit('/tools/select_tool', 'line')
   }
 }
 </script>

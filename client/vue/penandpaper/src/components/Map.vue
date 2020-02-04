@@ -12,16 +12,14 @@ import { Component, Prop, Vue } from 'vue-property-decorator'
 import Server, { ServerState } from './server'
 import eventBus from '../eventbus'
 import * as Sim from '../simulation'
+import Tool from '../tools/tool'
+import ToolToken from '../tools/tool_token'
+import ToolLine from '../tools/tool_line'
 
 enum MouseAction {
   NONE,
   DRAG,
   CREATE_LINE
-}
-
-enum ToolType {
-  TOKEN,
-  LINE
 }
 
 @Component
@@ -32,7 +30,6 @@ export default class Map extends Vue {
   canvas?: HTMLCanvasElement
 
   mouseAction: MouseAction = MouseAction.NONE
-  toolType: ToolType = ToolType.TOKEN
 
   lastMouseX: number = 0
   lastMouseY: number = 0
@@ -48,7 +45,7 @@ export default class Map extends Vue {
   renderQueued: boolean = false
   lastRender: number = 0
 
-  lastLineStop: Sim.Point = new Sim.Point(0, 0)
+  tool: Tool = new Tool(this)
 
   constructor () {
     super()
@@ -62,8 +59,7 @@ export default class Map extends Vue {
     eventBus.$on('/server/line/clear', () => { this.onServerClearLines() })
     eventBus.$on('/server/state', (data: ServerState) => { this.onServerState(data) })
 
-    eventBus.$on('/tools/tool_token', () => { this.onToolTokenSelected() })
-    eventBus.$on('/tools/tool_line', () => { this.onToolLineSelected() })
+    eventBus.$on('/tools/select_tool', (data: string) => { this.onToolSelected(data) })
   }
 
   requestRedraw () {
@@ -134,7 +130,7 @@ export default class Map extends Vue {
 
       // Draw the lines
       ctx.strokeStyle = '#FFFFEE'
-      ctx.lineWidth = 2 / this.pixelPerMeter / this.zoom
+      ctx.lineWidth = this.computeLineWidth()
       ctx.beginPath()
       for (let line of this.lines) {
         ctx.moveTo(line.start.x, line.start.y)
@@ -187,7 +183,12 @@ export default class Map extends Vue {
         ctx.fillText(dist.toFixed(2).toString() + 'm', this.lastMouseX + 20, this.lastMouseY - 20)
         ctx.setTransform(transform)
       }
+      this.tool.render(ctx)
     }
+  }
+
+  computeLineWidth () : number {
+    return 2 / this.pixelPerMeter / this.zoom
   }
 
   screenToWorldPos (point: Sim.Point) : Sim.Point {
@@ -200,56 +201,48 @@ export default class Map extends Vue {
       (point.y - this.offy) * this.zoom * this.pixelPerMeter + this.$el.clientHeight / 2)
   }
 
-  onKeyDown (event: KeyboardEvent) {
-    console.log(event)
-    if (event.key === 'Delete') {
-      if (this.selected !== undefined) {
-        eventBus.$emit('/client/token/delete', this.selected)
-      }
-    } else if (event.key === 'f') {
-      if (this.selected !== undefined) {
-        eventBus.$emit('/client/token/toggle_foe', this.selected)
+  moveByScreenDelta (dx: number, dy: number) {
+    this.offx -= dx / this.pixelPerMeter / this.zoom
+    this.offy -= dy / this.pixelPerMeter / this.zoom
+  }
+
+  hasSelection () : boolean {
+    return this.selected !== undefined
+  }
+
+  resetCamera () {
+    this.offx = 0
+    this.offy = 0
+    this.zoom = 1
+  }
+
+  setLastMousePos (sx: number, sy: number) {
+    this.lastMouseX = sx
+    this.lastMouseY = sy
+  }
+
+  /**
+   * @param wx The x coordinate in world space
+   * @param wy The y coordinate in world space
+   * @returns True if a new token was selected
+   */
+  selectTokenAt (wx: number, wy: number) : boolean {
+    for (let token of this.tokens) {
+      if (Math.hypot(token.x - wx, token.y - wy) < token.radius) {
+        this.selected = token
+        return true
       }
     }
+    this.selected = undefined
+    return false
+  }
+
+  onKeyDown (event: KeyboardEvent) {
+    this.tool.onKeyDown(event)
   }
 
   onMouseDown (event: MouseEvent) {
-    console.log(this)
-    let worldPos = this.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
-    if (event.button === 0) {
-      if (event.ctrlKey) {
-        if (this.toolType === ToolType.TOKEN) {
-          eventBus.$emit('/client/token/create', worldPos)
-        } else if (this.toolType === ToolType.LINE) {
-          this.mouseAction = MouseAction.CREATE_LINE
-          this.lastLineStop.x = worldPos.x
-          this.lastLineStop.y = worldPos.y
-        }
-      } else if (event.altKey) {
-        this.clientMoveSelectedTo(worldPos.x, worldPos.y)
-      } else {
-        let clickedToken: boolean = false
-        for (let token of this.tokens) {
-          if (Math.hypot(token.x - worldPos.x, token.y - worldPos.y) < token.radius) {
-            this.selected = token
-            clickedToken = true
-            break
-          }
-        }
-        if (!clickedToken) {
-          this.selected = undefined
-          this.mouseAction = MouseAction.DRAG
-        }
-      }
-    } else if (event.button === 1) {
-      this.offx = 0
-      this.offy = 0
-      this.zoom = 1
-    } else if (event.button === 2) {
-      this.clientMoveSelectedTo(worldPos.x, worldPos.y)
-    }
-    this.lastMouseX = event.offsetX
-    this.lastMouseY = event.offsetY
+    this.tool.onMouseDown(event)
   }
 
   clientMoveSelectedTo (x: number, y: number) {
@@ -269,54 +262,28 @@ export default class Map extends Vue {
     }
   }
 
-  onMouseMove (event: MouseEvent) {
-    let doRender = false
-    if (this.mouseAction === MouseAction.DRAG) {
-      this.offx -= event.movementX / this.pixelPerMeter / this.zoom
-      this.offy -= event.movementY / this.pixelPerMeter / this.zoom
-      doRender = true
-    } else if (this.mouseAction === MouseAction.CREATE_LINE) {
-      let lastLineScreen = this.worldToScreenPos(this.lastLineStop)
-      if (Math.hypot(lastLineScreen.x - event.offsetX, lastLineScreen.y - event.offsetY) > this.$el.clientHeight / 20) {
-        // create a new line
-        let worldPos = this.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
-        let line = new Sim.Line()
-        line.start.x = this.lastLineStop.x
-        line.start.y = this.lastLineStop.y
-        line.stop.x = worldPos.x
-        line.stop.y = worldPos.y
-        eventBus.$emit('/client/line/create', line)
-        this.lastLineStop = worldPos
-        doRender = true
-      }
-    }
-    this.lastMouseX = event.offsetX
-    this.lastMouseY = event.offsetY
-    if (this.selected !== undefined) {
-      // Redraw for the distance measurement
-      doRender = true
-    }
-    if (doRender) {
-      this.requestRedraw()
+  clientDeleteSelectedToken () {
+    if (this.hasSelection()) {
+      eventBus.$emit('/client/token/delete', this.selected)
     }
   }
 
-  onMouseUp (event: MouseEvent) {
-    if (this.mouseAction === MouseAction.CREATE_LINE) {
-      // create a new line
-      let worldPos = this.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
-      let line = new Sim.Line()
-      line.start.x = this.lastLineStop.x
-      line.start.y = this.lastLineStop.y
-      line.stop.x = worldPos.x
-      line.stop.y = worldPos.y
-      eventBus.$emit('/client/line/create', line)
-      this.lastLineStop = worldPos
+  clientToggleFoeSelectedToken () {
+    if (this.hasSelection()) {
+      eventBus.$emit('/client/token/toggle_foe', this.selected)
     }
-    this.mouseAction = MouseAction.NONE
-    this.lastMouseX = event.offsetX
-    this.lastMouseY = event.offsetY
-    this.requestRedraw()
+  }
+
+  clientSpawnTokenAt (wx: number, wy: number) {
+    eventBus.$emit('/client/token/create', new Sim.Point(wx, wy))
+  }
+
+  onMouseMove (event: MouseEvent) {
+    this.tool.onMouseMove(event)
+  }
+
+  onMouseUp (event: MouseEvent) {
+    this.tool.onMouseUp(event)
   }
 
   onMouseWheel (event: WheelEvent) {
@@ -444,12 +411,14 @@ export default class Map extends Vue {
     this.requestRedraw()
   }
 
-  onToolLineSelected () {
-    this.toolType = ToolType.LINE
-  }
-
-  onToolTokenSelected () {
-    this.toolType = ToolType.TOKEN
+  onToolSelected (type: string) {
+    if (type === 'view') {
+      this.tool = new Tool(this)
+    } else if (type === 'token') {
+      this.tool = new ToolToken(this)
+    } else if (type === 'line') {
+      this.tool = new ToolLine(this)
+    }
   }
 
   onServerToggleFoe (token: Sim.Token) {
