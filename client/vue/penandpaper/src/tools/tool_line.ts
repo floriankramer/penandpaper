@@ -1,6 +1,6 @@
 import Tool from './tool'
 import Map from '../components/Map.vue'
-import * as Sim from '../simulation'
+import * as Sim from '../simulation/simulation'
 import eventBus from '../eventbus'
 
 export default class ToolToken extends Tool {

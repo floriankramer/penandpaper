@@ -11,10 +11,12 @@
 import { Component, Prop, Vue } from 'vue-property-decorator'
 import Server, { ServerState } from './server'
 import eventBus from '../eventbus'
-import * as Sim from '../simulation'
+import * as Sim from '../simulation/simulation'
 import Tool from '../tools/tool'
 import ToolToken from '../tools/tool_token'
 import ToolLine from '../tools/tool_line'
+import ToolRoom from '../tools/tool_room'
+import * as B from '../simulation/building'
 
 enum MouseAction {
   NONE,
@@ -46,6 +48,8 @@ export default class Map extends Vue {
   lastRender: number = 0
 
   tool: Tool = new Tool(this)
+
+  currentBuilding?: B.Building = undefined
 
   constructor () {
     super()
@@ -162,6 +166,11 @@ export default class Map extends Vue {
         }
       }
 
+      if (this.currentBuilding !== undefined) {
+        ctx.lineWidth = this.computeLineWidth()
+        this.currentBuilding.render(ctx)
+      }
+
       if (this.selected !== undefined) {
         // Draw a line from the selected to the cursor
         let worldPos = this.screenToWorldPos(new Sim.Point(this.lastMouseX, this.lastMouseY))
@@ -176,7 +185,7 @@ export default class Map extends Vue {
         // Draw a distance at the cursor
         let dist = Math.hypot(worldPos.x - this.selected.x, worldPos.y - this.selected.y)
         ctx.fillStyle = ctx.strokeStyle
-        ctx.font = '30px sans-serif'
+        this.setupScreenSpaceFont(ctx)
         ctx.fillStyle = '#AAAAAA'
         let transform = ctx.getTransform()
         ctx.resetTransform()
@@ -185,6 +194,15 @@ export default class Map extends Vue {
       }
       this.tool.render(ctx)
     }
+  }
+
+  setupScreenSpaceFont (ctx: CanvasRenderingContext2D) {
+    ctx.font = '30px sans-serif'
+  }
+
+  setupWorldSpaceFont (ctx: CanvasRenderingContext2D) {
+    let size = 30 / this.zoom
+    ctx.font = size.toString() + 'px sans-serif'
   }
 
   computeLineWidth () : number {
@@ -219,6 +237,14 @@ export default class Map extends Vue {
   setLastMousePos (sx: number, sy: number) {
     this.lastMouseX = sx
     this.lastMouseY = sy
+  }
+
+  addRoom (room: B.Room) {
+    if (this.currentBuilding === undefined) {
+      this.currentBuilding = new B.Building()
+    }
+    this.currentBuilding.rooms.push(room)
+    this.requestRedraw()
   }
 
   /**
@@ -418,6 +444,8 @@ export default class Map extends Vue {
       this.tool = new ToolToken(this)
     } else if (type === 'line') {
       this.tool = new ToolLine(this)
+    } else if (type === 'room') {
+      this.tool = new ToolRoom(this)
     }
   }
 

@@ -1,6 +1,6 @@
 import Tool from './tool'
 import Map from '../components/Map.vue'
-import * as Sim from '../simulation'
+import * as Sim from '../simulation/simulation'
 
 export default class ToolToken extends Tool {
   onMouseDown (event: MouseEvent) : boolean {

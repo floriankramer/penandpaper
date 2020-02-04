@@ -3,7 +3,7 @@
 import Vuex, { Store, MutationPayload } from 'vuex'
 
 import eventBus from '../eventbus'
-import * as Sim from '../simulation'
+import * as Sim from '../simulation/simulation'
 
 // Used to communicate the simulation state of the server via the event bus
 export class ServerState {

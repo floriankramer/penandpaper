@@ -12,6 +12,10 @@
       <input type="radio" name="current_tool" value='line' v-model='currentTool' v-on:change='onToolLine'>
       <img src="images/line.png" width="38" height="38">
     </label>
+    <label>
+      <input type="radio" name="current_tool" value='room' v-model='currentTool' v-on:change='onToolRoom'>
+      <img src="images/line.png" width="38" height="38">
+    </label>
 
     <button class="toolbar-align-right toolbar-center-verticaly" v-on:click="clearTokens">Clear Tokens</button>
     <button class="toolbar-align-right toolbar-margin-right toolbar-center-verticaly" v-on:click="clearDoodads">Clear Doodads</button>
@@ -25,7 +29,7 @@ import eventBus from '../eventbus'
 
 @Component
 export default class Toolbar extends Vue {
-  currentTool: string = 'token'
+  currentTool: string = 'view'
 
   clearTokens () {
     eventBus.$emit('/client/token/clear')
@@ -45,6 +49,10 @@ export default class Toolbar extends Vue {
 
   onToolLine () {
     eventBus.$emit('/tools/select_tool', 'line')
+  }
+
+  onToolRoom () {
+    eventBus.$emit('/tools/select_tool', 'room')
   }
 }
 </script>
