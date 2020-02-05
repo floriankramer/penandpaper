@@ -64,10 +64,10 @@ export default class ToolRoom extends Tool {
   }
 
   updateRoom () {
-    this.currentRoom.minX = Math.min(this.start.x, this.stop.x)
-    this.currentRoom.minY = Math.min(this.start.y, this.stop.y)
-    this.currentRoom.maxX = Math.max(this.start.x, this.stop.x)
-    this.currentRoom.maxY = Math.max(this.start.y, this.stop.y)
+    this.currentRoom.min.x = Math.min(this.start.x, this.stop.x)
+    this.currentRoom.min.y = Math.min(this.start.y, this.stop.y)
+    this.currentRoom.max.x = Math.max(this.start.x, this.stop.x)
+    this.currentRoom.max.y = Math.max(this.start.y, this.stop.y)
   }
 
   render (ctx: CanvasRenderingContext2D) {
@@ -80,7 +80,7 @@ export default class ToolRoom extends Tool {
       let text = this.currentRoom.width().toFixed(1) + 'm x ' + this.currentRoom.height().toFixed(1) + 'm'
       ctx.fillStyle = '#FFFFFF'
       this.map.setupScreenSpaceFont(ctx)
-      let screenSpacePos = this.map.worldToScreenPos(new Sim.Point(this.currentRoom.maxX, this.currentRoom.maxY))
+      let screenSpacePos = this.map.worldToScreenPos(new Sim.Point(this.currentRoom.max.x, this.currentRoom.max.y))
       let transform = ctx.getTransform()
       ctx.resetTransform()
       ctx.fillText(text, screenSpacePos.x + 10, screenSpacePos.y)
