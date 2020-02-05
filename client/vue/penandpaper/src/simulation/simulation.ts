@@ -13,6 +13,41 @@ export class Point {
     this.x = x
     this.y = y
   }
+
+  length () : number {
+    return Math.hypot(this.x, this.y)
+  }
+
+  normalized () : Point {
+    let l = this.length()
+    return new Point(this.x / l, this.y / l)
+  }
+
+  distTo (other: Point) : number {
+    return Math.hypot(this.x - other.x, this.y - other.y)
+  }
+
+  /**
+   * Transforms this vector to one of (1, 0), (-1, 0), (0, 1), (0, -1).
+   * The one chosen will be the one with the smallest angular distance.
+   */
+  toCardinalDirection () {
+    if (Math.abs(this.x) > Math.abs(this.y)) {
+      this.x = Math.sign(this.x)
+      this.y = 0
+    } else {
+      this.x = 0
+      this.y = Math.sign(this.y)
+    }
+  }
+
+  toSerializable () : any {
+    return { x: this.x, y: this.y }
+  }
+
+  static fromSerializable (data: any) : Point {
+    return new Point(data.x, data.y)
+  }
 }
 
 export class Color {

@@ -16,6 +16,7 @@ import Tool from '../tools/tool'
 import ToolToken from '../tools/tool_token'
 import ToolLine from '../tools/tool_line'
 import ToolRoom from '../tools/tool_room'
+import ToolDoor from '../tools/tool_door'
 import * as B from '../simulation/building'
 
 enum MouseAction {
@@ -62,6 +63,9 @@ export default class Map extends Vue {
     eventBus.$on('/server/line/create', (data: Sim.Line) => { this.onServerCreateLine(data) })
     eventBus.$on('/server/line/clear', () => { this.onServerClearLines() })
     eventBus.$on('/server/state', (data: ServerState) => { this.onServerState(data) })
+
+    eventBus.$on('/client/building/save', () => { this.onClientSaveBuilding() })
+    eventBus.$on('/client/building/load', () => { this.onClientLoadBuilding() })
 
     eventBus.$on('/tools/select_tool', (data: string) => { this.onToolSelected(data) })
   }
@@ -132,6 +136,12 @@ export default class Map extends Vue {
       ctx.strokeStyle = '#4c4c4c'
       ctx.stroke()
 
+      // Draw the current building
+      if (this.currentBuilding !== undefined) {
+        ctx.lineWidth = this.computeLineWidth()
+        this.currentBuilding.render(ctx)
+      }
+
       // Draw the lines
       ctx.strokeStyle = '#FFFFEE'
       ctx.lineWidth = this.computeLineWidth()
@@ -166,11 +176,6 @@ export default class Map extends Vue {
         }
       }
 
-      if (this.currentBuilding !== undefined) {
-        ctx.lineWidth = this.computeLineWidth()
-        this.currentBuilding.render(ctx)
-      }
-
       if (this.selected !== undefined) {
         // Draw a line from the selected to the cursor
         let worldPos = this.screenToWorldPos(new Sim.Point(this.lastMouseX, this.lastMouseY))
@@ -178,12 +183,12 @@ export default class Map extends Vue {
         ctx.lineWidth = 1.5 / this.pixelPerMeter / this.zoom
 
         ctx.beginPath()
-        ctx.moveTo(this.selected.x, this.selected.y)
+        ctx.moveTo(this.selected.displayX, this.selected.displayY)
         ctx.lineTo(worldPos.x, worldPos.y)
         ctx.stroke()
 
         // Draw a distance at the cursor
-        let dist = Math.hypot(worldPos.x - this.selected.x, worldPos.y - this.selected.y)
+        let dist = Math.hypot(worldPos.x - this.selected.displayX, worldPos.y - this.selected.displayY)
         ctx.fillStyle = ctx.strokeStyle
         this.setupScreenSpaceFont(ctx)
         ctx.fillStyle = '#AAAAAA'
@@ -243,8 +248,28 @@ export default class Map extends Vue {
     if (this.currentBuilding === undefined) {
       this.currentBuilding = new B.Building()
     }
-    this.currentBuilding.rooms.push(room)
+    this.currentBuilding.addRoom(room)
     this.requestRedraw()
+  }
+
+  addDoor (door: B.Door) {
+    if (this.currentBuilding === undefined) {
+      this.currentBuilding = new B.Building()
+    }
+    this.currentBuilding.addDoor(door)
+    this.requestRedraw()
+  }
+
+  removeRoomAt (wx: number, wy: number) {
+    if (this.currentBuilding !== undefined) {
+      this.currentBuilding.removeRoomAt(wx, wy)
+    }
+  }
+
+  removeDoorAt (wx: number, wy: number) {
+    if (this.currentBuilding !== undefined) {
+      this.currentBuilding.removeDoorAt(wx, wy)
+    }
   }
 
   /**
@@ -446,11 +471,25 @@ export default class Map extends Vue {
       this.tool = new ToolLine(this)
     } else if (type === 'room') {
       this.tool = new ToolRoom(this)
+    } else if (type === 'door') {
+      this.tool = new ToolDoor(this)
     }
   }
 
   onServerToggleFoe (token: Sim.Token) {
     this.requestRedraw()
+  }
+
+  onClientSaveBuilding () {
+    if (this.currentBuilding !== undefined) {
+      let data = new Blob([JSON.stringify(this.currentBuilding.toSerializable())], { type: 'application/json' })
+      let fileSaver = require('../lib/FileSaver.min.js')
+      fileSaver.saveAs(data, 'Building.json')
+    }
+  }
+
+  onClientLoadBuilding () {
+
   }
 }
 </script>
