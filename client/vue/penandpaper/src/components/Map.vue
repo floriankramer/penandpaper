@@ -65,7 +65,7 @@ export default class Map extends Vue {
     eventBus.$on('/server/state', (data: ServerState) => { this.onServerState(data) })
 
     eventBus.$on('/client/building/save', () => { this.onClientSaveBuilding() })
-    eventBus.$on('/client/building/load', () => { this.onClientLoadBuilding() })
+    eventBus.$on('/client/building/load', (file: File) => { this.onClientLoadBuilding(file) })
 
     eventBus.$on('/tools/select_tool', (data: string) => { this.onToolSelected(data) })
   }
@@ -488,8 +488,18 @@ export default class Map extends Vue {
     }
   }
 
-  onClientLoadBuilding () {
-
+  onClientLoadBuilding (file: File) {
+    let reader: FileReader = new FileReader()
+    reader.onload = (raw: any) => {
+      console.log(reader.result)
+      if (typeof reader.result === 'string') {
+        let data = JSON.parse(reader.result as string)
+        this.currentBuilding = B.Building.fromSerializable(data)
+        this.requestRedraw()
+        console.log('Loaded a building')
+      }
+    }
+    reader.readAsText(file)
   }
 }
 </script>

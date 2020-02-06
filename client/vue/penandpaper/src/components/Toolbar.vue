@@ -22,7 +22,7 @@
     </label>
 
     <button class="toolbar-align-right toolbar-center-verticaly" v-on:click="saveBuilding">Save Building</button>
-    <button class="toolbar-align-right toolbar-center-verticaly" v-on:click="loadBuilding">Load Building</button>
+    <input type="file" class="toolbar-align-right toolbar-center-verticaly" v-on:change="loadBuilding" accept=".json"/>
     <button class="toolbar-align-right toolbar-center-verticaly" v-on:click="clearTokens">Clear Tokens</button>
     <button class="toolbar-align-right toolbar-margin-right toolbar-center-verticaly" v-on:click="clearDoodads">Clear Doodads</button>
   </div>
@@ -69,8 +69,13 @@ export default class Toolbar extends Vue {
     eventBus.$emit('/client/building/save')
   }
 
-  loadBuilding () {
-    eventBus.$emit('/client/building/load')
+  loadBuilding (e : Event) {
+    if (e.target !== null && e.target instanceof HTMLInputElement) {
+      let input: HTMLInputElement = e.target as HTMLInputElement
+      if (input.files !== null && input.files.length > 0) {
+        eventBus.$emit('/client/building/load', input.files.item(0))
+      }
+    }
   }
 }
 </script>

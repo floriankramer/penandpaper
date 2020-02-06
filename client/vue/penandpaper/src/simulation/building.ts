@@ -158,16 +158,16 @@ export class Room {
       min: this.min.toSerializable(),
       max: this.max.toSerializable(),
       id: this.id,
-      walls: this.walls.map(wall => { wall.toSerializable() })
+      walls: this.walls.map(wall => wall.toSerializable())
     }
   }
 
   static fromSerializable (data: any) : Room {
     let r = new Room()
     r.min = Sim.Point.fromSerializable(data.min)
-    r.max = Sim.Point.fromSerializable(data.min)
+    r.max = Sim.Point.fromSerializable(data.max)
     r.id = data.id
-    r.walls = data.walls.map(wdata => { Wall.fromSerializable(wdata) })
+    r.walls = data.walls.map(wdata => Wall.fromSerializable(wdata))
     return r
   }
 }
@@ -183,7 +183,6 @@ export class Building {
         room.render(ctx, pass)
       })
       this.doors.forEach(door => {
-        console.log('drawing a door')
         door.render(ctx, pass)
       })
     }
@@ -226,16 +225,17 @@ export class Building {
 
   toSerializable () : any {
     return {
-      rooms: this.rooms.map(room => { room.toSerializable() }),
-      doors: this.doors.map(door => { door.toSerializable() }),
+      rooms: this.rooms.map(room => room.toSerializable()),
+      doors: this.doors.map(door => door.toSerializable()),
       nextId: this.nextId
     }
   }
 
   static fromSerializable (data: any) : Building {
+    console.log(data)
     let b = new Building()
-    b.rooms = data.room.map(rdata => { Room.fromSerializable(rdata) })
-    b.doors = data.doors.map(ddata => { Door.fromSerializable(ddata) })
+    b.rooms = data.rooms.map(rdata => Room.fromSerializable(rdata))
+    b.doors = data.doors.map(ddata => Door.fromSerializable(ddata))
     b.nextId = data.nextId
     return b
   }

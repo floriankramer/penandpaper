@@ -13,6 +13,9 @@ export default class ToolDoor extends Tool {
 
   currentDoor: B.Door = new B.Door()
 
+  standardDoorWidth: number = 1.2
+  useStandardDoor: boolean = false
+
   onMouseDown (event: MouseEvent) : boolean {
     if (event.ctrlKey) {
       let worldPos = this.map.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
@@ -20,8 +23,8 @@ export default class ToolDoor extends Tool {
         this.map.removeDoorAt(worldPos.x, worldPos.y)
         this.map.requestRedraw()
       } else {
-        this.start.x = Math.round(worldPos.x * this.accuracy) / this.accuracy
-        this.start.y = Math.round(worldPos.y * this.accuracy) / this.accuracy
+        this.start.x = worldPos.x
+        this.start.y = worldPos.y
         this.stop.x = this.start.x
         this.stop.y = this.start.y
         this.isDrawing = true
@@ -37,6 +40,7 @@ export default class ToolDoor extends Tool {
     if (this.isDrawing) {
       this.stop.x = worldPos.x
       this.stop.y = worldPos.y
+      this.useStandardDoor = event.altKey
       // Draw the lines
       this.updateDoor()
       this.map.requestRedraw()
@@ -50,7 +54,9 @@ export default class ToolDoor extends Tool {
     if (this.isDrawing) {
       // create a new door
       this.updateDoor()
-      this.map.addDoor(this.currentDoor)
+      if (this.currentDoor.width > 0.1) {
+        this.map.addDoor(this.currentDoor)
+      }
       this.currentDoor = new B.Door()
     }
     super.onMouseUp(event)
@@ -59,12 +65,24 @@ export default class ToolDoor extends Tool {
   }
 
   updateDoor () {
-    this.currentDoor.position.x = this.start.x
-    this.currentDoor.position.y = this.start.y
     let delta = new Sim.Point(this.stop.x - this.start.x, this.stop.y - this.start.y)
     this.currentDoor.facing = delta.normalized()
     this.currentDoor.facing.toCardinalDirection()
-    this.currentDoor.width = delta.length()
+    if (this.useStandardDoor) {
+      this.currentDoor.width = this.standardDoorWidth
+    } else {
+      this.currentDoor.width = delta.length()
+    }
+
+    if (Math.abs(this.currentDoor.facing.x) < 0.5) {
+      // snap to y
+      this.currentDoor.position.x = this.start.x
+      this.currentDoor.position.y = Math.round(this.start.y * this.accuracy) / this.accuracy
+    } else {
+      // snap to x
+      this.currentDoor.position.x = Math.round(this.start.x * this.accuracy) / this.accuracy
+      this.currentDoor.position.y = this.start.y
+    }
   }
 
   render (ctx: CanvasRenderingContext2D) {

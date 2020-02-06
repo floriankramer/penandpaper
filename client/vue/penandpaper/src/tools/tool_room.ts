@@ -52,10 +52,11 @@ export default class ToolRoom extends Tool {
 
   onMouseUp (event: MouseEvent) : boolean {
     if (this.isDrawing) {
-      // create a new line
-      let worldPos = this.map.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
+      // add the room to the map
       this.updateRoom()
-      this.map.addRoom(this.currentRoom)
+      if (this.currentRoom.width() > 0.1 && this.currentRoom.height() > 0.1) {
+        this.map.addRoom(this.currentRoom)
+      }
       this.currentRoom = new B.Room()
     }
     super.onMouseUp(event)

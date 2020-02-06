@@ -4,6 +4,7 @@
       <div class="error-centered-content">
         <span>A critical error occured: </span>
         <slot></slot>
+        Page will reload in {{reloadIn}}s.
       </div>
     </div>
   </div>
@@ -15,6 +16,20 @@ import Server from './server'
 
 @Component
 export default class CriticalError extends Vue {
+  reloadIn: number = 4
+
+  mounted () {
+    this.countdown()
+  }
+
+  countdown () {
+    this.reloadIn -= 1
+    if (this.reloadIn === 0) {
+      location.reload()
+    } else {
+      setTimeout(this.countdown, 1000)
+    }
+  }
 }
 </script>
 
@@ -47,10 +62,6 @@ export default class CriticalError extends Vue {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-}
-
-.error-centered-content input {
-  margin-top: 10px;
-  margin-bottom: 10px;
+  text-align: center;
 }
 </style>
