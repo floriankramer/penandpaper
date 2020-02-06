@@ -4,11 +4,13 @@ import Vuex, { Store, MutationPayload } from 'vuex'
 
 import eventBus from '../eventbus'
 import * as Sim from '../simulation/simulation'
+import * as B from '../simulation/building'
 
 // Used to communicate the simulation state of the server via the event bus
 export class ServerState {
   tokens: Sim.Token[] = []
   lines: Sim.Line[] = []
+  building: B.Building | null = null
 }
 
 export default class Server {
@@ -18,6 +20,8 @@ export default class Server {
 
     tokens: Sim.Token[] = []
     lines: Sim.Line[] = []
+
+    building: B.Building | null = null
 
     errorhandler?: () => void;
 
@@ -37,6 +41,8 @@ export default class Server {
       eventBus.$on('/client/token/delete', (data: Sim.Token) => { this.onClientDeleteToken(data) })
       eventBus.$on('/client/line/create', (data: Sim.Line) => { this.onClientCreateLine(data) })
       eventBus.$on('/client/line/clear', () => { this.onClientClearLines() })
+      eventBus.$on('/client/building/set', (data: B.Building) => { this.onClientSetBuilding(data) })
+      eventBus.$on('/client/building/clear', () => { this.onClientClearBuilding() })
       eventBus.$on('/server/request_state', () => { this.onStateRequest() })
     }
 
@@ -87,6 +93,8 @@ export default class Server {
         this.onServerClearDoodads()
       } else if (type === 'TokenToggleFoe') {
         this.onServerTokenToggleFoe(data)
+      } else if (type === 'SetBuilding') {
+        this.onServerSetBuilding(data)
       }
     }
 
@@ -116,7 +124,11 @@ export default class Server {
         line.stop.y = rawLine.ey
         this.lines.push(line)
       }
-      // TODO: handle the rest of the init packet
+      if (data.building === null) {
+        this.building = null
+      } else {
+        this.building = B.Building.fromSerializable(data.building)
+      }
     }
 
     sendChat (text : string) {
@@ -255,6 +267,24 @@ export default class Server {
       this.send(JSON.stringify(packet))
     }
 
+    onClientSetBuilding (data: B.Building) {
+      let packet = {
+        type: 'SetBuilding',
+        uid: this.uid,
+        data: data.toSerializable()
+      }
+      this.send(JSON.stringify(packet))
+    }
+
+    onClientClearBuilding () {
+      let packet = {
+        type: 'SetBuilding',
+        uid: this.uid,
+        data: null
+      }
+      this.send(JSON.stringify(packet))
+    }
+
     onServerClearDoodads () {
       eventBus.$emit('/server/line/clear')
       this.lines.splice(0, this.lines.length)
@@ -264,6 +294,7 @@ export default class Server {
       let state = new ServerState()
       state.tokens = this.tokens
       state.lines = this.lines
+      state.building = this.building
       eventBus.$emit('/server/state', state)
     }
 
@@ -291,6 +322,15 @@ export default class Server {
     onServerSession (data: any) {
       this.store.commit('setUsername', data['name'])
       this.store.commit('setPermissions', parseInt(data['permissions']))
+    }
+
+    onServerSetBuilding (data: any) {
+      let b = null
+      if (data !== null) {
+        b = B.Building.fromSerializable(data)
+      }
+      this.building = b
+      eventBus.$emit('/server/building/set', b)
     }
 
     onerror (err:Event) {

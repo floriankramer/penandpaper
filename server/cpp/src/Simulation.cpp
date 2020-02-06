@@ -16,7 +16,8 @@ const std::unordered_map<std::string, Simulation::MemberMsgHandler_t>
         {"ClearTokens", &Simulation::onClearTokens},
         {"TokenToggleFoe", &Simulation::onTokenToggleFoe},
         {"InitSession", &Simulation::onInitSession},
-        {"SetUsername", &Simulation::onSetUsername}};
+        {"SetUsername", &Simulation::onSetUsername},
+        {"SetBuilding", &Simulation::onSetBuilding}};
 
 const Simulation::Color Simulation::COLORS[Simulation::NUM_COLORS] = {
     {240, 50, 50},   // red
@@ -67,6 +68,8 @@ WebSocketServer::Response Simulation::onNewClient() {
       _encoded_doodads.emplace_back(d.serialize());
     }
     data["doodads"] = _encoded_doodads;
+
+    data["building"] = _building_json;
 
     data["nextId"] = _next_id;
     data["nextColor"] = _next_color;
@@ -364,6 +367,22 @@ WebSocketServer::Response Simulation::onSetUsername(const nlohmann::json &j) {
     p->name = newname;
   }
   return {"", WebSocketServer::ResponseType::SILENCE};
+}
+
+WebSocketServer::Response Simulation::onSetBuilding(const nlohmann::json &j) {
+  if (!checkPermissions(j, Permissions::GAMEMASTER)) {
+    nlohmann::json response;
+    response["type"] = "Error";
+
+    nlohmann::json resp_data;
+    resp_data["msg"] = "Missing permissions.";
+    resp_data["cause"] = j;
+
+    response["data"] = resp_data;
+    return {response.dump(), WebSocketServer::ResponseType::RETURN};
+  }
+  _building_json = j.at("data");
+  return {"", WebSocketServer::ResponseType::FORWARD };
 }
 
 std::string Simulation::cmdRollDice(const std::string &who,

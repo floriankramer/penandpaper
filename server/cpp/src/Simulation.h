@@ -44,6 +44,7 @@ class Simulation {
   WebSocketServer::Response onTokenToggleFoe(const nlohmann::json &j);
   WebSocketServer::Response onInitSession(const nlohmann::json &j);
   WebSocketServer::Response onSetUsername(const nlohmann::json &j);
+  WebSocketServer::Response onSetBuilding(const nlohmann::json &j);
 
   Token *tokenById(uint64_t id);
 
@@ -71,6 +72,8 @@ class Simulation {
   std::vector<DoodadLine> _doodad_lines;
 
   std::vector<Player> _players;
+
+  nlohmann::json _building_json;
 
   std::mutex _simulation_mutex;
 

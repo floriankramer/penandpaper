@@ -25,7 +25,7 @@ export class Door {
       ctx.fillRect(start.x - wt2, start.y - ht2, stop.x - start.x + 2 * wt2, stop.y - start.y + 2 * ht2)
 
       // Draw the door
-      if (this.isOpen) {
+      if (!this.isOpen) {
         ctx.strokeStyle = '#666666'
       } else {
         ctx.strokeStyle = '#FFFFFF'
@@ -37,10 +37,13 @@ export class Door {
       ctx.stroke()
       if (!this.isOpen) {
         ctx.strokeStyle = '#FFFFFF'
+        let l = ctx.lineWidth
+        ctx.lineWidth *= 2
         ctx.beginPath()
-        ctx.moveTo(this.position.x - left.x, this.position.y - left.y)
-        ctx.lineTo(this.position.x + left.x, this.position.y + left.y)
+        ctx.moveTo(start.x, start.y)
+        ctx.lineTo(stop.x, stop.y)
         ctx.stroke()
+        ctx.lineWidth = l
       }
     }
   }
@@ -199,6 +202,7 @@ export class Building {
 
   addDoor (door: Door) {
     door.id = this.nextId
+    door.isOpen = false
     this.nextId += 1
     this.doors.push(door)
   }
@@ -221,6 +225,19 @@ export class Building {
         i -= 1
       }
     }
+  }
+
+  toggleDoorAt (x: number, y: number) : boolean {
+    let p = new Sim.Point(x, y)
+    let openedADoor = false
+    for (let i = 0; i < this.doors.length; ++i) {
+      let d = Math.max(this.doors[i].width, 0.2)
+      if (this.doors[i].position.distTo(p) < d) {
+        this.doors[i].isOpen = !this.doors[i].isOpen
+        openedADoor = true
+      }
+    }
+    return openedADoor
   }
 
   toSerializable () : any {

@@ -63,6 +63,7 @@ export default class Map extends Vue {
     eventBus.$on('/server/line/create', (data: Sim.Line) => { this.onServerCreateLine(data) })
     eventBus.$on('/server/line/clear', () => { this.onServerClearLines() })
     eventBus.$on('/server/state', (data: ServerState) => { this.onServerState(data) })
+    eventBus.$on('/server/building/set', (data: B.Building) => { this.onServerSetBuilding(data) })
 
     eventBus.$on('/client/building/save', () => { this.onClientSaveBuilding() })
     eventBus.$on('/client/building/load', (file: File) => { this.onClientLoadBuilding(file) })
@@ -272,6 +273,17 @@ export default class Map extends Vue {
     }
   }
 
+  toggleDoorAt (wx: number, wy: number) {
+    if (this.$store.state.permissions === 1) {
+      if (this.currentBuilding !== undefined) {
+        // TODO: synchronize
+        return this.currentBuilding.toggleDoorAt(wx, wy)
+      }
+      return false
+    }
+    return false
+  }
+
   /**
    * @param wx The x coordinate in world space
    * @param wy The y coordinate in world space
@@ -419,6 +431,12 @@ export default class Map extends Vue {
       t.displayY = t.y
     })
 
+    if (data.building !== null) {
+      this.currentBuilding = data.building
+    } else {
+      this.currentBuilding = undefined
+    }
+
     this.requestRedraw()
   }
 
@@ -494,12 +512,20 @@ export default class Map extends Vue {
       console.log(reader.result)
       if (typeof reader.result === 'string') {
         let data = JSON.parse(reader.result as string)
-        this.currentBuilding = B.Building.fromSerializable(data)
-        this.requestRedraw()
-        console.log('Loaded a building')
+        let b = B.Building.fromSerializable(data)
+        eventBus.$emit('/client/building/set', b)
       }
     }
     reader.readAsText(file)
+  }
+
+  onServerSetBuilding (b: B.Building | null) {
+    if (b === null) {
+      this.currentBuilding = undefined
+    } else {
+      this.currentBuilding = b
+    }
+    this.requestRedraw()
   }
 }
 </script>

@@ -21,6 +21,7 @@
       <img src="images/line.png" width="38" height="38">
     </label>
 
+    <button class="toolbar-align-right toolbar-center-verticaly" v-on:click="clearBuilding">Clear Building</button>
     <button class="toolbar-align-right toolbar-center-verticaly" v-on:click="saveBuilding">Save Building</button>
     <input type="file" class="toolbar-align-right toolbar-center-verticaly" v-on:change="loadBuilding" accept=".json"/>
     <button class="toolbar-align-right toolbar-center-verticaly" v-on:click="clearTokens">Clear Tokens</button>
@@ -76,6 +77,10 @@ export default class Toolbar extends Vue {
         eventBus.$emit('/client/building/load', input.files.item(0))
       }
     }
+  }
+
+  clearBuilding () {
+    eventBus.$emit('/client/building/clear')
   }
 }
 </script>

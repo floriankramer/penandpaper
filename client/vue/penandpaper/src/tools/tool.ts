@@ -21,7 +21,9 @@ export default class Tool {
       } else {
         let clickedToken: boolean = this.map.selectTokenAt(worldPos.x, worldPos.y)
         if (!clickedToken) {
-          this.isDragging = true
+          if (!this.map.toggleDoorAt(worldPos.x, worldPos.y)) {
+            this.isDragging = true
+          }
         }
         consumeEvent = true
       }
