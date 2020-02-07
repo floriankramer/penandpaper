@@ -1,5 +1,6 @@
 import Map from '../components/Map.vue'
 import * as Sim from '../simulation/simulation'
+import eventbus from '../eventbus'
 
 export default class Tool {
   map: Map
@@ -21,8 +22,10 @@ export default class Tool {
       } else {
         let clickedToken: boolean = this.map.selectTokenAt(worldPos.x, worldPos.y)
         if (!clickedToken) {
-          if (!this.map.toggleDoorAt(worldPos.x, worldPos.y)) {
+          if (!this.map.canToggleDoorAt(worldPos.x, worldPos.y)) {
             this.isDragging = true
+          } else {
+            eventbus.$emit('/client/building/toggle_door', this.map.getDoorsAt(worldPos.x, worldPos.y))
           }
         }
         consumeEvent = true

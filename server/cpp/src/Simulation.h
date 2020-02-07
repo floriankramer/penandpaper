@@ -45,6 +45,7 @@ class Simulation {
   WebSocketServer::Response onInitSession(const nlohmann::json &j);
   WebSocketServer::Response onSetUsername(const nlohmann::json &j);
   WebSocketServer::Response onSetBuilding(const nlohmann::json &j);
+  WebSocketServer::Response onToggleDoor(const nlohmann::json &j);
 
   Token *tokenById(uint64_t id);
 

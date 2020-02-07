@@ -64,6 +64,7 @@ export default class Map extends Vue {
     eventBus.$on('/server/line/clear', () => { this.onServerClearLines() })
     eventBus.$on('/server/state', (data: ServerState) => { this.onServerState(data) })
     eventBus.$on('/server/building/set', (data: B.Building) => { this.onServerSetBuilding(data) })
+    eventBus.$on('/server/building/toggle_door', (data: number[]) => { this.onServerToggleDoor(data) })
 
     eventBus.$on('/client/building/save', () => { this.onClientSaveBuilding() })
     eventBus.$on('/client/building/load', (file: File) => { this.onClientLoadBuilding(file) })
@@ -273,13 +274,31 @@ export default class Map extends Vue {
     }
   }
 
-  toggleDoorAt (wx: number, wy: number) {
+  canToggleDoorAt (wx: number, wy: number) : boolean {
     if (this.$store.state.permissions === 1) {
       if (this.currentBuilding !== undefined) {
         // TODO: synchronize
-        return this.currentBuilding.toggleDoorAt(wx, wy)
+        return this.currentBuilding.isDoorAt(wx, wy)
       }
       return false
+    }
+    return false
+  }
+
+  getDoorsAt (wx: number, wy: number) : B.Door[] {
+    if (this.currentBuilding !== undefined) {
+      // TODO: synchronize
+      return this.currentBuilding.getDoorsAt(wx, wy)
+    }
+    return []
+  }
+
+  onServerToggleDoor (doors: number[]) {
+    if (this.currentBuilding !== undefined) {
+      // TODO: synchronize
+      let b = this.currentBuilding.toggleDoors(doors)
+      this.requestRedraw()
+      return b
     }
     return false
   }

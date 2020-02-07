@@ -17,7 +17,8 @@ const std::unordered_map<std::string, Simulation::MemberMsgHandler_t>
         {"TokenToggleFoe", &Simulation::onTokenToggleFoe},
         {"InitSession", &Simulation::onInitSession},
         {"SetUsername", &Simulation::onSetUsername},
-        {"SetBuilding", &Simulation::onSetBuilding}};
+        {"SetBuilding", &Simulation::onSetBuilding},
+        {"ToggleDoor", &Simulation::onToggleDoor}};
 
 const Simulation::Color Simulation::COLORS[Simulation::NUM_COLORS] = {
     {240, 50, 50},   // red
@@ -382,7 +383,43 @@ WebSocketServer::Response Simulation::onSetBuilding(const nlohmann::json &j) {
     return {response.dump(), WebSocketServer::ResponseType::RETURN};
   }
   _building_json = j.at("data");
-  return {"", WebSocketServer::ResponseType::FORWARD };
+  return {"", WebSocketServer::ResponseType::FORWARD};
+}
+
+WebSocketServer::Response Simulation::onToggleDoor(const nlohmann::json &j) {
+  if (!checkPermissions(j, Permissions::GAMEMASTER)) {
+    nlohmann::json response;
+    response["type"] = "Error";
+
+    nlohmann::json resp_data;
+    resp_data["msg"] = "Missing permissions.";
+    resp_data["cause"] = j;
+
+    response["data"] = resp_data;
+    return {response.dump(), WebSocketServer::ResponseType::RETURN};
+  }
+  try {
+    if (!_building_json.is_null()) {
+      // Toggle all doors in the building by modifying the json
+      // TODO: parse the json and use a class for storing buildings
+      nlohmann::json &doors = _building_json.at("doors");
+      for (const nlohmann::json &jid : j.at("data").at("ids")) {
+        for (nlohmann::json &door : doors) {
+          LOG_DEBUG << "Comparing two door ids " << door.at("id").get<int>() << " and " << jid.get<int>()<< LOG_END;
+          if (door.at("id").get<int>() == jid.get<int>()) {
+            LOG_DEBUG << "toggeling door" << LOG_END;
+            door["isOpen"] = !door.at("isOpen").get<bool>();
+          }
+        }
+      }
+    }
+  } catch (const std::exception &e) {
+    LOG_ERROR << "Caught an exception while trying to update the building json "
+                 "by toggling doors: "
+              << e.what() << LOG_END;
+  }
+
+  return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
 std::string Simulation::cmdRollDice(const std::string &who,

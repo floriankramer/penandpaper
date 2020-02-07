@@ -227,6 +227,38 @@ export class Building {
     }
   }
 
+  isDoorAt (x: number, y: number) : boolean {
+    let p = new Sim.Point(x, y)
+    for (let i = 0; i < this.doors.length; ++i) {
+      let d = Math.max(this.doors[i].width, 0.2)
+      if (this.doors[i].position.distTo(p) < d) {
+        return true
+      }
+    }
+    return false
+  }
+
+  getDoorsAt (x: number, y: number) : Door[] {
+    let doors = []
+    let p = new Sim.Point(x, y)
+    for (let i = 0; i < this.doors.length; ++i) {
+      let d = Math.max(this.doors[i].width, 0.2)
+      if (this.doors[i].position.distTo(p) < d) {
+        doors.push(this.doors[i])
+      }
+    }
+    return doors
+  }
+
+  toggleDoors (ids: number[]) {
+    console.log('toggeling doors: ', ids, this.doors)
+    for (let i = 0; i < this.doors.length; ++i) {
+      if (ids.find(j => j === this.doors[i].id) !== undefined) {
+        this.doors[i].isOpen = !this.doors[i].isOpen
+      }
+    }
+  }
+
   toggleDoorAt (x: number, y: number) : boolean {
     let p = new Sim.Point(x, y)
     let openedADoor = false

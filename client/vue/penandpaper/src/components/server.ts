@@ -43,6 +43,7 @@ export default class Server {
       eventBus.$on('/client/line/clear', () => { this.onClientClearLines() })
       eventBus.$on('/client/building/set', (data: B.Building) => { this.onClientSetBuilding(data) })
       eventBus.$on('/client/building/clear', () => { this.onClientClearBuilding() })
+      eventBus.$on('/client/building/toggle_door', (data: B.Door[]) => { this.onClientToggleDoor(data) })
       eventBus.$on('/server/request_state', () => { this.onStateRequest() })
     }
 
@@ -95,6 +96,8 @@ export default class Server {
         this.onServerTokenToggleFoe(data)
       } else if (type === 'SetBuilding') {
         this.onServerSetBuilding(data)
+      } else if (type === 'ToggleDoor') {
+        this.onServerToggleDoor(data)
       }
     }
 
@@ -283,6 +286,21 @@ export default class Server {
         data: null
       }
       this.send(JSON.stringify(packet))
+    }
+
+    onClientToggleDoor (doors: B.Door[]) {
+      let packet = {
+        type: 'ToggleDoor',
+        uid: this.uid,
+        data: {
+          ids: doors.map(door => door.id)
+        }
+      }
+      this.send(JSON.stringify(packet))
+    }
+
+    onServerToggleDoor (data: any) {
+      eventBus.$emit('/server/building/toggle_door', data.ids)
     }
 
     onServerClearDoodads () {
