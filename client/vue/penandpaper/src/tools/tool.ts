@@ -16,9 +16,14 @@ export default class Tool {
     let consumeEvent: boolean = false
     let worldPos = this.map.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
     if (event.button === 0) {
-      if (this.map.selected !== undefined && event.altKey) {
-        this.map.clientMoveSelectedTo(worldPos.x, worldPos.y)
-        consumeEvent = true
+      if (event.altKey) {
+        if (this.map.hasSelection()) {
+          this.map.clientMoveSelectedTo(worldPos.x, worldPos.y)
+          consumeEvent = true
+        } else {
+          this.map.revealRoomsAt(worldPos)
+          consumeEvent = true
+        }
       } else {
         let clickedToken: boolean = this.map.selectTokenAt(worldPos.x, worldPos.y)
         if (!clickedToken) {

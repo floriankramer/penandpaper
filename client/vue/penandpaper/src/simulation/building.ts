@@ -9,9 +9,18 @@ export class Door {
   width: number = 1
   id: number = -1
   isOpen: boolean = true
+  isVisible: boolean = false
 
-  render (ctx: CanvasRenderingContext2D, pass: number = 2) {
+  render (ctx: CanvasRenderingContext2D, pass: number = 2, isGm: boolean = true) {
+    if (!this.isVisible && !isGm) {
+      return
+    }
     if (pass === 2) {
+      let initAlpha = ctx.globalAlpha
+      if (!this.isVisible) {
+        ctx.globalAlpha = 0.5
+      }
+
       // Determine the start and stop along the wall
       let left = new Sim.Point(-this.facing.y, this.facing.x)
       let start = new Sim.Point(this.position.x + left.x * this.width / 2, this.position.y + left.y * this.width / 2)
@@ -45,6 +54,7 @@ export class Door {
         ctx.stroke()
         ctx.lineWidth = l
       }
+      ctx.globalAlpha = initAlpha
     }
   }
 
@@ -54,7 +64,8 @@ export class Door {
       facing: this.facing.toSerializable(),
       width: this.width,
       id: this.id,
-      isOpen: this.isOpen
+      isOpen: this.isOpen,
+      isVisible: this.isVisible
     }
   }
 
@@ -65,6 +76,7 @@ export class Door {
     d.width = data.width
     d.id = data.id
     d.isOpen = data.isOpen
+    d.isVisible = data.isVisible
     return d
   }
 }
@@ -111,6 +123,7 @@ export class Wall {
 export class Room {
   min: Sim.Point = new Sim.Point(0, 0)
   max: Sim.Point = new Sim.Point(0, 0)
+  isVisible: boolean = false
 
   id: number = -1
 
@@ -131,7 +144,14 @@ export class Room {
     return this.max.y - this.min.y
   }
 
-  render (ctx: CanvasRenderingContext2D, pass: number = 0) {
+  render (ctx: CanvasRenderingContext2D, pass: number = 0, isGm: boolean = true) {
+    if (!this.isVisible && !isGm) {
+      return
+    }
+    let initAlpha = ctx.globalAlpha
+    if (!this.isVisible) {
+      ctx.globalAlpha = 0.5
+    }
     if (pass === 0) {
       // Draw the floor
       ctx.fillStyle = '#444444'
@@ -150,10 +170,12 @@ export class Room {
     this.walls.forEach(wall => {
       wall.render(ctx, pass)
     })
+
+    ctx.globalAlpha = initAlpha
   }
 
-  contains (x: number, y: number) : boolean {
-    return x >= this.min.x && x <= this.max.x && y >= this.min.y && y <= this.max.y
+  contains (x: number, y: number, margin: number = 0) : boolean {
+    return x >= this.min.x - margin && x <= this.max.x + margin && y >= this.min.y - margin && y <= this.max.y + margin
   }
 
   toSerializable () : any {
@@ -161,7 +183,8 @@ export class Room {
       min: this.min.toSerializable(),
       max: this.max.toSerializable(),
       id: this.id,
-      walls: this.walls.map(wall => wall.toSerializable())
+      walls: this.walls.map(wall => wall.toSerializable()),
+      isVisible: this.isVisible
     }
   }
 
@@ -171,6 +194,7 @@ export class Room {
     r.max = Sim.Point.fromSerializable(data.max)
     r.id = data.id
     r.walls = data.walls.map(wdata => Wall.fromSerializable(wdata))
+    r.isVisible = data.isVisible
     return r
   }
 }
@@ -180,13 +204,13 @@ export class Building {
   doors: Door[] = []
   nextId: number = 0
 
-  render (ctx: CanvasRenderingContext2D) {
+  render (ctx: CanvasRenderingContext2D, isGm: boolean = false) {
     for (let pass = 0; pass < 3; ++pass) {
       this.rooms.forEach(room => {
-        room.render(ctx, pass)
+        room.render(ctx, pass, isGm)
       })
       this.doors.forEach(door => {
-        door.render(ctx, pass)
+        door.render(ctx, pass, isGm)
       })
     }
   }
@@ -270,6 +294,20 @@ export class Building {
       }
     }
     return openedADoor
+  }
+
+  revealRoomsAt (pos: Sim.Point) {
+    for (let i = 0; i < this.rooms.length; ++i) {
+      if (this.rooms[i].contains(pos.x, pos.y)) {
+        this.rooms[i].isVisible = true
+        for (let j = 0; j < this.doors.length; ++j) {
+          let door = this.doors[j]
+          if (this.rooms[i].contains(door.position.x, door.position.y, 0.2)) {
+            this.doors[j].isVisible = true
+          }
+        }
+      }
+    }
   }
 
   toSerializable () : any {

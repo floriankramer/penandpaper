@@ -141,7 +141,7 @@ export default class Map extends Vue {
       // Draw the current building
       if (this.currentBuilding !== undefined) {
         ctx.lineWidth = this.computeLineWidth()
-        this.currentBuilding.render(ctx)
+        this.currentBuilding.render(ctx, this.$store.state.permissions > 0)
       }
 
       // Draw the lines
@@ -301,6 +301,13 @@ export default class Map extends Vue {
       return b
     }
     return false
+  }
+
+  revealRoomsAt (wpos: Sim.Point) {
+    if (this.currentBuilding !== undefined) {
+      this.currentBuilding.revealRoomsAt(wpos)
+      eventBus.$emit('/client/building/set', this.currentBuilding)
+    }
   }
 
   /**
