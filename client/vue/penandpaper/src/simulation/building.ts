@@ -297,8 +297,8 @@ export class Room {
     r.min = Sim.Point.fromSerializable(data.min)
     r.max = Sim.Point.fromSerializable(data.max)
     r.id = data.id
-    r.walls = data.walls.map(wdata => Wall.fromSerializable(wdata))
-    r.furniture = data.furniture.map(fdata => Furniture.fromSerializable(fdata))
+    r.walls = data.walls.map((wdata: any) => Wall.fromSerializable(wdata))
+    r.furniture = data.furniture.map((fdata: any) => Furniture.fromSerializable(fdata))
     r.isVisible = data.isVisible
     return r
   }
@@ -459,8 +459,8 @@ export class Building {
   static fromSerializable (data: any) : Building {
     console.log(data)
     let b = new Building()
-    b.rooms = data.rooms.map(rdata => Room.fromSerializable(rdata))
-    b.doors = data.doors.map(ddata => Door.fromSerializable(ddata))
+    b.rooms = data.rooms.map((rdata: any) => Room.fromSerializable(rdata))
+    b.doors = data.doors.map((ddata: any) => Door.fromSerializable(ddata))
     b.nextId = data.nextId
     return b
   }

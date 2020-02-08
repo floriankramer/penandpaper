@@ -1,0 +1,7 @@
+{
+  "overrides": {
+    "files": "src/**/*.js",
+    "excludedFiles": "src/lib/**/*.js"
+  }
+}
+

@@ -24,7 +24,7 @@ export default class ToolFurniture extends Tool {
   onMouseDown (event: MouseEvent) : boolean {
     let worldPos = this.map.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
     if (event.ctrlKey && event.altKey) {
-      let f : B.Furniture = this.map.getFurnitureAt(worldPos)
+      let f : B.Furniture | undefined = this.map.getFurnitureAt(worldPos)
       if (f !== undefined) {
         this.currentFurniture = B.Furniture.fromSerializable(f.toSerializable())
         this.isCloning = true
@@ -60,6 +60,7 @@ export default class ToolFurniture extends Tool {
     } else {
       return super.onMouseDown(event)
     }
+    return true;
   }
 
   onMouseMove (event: MouseEvent) : boolean {
@@ -68,9 +69,8 @@ export default class ToolFurniture extends Tool {
       this.stop.x = Math.round(worldPos.x * this.accuracy) / this.accuracy
       this.stop.y = Math.round(worldPos.y * this.accuracy) / this.accuracy
       this.map.requestRedraw()
-    } else if (this.isRotating) {
-      let alpha = Math.atan2(worldPos.y - this.rotationPivot.y, worldPos.x - this.rotationPivot.x)
-      this.rotatedFurniture.rotation = alpha
+    } else if (this.isRotating && this.rotatedFurniture !== undefined) {
+      this.rotatedFurniture.rotation = Math.atan2(worldPos.y - this.rotationPivot.y, worldPos.x - this.rotationPivot.x)
       this.map.requestRedraw()
     } else if (this.isCloning) {
       let p = new Sim.Point(worldPos.x + this.cloningOffset.x, worldPos.y + this.cloningOffset.y)
