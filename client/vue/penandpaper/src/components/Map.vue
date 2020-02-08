@@ -17,6 +17,7 @@ import ToolToken from '../tools/tool_token'
 import ToolLine from '../tools/tool_line'
 import ToolRoom from '../tools/tool_room'
 import ToolDoor from '../tools/tool_door'
+import ToolFurniture from '../tools/tool_furniture'
 import * as B from '../simulation/building'
 
 enum MouseAction {
@@ -254,6 +255,14 @@ export default class Map extends Vue {
     this.requestRedraw()
   }
 
+  addFurniture (f: B.Furniture) {
+    if (this.currentBuilding === undefined) {
+      this.currentBuilding = new B.Building()
+    }
+    this.currentBuilding.addFurniture(f)
+    this.requestRedraw()
+  }
+
   addDoor (door: B.Door) {
     if (this.currentBuilding === undefined) {
       this.currentBuilding = new B.Building()
@@ -268,6 +277,19 @@ export default class Map extends Vue {
     }
   }
 
+  removeFurnitureAt (pos: Sim.Point) {
+    if (this.currentBuilding !== undefined) {
+      this.currentBuilding.removeFurnitureAt(pos)
+    }
+  }
+
+  getFurnitureAt (pos: Sim.Point): B.Furniture | undefined {
+    if (this.currentBuilding !== undefined) {
+      return this.currentBuilding.getFurnitureAt(pos)
+    }
+    return undefined
+  }
+
   removeDoorAt (wx: number, wy: number) {
     if (this.currentBuilding !== undefined) {
       this.currentBuilding.removeDoorAt(wx, wy)
@@ -277,7 +299,6 @@ export default class Map extends Vue {
   canToggleDoorAt (wx: number, wy: number) : boolean {
     if (this.$store.state.permissions === 1) {
       if (this.currentBuilding !== undefined) {
-        // TODO: synchronize
         return this.currentBuilding.isDoorAt(wx, wy)
       }
       return false
@@ -287,10 +308,16 @@ export default class Map extends Vue {
 
   getDoorsAt (wx: number, wy: number) : B.Door[] {
     if (this.currentBuilding !== undefined) {
-      // TODO: synchronize
       return this.currentBuilding.getDoorsAt(wx, wy)
     }
     return []
+  }
+
+  getRoomAt (pos: Sim.Point) : B.Room | undefined {
+    if (this.currentBuilding !== undefined) {
+      return this.currentBuilding.getRoomAt(pos)
+    }
+    return undefined
   }
 
   onServerToggleDoor (doors: number[]) {
@@ -517,6 +544,8 @@ export default class Map extends Vue {
       this.tool = new ToolRoom(this)
     } else if (type === 'door') {
       this.tool = new ToolDoor(this)
+    } else if (type === 'furniture') {
+      this.tool = new ToolFurniture(this)
     }
   }
 

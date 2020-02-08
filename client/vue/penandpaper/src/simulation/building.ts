@@ -3,6 +3,77 @@ import * as Sim from '../simulation/simulation'
 const WALL_THICKNESS = 0.17
 const WALL_OUTLINE = 0.05
 
+export class Furniture {
+  min: Sim.Point = new Sim.Point(0, 0)
+  max: Sim.Point = new Sim.Point(0, 0)
+  id: number = -1
+  rotation: number = 0
+
+  render (ctx: CanvasRenderingContext2D, pass: number = 2) {
+    ctx.strokeStyle = '#FFFFFF'
+    ctx.fillStyle = '#444444'
+    let t = ctx.getTransform()
+    let c = this.center()
+    ctx.translate(c.x, c.y)
+    ctx.rotate(this.rotation)
+    ctx.translate(-c.x, -c.y)
+    ctx.fillRect(this.min.x, this.min.y, this.max.x - this.min.x, this.max.y - this.min.y)
+    ctx.strokeRect(this.min.x, this.min.y, this.max.x - this.min.x, this.max.y - this.min.y)
+    ctx.setTransform(t)
+  }
+
+  contains (pos: Sim.Point) {
+    let c = this.center()
+    // rotate the point by -rotation around c
+    let r = new Sim.Point(pos.x - c.x, pos.y - c.y)
+    let tmpx = r.x * Math.cos(-this.rotation) - r.y * Math.sin(-this.rotation)
+    r.y = r.x * Math.sin(-this.rotation) + r.y * Math.cos(-this.rotation)
+    r.x = tmpx
+    r.x += c.x
+    r.y += c.y
+    return r.x >= this.min.x && r.x <= this.max.x && r.y >= this.min.y && r.y <= this.max.y
+  }
+
+  width () : number {
+    return this.max.x - this.min.x
+  }
+
+  height () : number {
+    return this.max.y - this.min.y
+  }
+
+  center () : Sim.Point {
+    return new Sim.Point((this.min.x + this.max.x) / 2.0, (this.min.y + this.max.y) / 2.0)
+  }
+
+  setCenter (pos: Sim.Point) {
+    let w = this.width() / 2
+    let h = this.height() / 2
+    this.min.x = pos.x - w
+    this.max.x = pos.x + w
+    this.min.y = pos.y - h
+    this.max.y = pos.y + h
+  }
+
+  toSerializable () : any {
+    return {
+      min: this.min.toSerializable(),
+      max: this.max.toSerializable(),
+      id: this.id,
+      rotation: this.rotation
+    }
+  }
+
+  static fromSerializable (data: any) : Furniture {
+    let f = new Furniture()
+    f.min = Sim.Point.fromSerializable(data.min)
+    f.max = Sim.Point.fromSerializable(data.max)
+    f.id = data.id
+    f.rotation = data.rotation
+    return f
+  }
+}
+
 export class Door {
   position: Sim.Point = new Sim.Point(0, 0)
   facing: Sim.Point = new Sim.Point(0, 0)
@@ -128,6 +199,7 @@ export class Room {
   id: number = -1
 
   walls: Wall[] = []
+  furniture: Furniture[] = []
 
   buildWalls () {
     this.walls.push(new Wall(new Sim.Point(this.min.x, this.min.y), new Sim.Point(this.max.x, this.min.y)))
@@ -136,12 +208,38 @@ export class Room {
     this.walls.push(new Wall(new Sim.Point(this.min.x, this.max.y), new Sim.Point(this.min.x, this.min.y)))
   }
 
+  addFurniture (f: Furniture) {
+    this.furniture.push(f)
+  }
+
+  removeFurnitureAt (pos: Sim.Point) {
+    for (let i = 0; i < this.furniture.length; ++i) {
+      if (this.furniture[i].contains(pos)) {
+        this.furniture.splice(i, 1)
+        i -= 1
+      }
+    }
+  }
+
+  getFurnitureAt (pos: Sim.Point) : Furniture | undefined {
+    for (let i = 0; i < this.furniture.length; ++i) {
+      if (this.furniture[i].contains(pos)) {
+        return this.furniture[i]
+      }
+    }
+    return undefined
+  }
+
   width () : number {
     return this.max.x - this.min.x
   }
 
   height () : number {
     return this.max.y - this.min.y
+  }
+
+  center () : Sim.Point {
+    return new Sim.Point((this.min.x + this.max.x) / 2.0, (this.min.y + this.max.y) / 2.0)
   }
 
   render (ctx: CanvasRenderingContext2D, pass: number = 0, isGm: boolean = true) {
@@ -171,6 +269,11 @@ export class Room {
       wall.render(ctx, pass)
     })
 
+    // Draw the furniture
+    this.furniture.forEach(f => {
+      f.render(ctx, pass)
+    })
+
     ctx.globalAlpha = initAlpha
   }
 
@@ -184,6 +287,7 @@ export class Room {
       max: this.max.toSerializable(),
       id: this.id,
       walls: this.walls.map(wall => wall.toSerializable()),
+      furniture: this.furniture.map(f => f.toSerializable()),
       isVisible: this.isVisible
     }
   }
@@ -194,6 +298,7 @@ export class Room {
     r.max = Sim.Point.fromSerializable(data.max)
     r.id = data.id
     r.walls = data.walls.map(wdata => Wall.fromSerializable(wdata))
+    r.furniture = data.furniture.map(fdata => Furniture.fromSerializable(fdata))
     r.isVisible = data.isVisible
     return r
   }
@@ -229,6 +334,30 @@ export class Building {
     door.isOpen = false
     this.nextId += 1
     this.doors.push(door)
+  }
+
+  addFurniture (f: Furniture) {
+    let r = this.getRoomAt(f.min)
+    if (r !== undefined && r.contains(f.max.x, f.max.y)) {
+      f.id = this.nextId
+      this.nextId += 1
+      r.addFurniture(f)
+    }
+  }
+
+  removeFurnitureAt (pos: Sim.Point) {
+    let r = this.getRoomAt(pos)
+    if (r !== undefined) {
+      r.removeFurnitureAt(pos)
+    }
+  }
+
+  getFurnitureAt (pos: Sim.Point) : Furniture | undefined {
+    let r = this.getRoomAt(pos)
+    if (r !== undefined) {
+      return r.getFurnitureAt(pos)
+    }
+    return undefined
   }
 
   removeRoomAt (x: number, y: number) {
@@ -308,6 +437,15 @@ export class Building {
         }
       }
     }
+  }
+
+  getRoomAt (pos: Sim.Point) : Room | undefined {
+    for (let i = 0; i < this.rooms.length; ++i) {
+      if (this.rooms[i].contains(pos.x, pos.y)) {
+        return this.rooms[i]
+      }
+    }
+    return undefined
   }
 
   toSerializable () : any {

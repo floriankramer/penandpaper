@@ -20,6 +20,10 @@
       <input type="radio" name="current_tool" value='door' v-model='currentTool' v-on:change='onToolDoor'>
       <img src="images/line.png" width="38" height="38">
     </label>
+    <label>
+      <input type="radio" name="current_tool" value='furniture' v-model='currentTool' v-on:change='onToolFurniture'>
+      <img src="images/line.png" width="38" height="38">
+    </label>
 
     <button class="toolbar-align-right toolbar-center-verticaly" v-on:click="clearBuilding">Clear Building</button>
     <button class="toolbar-align-right toolbar-center-verticaly" v-on:click="saveBuilding">Save Building</button>
@@ -64,6 +68,10 @@ export default class Toolbar extends Vue {
 
   onToolDoor () {
     eventBus.$emit('/tools/select_tool', 'door')
+  }
+
+  onToolFurniture () {
+    eventBus.$emit('/tools/select_tool', 'furniture')
   }
 
   saveBuilding () {
