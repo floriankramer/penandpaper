@@ -1,6 +1,9 @@
 name: CI-server
 
-on: [push]
+on:
+  push:
+    paths:
+      - 'server/**'
 
 jobs:
   build:
