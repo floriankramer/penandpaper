@@ -1,0 +1,23 @@
+name: CI-server
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: checkout submodules
+      run:  |
+        auth_header="$(git config --local --get http.https://github.com/.extraheader)"
+        git submodule sync --recursive
+        git -c "http.extraheader=$auth_header" -c protocol.version=2 submodule update --init --force --recursive --depth=1
+    - name: build
+      run:  |
+        cd server/cpp
+        mkdir build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release -j$(nproc) ../src
+        make -j16
