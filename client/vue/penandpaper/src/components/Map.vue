@@ -572,7 +572,7 @@ export default class Map extends Vue {
   onClientSaveBuilding () {
     if (this.currentBuilding !== undefined) {
       let data = new Blob([JSON.stringify(this.currentBuilding.toSerializable())], { type: 'application/json' })
-      let fileSaver = require('../lib/FileSaver.min.js')
+      let fileSaver = require('../lib/filesaver/FileSaver.min.js')
       fileSaver.saveAs(data, 'Building.json')
     }
   }
