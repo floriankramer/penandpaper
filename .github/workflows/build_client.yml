@@ -1,0 +1,19 @@
+name: CI-client
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build
+      run:  |
+        cd client/vue/penandpaper/
+        npm install
+        npm run-script build
+
+      
+      
