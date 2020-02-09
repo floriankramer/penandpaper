@@ -22,23 +22,23 @@
     </label>
     <label>
       <input type="radio" name="current_tool" value='token' v-model='currentTool' v-on:change='onToolToken'>
-      <img src="images/circle.png" width="38" height="38">
+      <img src="images/circle.svg" width="38" height="38">
     </label>
     <label>
       <input type="radio" name="current_tool" value='line' v-model='currentTool' v-on:change='onToolLine'>
-      <img src="images/line.png" width="38" height="38">
+      <img src="images/line.svg" width="38" height="38">
     </label>
     <label>
       <input type="radio" name="current_tool" value='room' v-model='currentTool' v-on:change='onToolRoom'>
-      <img src="images/line.png" width="38" height="38">
+      <img src="images/room.svg" width="38" height="38">
     </label>
     <label>
       <input type="radio" name="current_tool" value='door' v-model='currentTool' v-on:change='onToolDoor'>
-      <img src="images/line.png" width="38" height="38">
+      <img src="images/door.svg" width="38" height="38">
     </label>
     <label>
       <input type="radio" name="current_tool" value='furniture' v-model='currentTool' v-on:change='onToolFurniture'>
-      <img src="images/line.png" width="38" height="38">
+      <img src="images/table.svg" width="38" height="38">
     </label>
 
     <button class="toolbar-align-right toolbar-center-verticaly" v-on:click="clearBuilding">Clear Building</button>
