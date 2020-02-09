@@ -16,7 +16,7 @@
 
 <template>
   <div class="chat-area">
-    <div class="chat-text">
+    <div id="chat-text" class="chat-text">
       <dl>
         <template v-for="chat in chatHistory">
           <dt v-bind:key="'sender' + chat.id">{{chat.from}}</dt>
@@ -48,6 +48,8 @@ export default class Chat extends Vue {
   historyPos: number = 0
   sentHistory: string[] = []
 
+  chatArea: HTMLDivElement | undefined = undefined
+
   constructor () {
     super()
     eventBus.$on('/chat/message', this.onMessage)
@@ -59,14 +61,40 @@ export default class Chat extends Vue {
     this.chatHistory.push(greeting)
   }
 
+  mounted () {
+    this.chatArea = this.$el.getElementsByClassName("chat-text").item(0) as HTMLDivElement;
+  }
+
   onMessage (data : any) {
+    let scroll = false
+    if (this.chatArea !== undefined) {
+      if (this.chatArea.scrollTop + this.chatArea.clientHeight >= this.chatArea.scrollHeight - 10) {
+        scroll = true;
+      }
+    }
     let m = new Message()
     m.from = data['sender']
     m.text = data['message']
+    m.id = this.nextId
+    this.nextId++
     this.chatHistory.push(m)
     // Ensure we never store more than the last 100 messages
     if (this.chatHistory.length > 100) {
       this.chatHistory.splice(0, 100 - this.chatHistory.length)
+    }
+    if (scroll) {
+      // TODO: this is kinda of an ugly hack that tries to handle a delayed dom update
+      setTimeout(() => {
+        if (this.chatArea !== undefined) {
+          console.log('scrolling')
+          this.chatArea.scrollTo({
+            top: this.chatArea.scrollHeight,
+            left: 0,
+            behavior: 'smooth'
+          })
+        }
+      }, 50)
+
     }
   }
 
