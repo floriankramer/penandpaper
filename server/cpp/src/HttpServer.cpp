@@ -138,6 +138,8 @@ std::string HttpServer::guessMimeType(const std::string &path) {
     return "image/jpeg";
   } else if (ending.empty() || ending == "htm" || ending == "html") {
     return "text/html";
+  } else if (ending.empty() || ending == "svg") {
+    return "image/svg+xml";
   } else {
     return "application/octet-stream";
   }
