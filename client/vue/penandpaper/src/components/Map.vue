@@ -34,6 +34,7 @@ import ToolLine from '../tools/tool_line'
 import ToolRoom from '../tools/tool_room'
 import ToolDoor from '../tools/tool_door'
 import ToolFurniture from '../tools/tool_furniture'
+import Renderer from '../rendering/renderer'
 import * as B from '../simulation/building'
 
 enum MouseAction {
@@ -47,7 +48,10 @@ export default class Map extends Vue {
   tokens: Sim.Token[] = []
   movingTokens: Sim.Token[] = []
   lines: Sim.Line[] = []
+
   canvas?: HTMLCanvasElement
+  ctx: WebGLRenderingContext | null = null
+  renderer: Renderer = new Renderer()
 
   mouseAction: MouseAction = MouseAction.NONE
 
@@ -94,130 +98,123 @@ export default class Map extends Vue {
   }
 
   renderMap () {
-    // Limit the render framerate to once every 16 ms (60 fps)
     let now = new Date().getTime()
-    let sinceLast = now - this.lastRender
-    if (sinceLast < 16) {
-      setTimeout(this.renderMap, 16 - sinceLast)
-      return
-    }
-    this.lastRender = now
-    this.renderQueued = false
 
-    if (this.canvas) {
+    if (this.ctx !== null && this.canvas) {
       // Assume that without zoom 10 meters are visible vertically
       // Determine the visible area
-      let visibleHeight: number = 10 / this.zoom
-      let visibleWidth: number = visibleHeight * (this.canvas.width / this.canvas.height)
+      // let visibleHeight: number = 10 / this.zoom
+      // let visibleWidth: number = visibleHeight * (this.canvas.width / this.canvas.height)
 
-      let visible: Sim.Rectangle = new Sim.Rectangle()
-      visible.minx = this.offx - visibleWidth / 2
-      visible.maxx = this.offx + visibleWidth / 2
-      visible.miny = this.offy - visibleHeight / 2
-      visible.maxy = this.offy + visibleHeight / 2
+      // let visible: Sim.Rectangle = new Sim.Rectangle()
+      // visible.minx = this.offx - visibleWidth / 2
+      // visible.maxx = this.offx + visibleWidth / 2
+      // visible.miny = this.offy - visibleHeight / 2
+      // visible.maxy = this.offy + visibleHeight / 2
 
-      // Clear the canvas
-      let ctx: CanvasRenderingContext2D | null = this.canvas.getContext('2d')
-      if (ctx === null) {
-        console.log('The canvas does not have a drawing context.')
-        return
-      }
-      ctx.resetTransform()
+      this.renderer.beginFrame()
+      this.renderer.drawFrame()
+      this.renderer.endFrame()
 
-      ctx.fillStyle = '#333333'
-      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+      // // Clear the canvas
+      // ctx.resetTransform()
 
-      // Make 0,0 the center
-      ctx.translate(this.canvas.width / 2, this.canvas.height / 2)
-      // Apply the base scale
-      ctx.scale(this.pixelPerMeter, this.pixelPerMeter)
+      // ctx.fillStyle = '#333333'
+      // ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
 
-      // apply the offset
-      ctx.scale(this.zoom, this.zoom)
-      ctx.translate(-this.offx, -this.offy)
+      // // Make 0,0 the center
+      // ctx.translate(this.canvas.width / 2, this.canvas.height / 2)
+      // // Apply the base scale
+      // ctx.scale(this.pixelPerMeter, this.pixelPerMeter)
 
-      // Draw a 5x5 m grid centered on 0, 0 (0, 0 is a crossign point of two grid lines)
-      let gridXMin = Math.floor(visible.minx / 5) * 5
-      let gridYMin = Math.floor(visible.miny / 5) * 5
-      let gridXMax = Math.ceil(visible.maxx / 5) * 5
-      let gridYMax = Math.ceil(visible.maxy / 5) * 5
+      // // apply the offset
+      // ctx.scale(this.zoom, this.zoom)
+      // ctx.translate(-this.offx, -this.offy)
 
-      ctx.beginPath()
-      for (let x : number = gridXMin; x <= gridXMax; x += 5) {
-        ctx.moveTo(x, visible.miny)
-        ctx.lineTo(x, visible.maxy)
-      }
-      for (let y : number = gridYMin; y <= gridYMax; y += 5) {
-        ctx.moveTo(visible.minx, y)
-        ctx.lineTo(visible.maxx, y)
-      }
-      ctx.lineWidth = 1 / this.pixelPerMeter / this.zoom
-      ctx.strokeStyle = '#4c4c4c'
-      ctx.stroke()
+      // // Draw a 5x5 m grid centered on 0, 0 (0, 0 is a crossign point of two grid lines)
+      // let gridXMin = Math.floor(visible.minx / 5) * 5
+      // let gridYMin = Math.floor(visible.miny / 5) * 5
+      // let gridXMax = Math.ceil(visible.maxx / 5) * 5
+      // let gridYMax = Math.ceil(visible.maxy / 5) * 5
 
-      // Draw the current building
-      if (this.currentBuilding !== undefined) {
-        ctx.lineWidth = this.computeLineWidth()
-        this.currentBuilding.render(ctx, this.$store.state.permissions > 0)
-      }
+      // ctx.beginPath()
+      // for (let x : number = gridXMin; x <= gridXMax; x += 5) {
+      //   ctx.moveTo(x, visible.miny)
+      //   ctx.lineTo(x, visible.maxy)
+      // }
+      // for (let y : number = gridYMin; y <= gridYMax; y += 5) {
+      //   ctx.moveTo(visible.minx, y)
+      //   ctx.lineTo(visible.maxx, y)
+      // }
+      // ctx.lineWidth = 1 / this.pixelPerMeter / this.zoom
+      // ctx.strokeStyle = '#4c4c4c'
+      // ctx.stroke()
 
-      // Draw the lines
-      ctx.strokeStyle = '#FFFFEE'
-      ctx.lineWidth = this.computeLineWidth()
-      ctx.beginPath()
-      for (let line of this.lines) {
-        ctx.moveTo(line.start.x, line.start.y)
-        ctx.lineTo(line.stop.x, line.stop.y)
-      }
-      ctx.stroke()
+      // // Draw the current building
+      // if (this.currentBuilding !== undefined) {
+      //   ctx.lineWidth = this.computeLineWidth()
+      //   this.currentBuilding.render(ctx, this.$store.state.permissions > 0)
+      // }
 
-      // Draw the tokens
-      for (let token of this.tokens) {
-        ctx.beginPath()
-        ctx.arc(token.displayX, token.displayY, token.radius, 0, 2 * Math.PI)
-        ctx.fillStyle = token.color.toHex()
-        ctx.fill()
+      // // Draw the lines
+      // ctx.strokeStyle = '#FFFFEE'
+      // ctx.lineWidth = this.computeLineWidth()
+      // ctx.beginPath()
+      // for (let line of this.lines) {
+      //   ctx.moveTo(line.start.x, line.start.y)
+      //   ctx.lineTo(line.stop.x, line.stop.y)
+      // }
+      // ctx.stroke()
 
-        if (this.selected !== undefined && this.selected.id === token.id) {
-          if (token.isFoe) {
-            ctx.strokeStyle = '#FF0000'
-            ctx.lineWidth = 0.04
-            ctx.stroke()
-          } else {
-            ctx.strokeStyle = '#FFFFFF'
-            ctx.lineWidth = 0.03
-            ctx.stroke()
-          }
-        } else if (token.isFoe) {
-          ctx.strokeStyle = '#FF0000'
-          ctx.lineWidth = 0.05
-          ctx.stroke()
-        }
-      }
+      // // Draw the tokens
+      // for (let token of this.tokens) {
+      //   ctx.beginPath()
+      //   ctx.arc(token.displayX, token.displayY, token.radius, 0, 2 * Math.PI)
+      //   ctx.fillStyle = token.color.toHex()
+      //   ctx.fill()
 
-      if (this.selected !== undefined) {
-        // Draw a line from the selected to the cursor
-        let worldPos = this.screenToWorldPos(new Sim.Point(this.lastMouseX, this.lastMouseY))
-        ctx.strokeStyle = '#696969'
-        ctx.lineWidth = 1.5 / this.pixelPerMeter / this.zoom
+      //   if (this.selected !== undefined && this.selected.id === token.id) {
+      //     if (token.isFoe) {
+      //       ctx.strokeStyle = '#FF0000'
+      //       ctx.lineWidth = 0.04
+      //       ctx.stroke()
+      //     } else {
+      //       ctx.strokeStyle = '#FFFFFF'
+      //       ctx.lineWidth = 0.03
+      //       ctx.stroke()
+      //     }
+      //   } else if (token.isFoe) {
+      //     ctx.strokeStyle = '#FF0000'
+      //     ctx.lineWidth = 0.05
+      //     ctx.stroke()
+      //   }
+      // }
 
-        ctx.beginPath()
-        ctx.moveTo(this.selected.displayX, this.selected.displayY)
-        ctx.lineTo(worldPos.x, worldPos.y)
-        ctx.stroke()
+      // if (this.selected !== undefined) {
+      //   // Draw a line from the selected to the cursor
+      //   let worldPos = this.screenToWorldPos(new Sim.Point(this.lastMouseX, this.lastMouseY))
+      //   ctx.strokeStyle = '#696969'
+      //   ctx.lineWidth = 1.5 / this.pixelPerMeter / this.zoom
 
-        // Draw a distance at the cursor
-        let dist = Math.hypot(worldPos.x - this.selected.displayX, worldPos.y - this.selected.displayY)
-        ctx.fillStyle = ctx.strokeStyle
-        this.setupScreenSpaceFont(ctx)
-        ctx.fillStyle = '#AAAAAA'
-        let transform = ctx.getTransform()
-        ctx.resetTransform()
-        ctx.fillText(dist.toFixed(2).toString() + 'm', this.lastMouseX + 20, this.lastMouseY - 20)
-        ctx.setTransform(transform)
-      }
-      this.tool.render(ctx)
+      //   ctx.beginPath()
+      //   ctx.moveTo(this.selected.displayX, this.selected.displayY)
+      //   ctx.lineTo(worldPos.x, worldPos.y)
+      //   ctx.stroke()
+
+      //   // Draw a distance at the cursor
+      //   let dist = Math.hypot(worldPos.x - this.selected.displayX, worldPos.y - this.selected.displayY)
+      //   ctx.fillStyle = ctx.strokeStyle
+      //   this.setupScreenSpaceFont(ctx)
+      //   ctx.fillStyle = '#AAAAAA'
+      //   let transform = ctx.getTransform()
+      //   ctx.resetTransform()
+      //   ctx.fillText(dist.toFixed(2).toString() + 'm', this.lastMouseX + 20, this.lastMouseY - 20)
+      //   ctx.setTransform(transform)
+      // }
+      // this.tool.render(ctx)
     }
+    let end: number = Date.now()
+    console.log(end - now)
   }
 
   setupScreenSpaceFont (ctx: CanvasRenderingContext2D) {
@@ -246,6 +243,9 @@ export default class Map extends Vue {
   moveByScreenDelta (dx: number, dy: number) {
     this.offx -= dx / this.pixelPerMeter / this.zoom
     this.offy -= dy / this.pixelPerMeter / this.zoom
+    if (this.canvas) {
+      this.renderer.camera.pan(dx * 2 / this.canvas.height, dy * 2 / this.canvas.height)
+    }
   }
 
   hasSelection () : boolean {
@@ -419,11 +419,7 @@ export default class Map extends Vue {
   }
 
   onMouseWheel (event: WheelEvent) {
-    if (event.deltaY > 0) {
-      this.zoom *= 0.85
-    } else if (event.deltaY < 0) {
-      this.zoom *= 1.15
-    }
+    this.renderer.camera.zoom(event.deltaY)
     this.requestRedraw()
   }
 
@@ -437,11 +433,18 @@ export default class Map extends Vue {
     this.canvas.height = this.$el.scrollHeight
     this.pixelPerMeter = this.canvas.height / 10
 
+    this.ctx = this.canvas.getContext('webgl')
+    if (this.ctx) {
+      this.renderer.ctx = this.ctx
+      this.renderer.init()
+    }
+
     // Handle window resizes
     window.addEventListener('resize', (ev: UIEvent) => {
       if (this.canvas) {
         this.canvas.width = this.$el.clientWidth
         this.canvas.height = this.$el.clientHeight
+        this.renderer.camera.aspectRatio = this.canvas.width / this.canvas.height
         this.requestRedraw()
         this.pixelPerMeter = this.canvas.height / 10
       }
@@ -451,6 +454,7 @@ export default class Map extends Vue {
 
   updateMovingTokens () {
     let delta = 0.016
+    let start: number = Date.now()
     let toRemove : Sim.Token[] = []
     this.movingTokens.forEach(t => {
       let dx = t.x - t.displayX
@@ -473,7 +477,10 @@ export default class Map extends Vue {
     this.requestRedraw()
 
     if (this.movingTokens.length > 0) {
-      setTimeout(this.updateMovingTokens, 1000 * delta)
+      let stop: number = Date.now()
+      let timeTaken = (stop - start)
+      let sleep = Math.max(0, (1000 * delta) - timeTaken)
+      setTimeout(this.updateMovingTokens, sleep)
     }
   }
 
