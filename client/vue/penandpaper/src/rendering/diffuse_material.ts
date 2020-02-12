@@ -1,6 +1,7 @@
 import Material from './material'
 import Camera from './camera'
 import ShaderCache from './shader_cache'
+import Actor from './actor'
 
 
 export default class DiffuseMaterial extends Material {
@@ -11,6 +12,8 @@ export default class DiffuseMaterial extends Material {
   a: number = 1
 
   colorLoc: WebGLUniformLocation = 0
+  camLoc: WebGLUniformLocation = 0
+  modelLoc: WebGLUniformLocation = 0
 
   constructor () {
     super()
@@ -18,8 +21,11 @@ export default class DiffuseMaterial extends Material {
     this.vertexShaderSrc = `
       attribute vec4 aPos;
 
+      uniform mat4 uCamMat;
+      uniform mat4 uModelMat;
+
       void main() {
-        gl_Position = aPos;
+        gl_Position = uCamMat * uModelMat * aPos;
       }
     `
 
@@ -36,11 +42,14 @@ export default class DiffuseMaterial extends Material {
     super.build(ctx,shaderCache)
     this.positionAttr = ctx.getAttribLocation(this.program, 'aPos')
     this.colorLoc = ctx.getUniformLocation(this.program, 'uColor')
-    console.log('pos atttr', this.positionAttr)
+    this.camLoc = ctx.getUniformLocation(this.program, 'uCamMat')
+    this.modelLoc = ctx.getUniformLocation(this.program, 'uModelMat')
   }
 
-  activate (ctx: WebGLRenderingContext, shaderCache: ShaderCache, cam: Camera) {
-    super.activate(ctx, shaderCache, cam)
+  activate (ctx: WebGLRenderingContext, shaderCache: ShaderCache, cam: Camera, actor: Actor) {
+    super.activate(ctx, shaderCache, cam, actor)
+    ctx.uniformMatrix4fv(this.camLoc, false, cam.getMatrix())
+    ctx.uniformMatrix4fv(this.modelLoc, false, actor.rawTransform())
     ctx.uniform4f(this.colorLoc, this.r, this.g, this.b, this.a)
   }
 }

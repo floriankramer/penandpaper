@@ -1,5 +1,6 @@
 import Camera from "./camera"
 import ShaderCache from "./shader_cache"
+import Actor from "./actor"
 
 export default class Material {
   vertexShaderSrc: string = ''
@@ -34,12 +35,11 @@ export default class Material {
     }
   }
 
-  activate (ctx: WebGLRenderingContext, shaderCache: ShaderCache, cam: Camera) {
+  activate (ctx: WebGLRenderingContext, shaderCache: ShaderCache, cam: Camera, actor: Actor) {
     if (!this.isBuilt) {
       this.build(ctx, shaderCache)
     }
     ctx.useProgram(this.program)
-    console.log('using the program')
   }
 
   buildShader (ctx: WebGLRenderingContext, src: string, type: number) : WebGLShader{

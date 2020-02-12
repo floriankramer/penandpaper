@@ -18,13 +18,7 @@ export default class Renderer {
     this.ctx.clearColor(0, 0, 0, 1)
     this.ctx.disable(this.ctx.DEPTH_TEST)
     this.ctx.disable(this.ctx.CULL_FACE)
-    this.camera.height = 10
-
-    // Debug code
-    let a = new Actor()
-    a.material = new DiffuseMaterial()
-    a.positions = [0, 0, 0, 1, 1, 1]
-    this.sceneTree.push(a)
+    this.camera.reset()
   }
 
   beginFrame () {
@@ -40,7 +34,7 @@ export default class Renderer {
       return
     }
     this.sceneTree.forEach(actor => {
-      actor.material.activate(this.ctx, this.shaderCache, this.camera)
+      actor.material.activate(this.ctx, this.shaderCache, this.camera, actor)
       actor.activate(this.ctx)
       actor.callDraw(this.ctx)
     });
@@ -60,6 +54,14 @@ export default class Renderer {
     let i = this.sceneTree.findIndex(e => { e == a})
     if (i >= 0) {
       this.sceneTree.splice(i, 1)
+    }
+  }
+
+  onResize (width: number, height: number) {
+    this.camera.aspectRatio = width / height
+    this.camera.heightPixels = height
+    if (this.ctx) {
+      this.ctx.viewport(0, 0, width, height)
     }
   }
 }

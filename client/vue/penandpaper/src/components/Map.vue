@@ -35,6 +35,10 @@ import ToolRoom from '../tools/tool_room'
 import ToolDoor from '../tools/tool_door'
 import ToolFurniture from '../tools/tool_furniture'
 import Renderer from '../rendering/renderer'
+import GridActor from '../rendering/gridactor'
+import TokenActor from '../rendering/token_actor'
+import Actor from '../rendering/actor'
+import DiffuseMaterial from '../rendering/diffuse_material'
 import * as B from '../simulation/building'
 
 enum MouseAction {
@@ -44,7 +48,7 @@ enum MouseAction {
 }
 
 @Component
-export default class Map extends Vue {
+export default class World extends Vue {
   tokens: Sim.Token[] = []
   movingTokens: Sim.Token[] = []
   lines: Sim.Line[] = []
@@ -52,6 +56,9 @@ export default class Map extends Vue {
   canvas?: HTMLCanvasElement
   ctx: WebGLRenderingContext | null = null
   renderer: Renderer = new Renderer()
+  gridActor: GridActor = new GridActor()
+
+  tokenActors: Map<number, Actor> = new Map()
 
   mouseAction: MouseAction = MouseAction.NONE
 
@@ -244,7 +251,7 @@ export default class Map extends Vue {
     this.offx -= dx / this.pixelPerMeter / this.zoom
     this.offy -= dy / this.pixelPerMeter / this.zoom
     if (this.canvas) {
-      this.renderer.camera.pan(dx * 2 / this.canvas.height, dy * 2 / this.canvas.height)
+      this.renderer.camera.pan(dx * 2 / this.canvas.width, -dy * 2 / this.canvas.height)
     }
   }
 
@@ -256,6 +263,9 @@ export default class Map extends Vue {
     this.offx = 0
     this.offy = 0
     this.zoom = 1
+
+    this.renderer.camera.reset();
+    this.requestRedraw()
   }
 
   setLastMousePos (sx: number, sy: number) {
@@ -437,6 +447,8 @@ export default class Map extends Vue {
     if (this.ctx) {
       this.renderer.ctx = this.ctx
       this.renderer.init()
+      this.renderer.onResize(this.canvas.width, this.canvas.height)
+      this.initActors()
     }
 
     // Handle window resizes
@@ -444,12 +456,23 @@ export default class Map extends Vue {
       if (this.canvas) {
         this.canvas.width = this.$el.clientWidth
         this.canvas.height = this.$el.clientHeight
-        this.renderer.camera.aspectRatio = this.canvas.width / this.canvas.height
+        this.renderer.onResize(this.canvas.width, this.canvas.height)
         this.requestRedraw()
         this.pixelPerMeter = this.canvas.height / 10
       }
     })
     this.requestRedraw()
+  }
+
+  initActors() {
+    this.renderer.addActor(this.gridActor)
+
+
+    // Debug code
+    let a = new Actor()
+    a.material = new DiffuseMaterial()
+    a.positions = [0, 0, 0, 1, 1, 1]
+    this.renderer.addActor(a)
   }
 
   updateMovingTokens () {
@@ -467,6 +490,10 @@ export default class Map extends Vue {
       } else {
         t.displayX += delta * t.displaySpeed * dx / l
         t.displayY += delta * t.displaySpeed * dy / l
+      }
+      let a = this.tokenActors.get(t.id);
+      if (a) {
+        a.setPosition(t.displayX, t.displayY)
       }
     })
 
@@ -488,7 +515,19 @@ export default class Map extends Vue {
     data.displayX = data.x
     data.displayY = data.y
     this.tokens.push(data)
+
+    this.createTokenActor(data)
+
     this.requestRedraw()
+  }
+
+  createTokenActor (t: Sim.Token) {
+    let a = new TokenActor()
+    a.setScale(t.radius, t.radius)
+    a.setPosition(t.x, t.y)
+    a.setColor(t.color.r / 255, t.color.g / 255, t.color.b / 255)
+    this.renderer.addActor(a)
+    this.tokenActors.set(t.id, a)
   }
 
   clearTokens () {
@@ -505,6 +544,7 @@ export default class Map extends Vue {
     this.tokens.forEach(t => {
       t.displayX = t.x
       t.displayY = t.y
+      this.createTokenActor(t)
     })
 
     if (data.building !== null) {
