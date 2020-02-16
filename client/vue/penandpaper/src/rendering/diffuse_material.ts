@@ -1,7 +1,7 @@
 import Material from './material'
 import Camera from './camera'
 import ShaderCache from './shader_cache'
-import Actor from './actor'
+import Actor, { ShaderInputType } from './actor'
 
 
 export default class DiffuseMaterial extends Material {
@@ -11,9 +11,11 @@ export default class DiffuseMaterial extends Material {
   b: number = 1
   a: number = 1
 
-  colorLoc: WebGLUniformLocation = 0
-  camLoc: WebGLUniformLocation = 0
-  modelLoc: WebGLUniformLocation = 0
+  colorLoc: WebGLUniformLocation | null = null
+  camLoc: WebGLUniformLocation | null = null
+  modelLoc: WebGLUniformLocation | null = null
+
+  _useVertexColors: boolean = false
 
   constructor () {
     super()
@@ -30,7 +32,9 @@ export default class DiffuseMaterial extends Material {
     `
 
     this.fragmentShaderSrc = `
-      uniform highp vec4 uColor;
+      precision highp float;
+
+      uniform vec4 uColor;
 
       void main() {
         gl_FragColor = uColor;
@@ -40,7 +44,15 @@ export default class DiffuseMaterial extends Material {
 
   build (ctx: WebGLRenderingContext, shaderCache: ShaderCache) {
     super.build(ctx,shaderCache)
-    this.positionAttr = ctx.getAttribLocation(this.program, 'aPos')
+    if (!this.program) {
+      return
+    }
+
+    this.attributes.set(ShaderInputType.POSITION, ctx.getAttribLocation(this.program, 'aPos'))
+    if (this._useVertexColors) {
+      this.attributes.set(ShaderInputType.VERTEX_COLOR, ctx.getAttribLocation(this.program, 'aColor'))
+    }
+
     this.colorLoc = ctx.getUniformLocation(this.program, 'uColor')
     this.camLoc = ctx.getUniformLocation(this.program, 'uCamMat')
     this.modelLoc = ctx.getUniformLocation(this.program, 'uModelMat')
@@ -51,5 +63,34 @@ export default class DiffuseMaterial extends Material {
     ctx.uniformMatrix4fv(this.camLoc, false, cam.getMatrix())
     ctx.uniformMatrix4fv(this.modelLoc, false, actor.rawTransform())
     ctx.uniform4f(this.colorLoc, this.r, this.g, this.b, this.a)
+  }
+
+  enableVertexColors () {
+    this._useVertexColors = true
+    this.vertexShaderSrc = `
+      attribute vec4 aPos;
+      attribute vec4 aColor;
+
+      uniform mat4 uCamMat;
+      uniform mat4 uModelMat;
+
+      varying vec4 vColor;
+
+      void main() {
+        gl_Position = uCamMat * uModelMat * aPos;
+        vColor = aColor;
+      }
+    `
+
+    this.fragmentShaderSrc = `
+      precision highp float;
+
+      uniform vec4 uColor;
+      varying vec4 vColor;
+
+      void main() {
+        gl_FragColor = uColor * vColor;
+      }
+    `
   }
 }

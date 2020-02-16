@@ -1,4 +1,5 @@
 import Matrix from "./matrix"
+import * as Sim from '../simulation/simulation'
 
 export default class Camera {
   x: number = 0
@@ -41,5 +42,13 @@ export default class Camera {
     this.x = 0
     this.y = 0
     this.updateMatrix()
+  }
+
+  screenToWorldSpace (sp: Sim.Point) : Sim.Point {
+    return new Sim.Point((sp.x / this.heightPixels * 2 - this.aspectRatio) * this.height + this.x, -(sp.y / this.heightPixels * 2 - 1) * this.height + this.y)
+  }
+
+  worldToScreenSpace  (sp: Sim.Point) : Sim.Point {
+    return new Sim.Point(((sp.x - this.x) / this.height + this.aspectRatio) / 2 * this.heightPixels, -((sp.y - this.y) / this.height + 1) / 2 * this.heightPixels)
   }
 }

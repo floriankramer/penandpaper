@@ -65,10 +65,6 @@ export default class World extends Vue {
   lastMouseX: number = 0
   lastMouseY: number = 0
 
-  zoom: number = 1
-  offx: number = 0
-  offy: number = 0
-
   pixelPerMeter: number = 1
 
   selected?: Sim.Token
@@ -102,6 +98,14 @@ export default class World extends Vue {
 
   requestRedraw () {
     requestAnimationFrame(this.renderMap)
+  }
+
+  screenToWorldPos (sp: Sim.Point) : Sim.Point {
+    return this.renderer.camera.screenToWorldSpace(sp)
+  }
+
+  worldToScreenPos  (sp: Sim.Point) : Sim.Point {
+    return this.renderer.camera.worldToScreenSpace(sp)
   }
 
   renderMap () {
@@ -228,28 +232,11 @@ export default class World extends Vue {
     ctx.font = '30px sans-serif'
   }
 
-  setupWorldSpaceFont (ctx: CanvasRenderingContext2D) {
-    let size = 30 / this.zoom
-    ctx.font = size.toString() + 'px sans-serif'
-  }
-
   computeLineWidth () : number {
-    return 2 / this.pixelPerMeter / this.zoom
-  }
-
-  screenToWorldPos (point: Sim.Point) : Sim.Point {
-    return new Sim.Point((point.x - this.$el.clientWidth / 2) / this.pixelPerMeter / this.zoom + this.offx,
-      (point.y - this.$el.clientHeight / 2) / this.pixelPerMeter / this.zoom + this.offy)
-  }
-
-  worldToScreenPos (point: Sim.Point) : Sim.Point {
-    return new Sim.Point((point.x - this.offx) * this.zoom * this.pixelPerMeter + this.$el.clientWidth / 2,
-      (point.y - this.offy) * this.zoom * this.pixelPerMeter + this.$el.clientHeight / 2)
+    return 2 * (this.renderer.camera.height / this.renderer.camera.heightPixels)
   }
 
   moveByScreenDelta (dx: number, dy: number) {
-    this.offx -= dx / this.pixelPerMeter / this.zoom
-    this.offy -= dy / this.pixelPerMeter / this.zoom
     if (this.canvas) {
       this.renderer.camera.pan(dx * 2 / this.canvas.width, -dy * 2 / this.canvas.height)
     }
@@ -260,10 +247,6 @@ export default class World extends Vue {
   }
 
   resetCamera () {
-    this.offx = 0
-    this.offy = 0
-    this.zoom = 1
-
     this.renderer.camera.reset();
     this.requestRedraw()
   }
@@ -371,12 +354,28 @@ export default class World extends Vue {
   selectTokenAt (wx: number, wy: number) : boolean {
     for (let token of this.tokens) {
       if (Math.hypot(token.x - wx, token.y - wy) < token.radius) {
-        this.selected = token
+        this.setSelectedToken(token)
         return true
       }
     }
-    this.selected = undefined
+    this.setSelectedToken(undefined)
     return false
+  }
+
+  setSelectedToken (selected: Sim.Token | undefined) {
+    if (this.selected !== undefined) {
+        let a = this.tokenActors.get(this.selected.id) as TokenActor
+        if (a) {
+          a.setIsSelected(false)
+        }
+    }
+    this.selected = selected
+        if (this.selected !== undefined) {
+        let a = this.tokenActors.get(this.selected.id) as TokenActor
+        if (a) {
+          a.setIsSelected(true)
+        }
+    }
   }
 
   onKeyDown (event: KeyboardEvent) {
@@ -465,14 +464,7 @@ export default class World extends Vue {
   }
 
   initActors() {
-    this.renderer.addActor(this.gridActor)
-
-
-    // Debug code
-    let a = new Actor()
-    a.material = new DiffuseMaterial()
-    a.positions = [0, 0, 0, 1, 1, 1]
-    this.renderer.addActor(a)
+    this.renderer.addActor(this.gridActor, 0)
   }
 
   updateMovingTokens () {
@@ -522,29 +514,37 @@ export default class World extends Vue {
   }
 
   createTokenActor (t: Sim.Token) {
+    console.log('creating a new token actor')
     let a = new TokenActor()
     a.setScale(t.radius, t.radius)
     a.setPosition(t.x, t.y)
     a.setColor(t.color.r / 255, t.color.g / 255, t.color.b / 255)
-    this.renderer.addActor(a)
+    a.setIsFoe(t.isFoe)
+    this.renderer.addActor(a, 2)
     this.tokenActors.set(t.id, a)
+    console.log(this.renderer)
   }
 
   clearTokens () {
     this.tokens.splice(0)
     this.movingTokens.splice(0)
+    this.tokenActors.forEach(actor => {
+      this.renderer.removeActor(actor)
+    })
+    this.tokenActors.clear()
     this.requestRedraw()
   }
 
   onServerState (data: ServerState) {
     // Copy the list of tokens
-    this.tokens.push(...data.tokens)
+    // this.tokens.push(...data.tokens)
     this.lines.push(...data.lines)
 
-    this.tokens.forEach(t => {
-      t.displayX = t.x
-      t.displayY = t.y
-      this.createTokenActor(t)
+    data.tokens.forEach((t : Sim.Token) => {
+      this.onNewToken(t)
+      // t.displayX = t.x
+      // t.displayY = t.y
+      // this.createTokenActor(t)
     })
 
     if (data.building !== null) {
@@ -568,7 +568,7 @@ export default class World extends Vue {
 
   onServerDeleteToken (data : Sim.Token) {
     if (this.selected !== undefined && this.selected.id === data.id) {
-      this.selected = undefined
+      this.setSelectedToken(undefined)
     }
 
     let pos = this.movingTokens.indexOf(data)
@@ -578,6 +578,11 @@ export default class World extends Vue {
 
     pos = this.tokens.findIndex((t : Sim.Token) => { return t.id === data.id })
     if (pos >= 0) {
+      let a = this.tokenActors.get(data.id) as TokenActor
+      if (a) {
+        this.renderer.removeActor(a)
+        this.tokenActors.delete(data.id)
+      }
       this.tokens.splice(pos, 1)
       this.requestRedraw()
     } else {
@@ -613,6 +618,10 @@ export default class World extends Vue {
   }
 
   onServerToggleFoe (token: Sim.Token) {
+    let a = this.tokenActors.get(token.id) as TokenActor
+    if (a) {
+      a.setIsFoe(token.isFoe)
+    }
     this.requestRedraw()
   }
 

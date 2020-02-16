@@ -4,7 +4,7 @@ import DiffuseMaterial from "./diffuse_material";
 import ShaderCache from "./shader_cache";
 
 export default class Renderer {
-  sceneTree: Actor[] = []
+  sceneTree: Actor[][] = []
   camera: Camera = new Camera()
 
   ctx?: WebGLRenderingContext
@@ -33,10 +33,13 @@ export default class Renderer {
     if (this.ctx === undefined) {
       return
     }
-    this.sceneTree.forEach(actor => {
-      actor.material.activate(this.ctx, this.shaderCache, this.camera, actor)
-      actor.activate(this.ctx)
-      actor.callDraw(this.ctx)
+    let ctx: WebGLRenderingContext = this.ctx
+    this.sceneTree.forEach(actors => {
+      actors.forEach(actor => {
+        actor.material.activate(ctx, this.shaderCache, this.camera, actor)
+        actor.activate(ctx)
+        actor.callDraw(ctx)
+      })
     });
   }
 
@@ -46,14 +49,21 @@ export default class Renderer {
     }
   }
 
-  addActor (a: Actor) {
-    this.sceneTree.push(a)
+  addActor (a: Actor, layer: number) {
+    if (layer >= this.sceneTree.length) {
+      while (0 < layer + 1 - this.sceneTree.length) {
+        this.sceneTree.push([])
+      }
+    }
+    this.sceneTree[layer].push(a)
   }
 
   removeActor (a: Actor) {
-    let i = this.sceneTree.findIndex(e => { e == a})
-    if (i >= 0) {
-      this.sceneTree.splice(i, 1)
+    for (let layer of this.sceneTree) {
+      let i = layer.findIndex(e => { return e === a })
+      if (i >= 0) {
+        layer.splice(i, 1)
+      }
     }
   }
 

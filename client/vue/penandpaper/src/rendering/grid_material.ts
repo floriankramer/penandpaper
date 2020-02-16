@@ -1,16 +1,16 @@
 import Material from './material'
 import Camera from './camera'
 import ShaderCache from './shader_cache'
-import Actor from './actor'
+import Actor, { ShaderInputType } from './actor'
 
 
 export default class GridMaterial extends Material {
 
-  heightLoc: WebGLUniformLocation
-  widthLoc: WebGLUniformLocation
-  thresholdLoc: WebGLUniformLocation
-  stepLoc: WebGLUniformLocation
-  offsetLoc: WebGLUniformLocation
+  heightLoc: WebGLUniformLocation | null = null
+  widthLoc: WebGLUniformLocation | null = null
+  thresholdLoc: WebGLUniformLocation | null = null
+  stepLoc: WebGLUniformLocation | null = null
+  offsetLoc: WebGLUniformLocation | null = null
 
   constructor () {
     super()
@@ -53,8 +53,12 @@ export default class GridMaterial extends Material {
 
   build (ctx: WebGLRenderingContext, shaderCache: ShaderCache) {
     super.build(ctx,shaderCache)
-    this.positionAttr = ctx.getAttribLocation(this.program, 'aPos')
-    
+    if (!this.program) {
+      return;
+    }
+
+    this.attributes.set(ShaderInputType.POSITION, ctx.getAttribLocation(this.program, 'aPos'))
+
     this.heightLoc = ctx.getUniformLocation(this.program, 'uHeight')
     this.widthLoc = ctx.getUniformLocation(this.program, 'uWidth')
     this.thresholdLoc = ctx.getUniformLocation(this.program, 'uThreshold')
