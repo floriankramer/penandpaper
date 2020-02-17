@@ -1,12 +1,12 @@
 <!--
  * Copyright 2020 Florian Kramer
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -62,14 +62,14 @@ export default class Chat extends Vue {
   }
 
   mounted () {
-    this.chatArea = this.$el.getElementsByClassName("chat-text").item(0) as HTMLDivElement;
+    this.chatArea = this.$el.getElementsByClassName('chat-text').item(0) as HTMLDivElement
   }
 
   onMessage (data : any) {
     let scroll = false
     if (this.chatArea !== undefined) {
       if (this.chatArea.scrollTop + this.chatArea.clientHeight >= this.chatArea.scrollHeight - 10) {
-        scroll = true;
+        scroll = true
       }
     }
     let m = new Message()
@@ -94,7 +94,6 @@ export default class Chat extends Vue {
           })
         }
       }, 50)
-
     }
   }
 

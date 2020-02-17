@@ -1,12 +1,12 @@
 <!--
  * Copyright 2020 Florian Kramer
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -104,7 +104,7 @@ export default class World extends Vue {
     return this.renderer.camera.screenToWorldSpace(sp)
   }
 
-  worldToScreenPos  (sp: Sim.Point) : Sim.Point {
+  worldToScreenPos (sp: Sim.Point) : Sim.Point {
     return this.renderer.camera.worldToScreenSpace(sp)
   }
 
@@ -112,117 +112,9 @@ export default class World extends Vue {
     let now = new Date().getTime()
 
     if (this.ctx !== null && this.canvas) {
-      // Assume that without zoom 10 meters are visible vertically
-      // Determine the visible area
-      // let visibleHeight: number = 10 / this.zoom
-      // let visibleWidth: number = visibleHeight * (this.canvas.width / this.canvas.height)
-
-      // let visible: Sim.Rectangle = new Sim.Rectangle()
-      // visible.minx = this.offx - visibleWidth / 2
-      // visible.maxx = this.offx + visibleWidth / 2
-      // visible.miny = this.offy - visibleHeight / 2
-      // visible.maxy = this.offy + visibleHeight / 2
-
       this.renderer.beginFrame()
       this.renderer.drawFrame()
       this.renderer.endFrame()
-
-      // // Clear the canvas
-      // ctx.resetTransform()
-
-      // ctx.fillStyle = '#333333'
-      // ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
-
-      // // Make 0,0 the center
-      // ctx.translate(this.canvas.width / 2, this.canvas.height / 2)
-      // // Apply the base scale
-      // ctx.scale(this.pixelPerMeter, this.pixelPerMeter)
-
-      // // apply the offset
-      // ctx.scale(this.zoom, this.zoom)
-      // ctx.translate(-this.offx, -this.offy)
-
-      // // Draw a 5x5 m grid centered on 0, 0 (0, 0 is a crossign point of two grid lines)
-      // let gridXMin = Math.floor(visible.minx / 5) * 5
-      // let gridYMin = Math.floor(visible.miny / 5) * 5
-      // let gridXMax = Math.ceil(visible.maxx / 5) * 5
-      // let gridYMax = Math.ceil(visible.maxy / 5) * 5
-
-      // ctx.beginPath()
-      // for (let x : number = gridXMin; x <= gridXMax; x += 5) {
-      //   ctx.moveTo(x, visible.miny)
-      //   ctx.lineTo(x, visible.maxy)
-      // }
-      // for (let y : number = gridYMin; y <= gridYMax; y += 5) {
-      //   ctx.moveTo(visible.minx, y)
-      //   ctx.lineTo(visible.maxx, y)
-      // }
-      // ctx.lineWidth = 1 / this.pixelPerMeter / this.zoom
-      // ctx.strokeStyle = '#4c4c4c'
-      // ctx.stroke()
-
-      // // Draw the current building
-      // if (this.currentBuilding !== undefined) {
-      //   ctx.lineWidth = this.computeLineWidth()
-      //   this.currentBuilding.render(ctx, this.$store.state.permissions > 0)
-      // }
-
-      // // Draw the lines
-      // ctx.strokeStyle = '#FFFFEE'
-      // ctx.lineWidth = this.computeLineWidth()
-      // ctx.beginPath()
-      // for (let line of this.lines) {
-      //   ctx.moveTo(line.start.x, line.start.y)
-      //   ctx.lineTo(line.stop.x, line.stop.y)
-      // }
-      // ctx.stroke()
-
-      // // Draw the tokens
-      // for (let token of this.tokens) {
-      //   ctx.beginPath()
-      //   ctx.arc(token.displayX, token.displayY, token.radius, 0, 2 * Math.PI)
-      //   ctx.fillStyle = token.color.toHex()
-      //   ctx.fill()
-
-      //   if (this.selected !== undefined && this.selected.id === token.id) {
-      //     if (token.isFoe) {
-      //       ctx.strokeStyle = '#FF0000'
-      //       ctx.lineWidth = 0.04
-      //       ctx.stroke()
-      //     } else {
-      //       ctx.strokeStyle = '#FFFFFF'
-      //       ctx.lineWidth = 0.03
-      //       ctx.stroke()
-      //     }
-      //   } else if (token.isFoe) {
-      //     ctx.strokeStyle = '#FF0000'
-      //     ctx.lineWidth = 0.05
-      //     ctx.stroke()
-      //   }
-      // }
-
-      // if (this.selected !== undefined) {
-      //   // Draw a line from the selected to the cursor
-      //   let worldPos = this.screenToWorldPos(new Sim.Point(this.lastMouseX, this.lastMouseY))
-      //   ctx.strokeStyle = '#696969'
-      //   ctx.lineWidth = 1.5 / this.pixelPerMeter / this.zoom
-
-      //   ctx.beginPath()
-      //   ctx.moveTo(this.selected.displayX, this.selected.displayY)
-      //   ctx.lineTo(worldPos.x, worldPos.y)
-      //   ctx.stroke()
-
-      //   // Draw a distance at the cursor
-      //   let dist = Math.hypot(worldPos.x - this.selected.displayX, worldPos.y - this.selected.displayY)
-      //   ctx.fillStyle = ctx.strokeStyle
-      //   this.setupScreenSpaceFont(ctx)
-      //   ctx.fillStyle = '#AAAAAA'
-      //   let transform = ctx.getTransform()
-      //   ctx.resetTransform()
-      //   ctx.fillText(dist.toFixed(2).toString() + 'm', this.lastMouseX + 20, this.lastMouseY - 20)
-      //   ctx.setTransform(transform)
-      // }
-      // this.tool.render(ctx)
     }
     let end: number = Date.now()
     console.log(end - now)
@@ -247,7 +139,7 @@ export default class World extends Vue {
   }
 
   resetCamera () {
-    this.renderer.camera.reset();
+    this.renderer.camera.reset()
     this.requestRedraw()
   }
 
@@ -364,17 +256,17 @@ export default class World extends Vue {
 
   setSelectedToken (selected: Sim.Token | undefined) {
     if (this.selected !== undefined) {
-        let a = this.tokenActors.get(this.selected.id) as TokenActor
-        if (a) {
-          a.setIsSelected(false)
-        }
+      let a = this.tokenActors.get(this.selected.id) as TokenActor
+      if (a) {
+        a.setIsSelected(false)
+      }
     }
     this.selected = selected
-        if (this.selected !== undefined) {
-        let a = this.tokenActors.get(this.selected.id) as TokenActor
-        if (a) {
-          a.setIsSelected(true)
-        }
+    if (this.selected !== undefined) {
+      let a = this.tokenActors.get(this.selected.id) as TokenActor
+      if (a) {
+        a.setIsSelected(true)
+      }
     }
   }
 
@@ -463,7 +355,7 @@ export default class World extends Vue {
     this.requestRedraw()
   }
 
-  initActors() {
+  initActors () {
     this.renderer.addActor(this.gridActor, 0)
   }
 
@@ -483,7 +375,7 @@ export default class World extends Vue {
         t.displayX += delta * t.displaySpeed * dx / l
         t.displayY += delta * t.displaySpeed * dy / l
       }
-      let a = this.tokenActors.get(t.id);
+      let a = this.tokenActors.get(t.id)
       if (a) {
         a.setPosition(t.displayX, t.displayY)
       }

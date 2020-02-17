@@ -1,15 +1,20 @@
 {
-  "parser": "@typescript-eslint/parser",
-  "parserOptions": {
-    "ecmaVersion": 2017,
-    "sourceType": "module",
-  },
-  "env": {
-    "es6": true
-  },
-  "overrides": {
-    "files": "src/**/*.js",
-    "excludedFiles": "src/lib/**/*.js"
-  }
+  "extends": [
+    "plugin:vue/essential",
+    "@vue/standard",
+    "@vue/typescript"
+  ],
+  // "parser": "@typescript-eslint/parser",
+  // "parserOptions": {
+  //   "ecmaVersion": 2017,
+  //   "sourceType": "module",
+  // },
+  // "env": {
+  //   "es6": true
+  // },
+  // "overrides": {
+  //   "files": "src/**/*.js",
+  //   "excludedFiles": "src/lib/**/*.js"
+  // }
 }
 

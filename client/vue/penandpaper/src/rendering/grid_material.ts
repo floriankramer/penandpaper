@@ -1,11 +1,25 @@
+/**
+ * Copyright 2020 Florian Kramer
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import Material from './material'
 import Camera from './camera'
 import ShaderCache from './shader_cache'
 import Actor, { ShaderInputType } from './actor'
 
-
 export default class GridMaterial extends Material {
-
   heightLoc: WebGLUniformLocation | null = null
   widthLoc: WebGLUniformLocation | null = null
   thresholdLoc: WebGLUniformLocation | null = null
@@ -52,9 +66,9 @@ export default class GridMaterial extends Material {
   }
 
   build (ctx: WebGLRenderingContext, shaderCache: ShaderCache) {
-    super.build(ctx,shaderCache)
+    super.build(ctx, shaderCache)
     if (!this.program) {
-      return;
+      return
     }
 
     this.attributes.set(ShaderInputType.POSITION, ctx.getAttribLocation(this.program, 'aPos'))
@@ -70,7 +84,7 @@ export default class GridMaterial extends Material {
     super.activate(ctx, shaderCache, cam, actor)
     ctx.uniform1f(this.heightLoc, cam.height)
     ctx.uniform1f(this.widthLoc, cam.height * cam.aspectRatio)
-    
+
     let pixelHeight = (cam.height * 2.0) / cam.heightPixels
     ctx.uniform1f(this.thresholdLoc, pixelHeight)
     ctx.uniform1f(this.stepLoc, 5)
