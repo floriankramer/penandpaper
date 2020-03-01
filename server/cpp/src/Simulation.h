@@ -16,27 +16,23 @@
 
 #pragma once
 
+#include <functional>
+#include <mutex>
 #include <string>
 #include <vector>
-#include <mutex>
 
 #include "Doodad.h"
+#include "Packet.h"
+#include "Player.h"
 #include "Token.h"
 #include "WebSocketServer.h"
+#include "building/BuildingManager.h"
+#include "IdGenerator.h"
 
 class Simulation {
-
   using MemberMsgHandler_t =
-      WebSocketServer::Response (Simulation::*)(const nlohmann::json &);
-
-  enum class Permissions { PLAYER, GAMEMASTER };
-
-  struct Player {
-    size_t id;
-    std::string uid;
-    Permissions permissions;
-    std::string name;
-  };
+      std::function<WebSocketServer::Response(const Packet &)>;
+  //      WebSocketServer::Response (Simulation::*)(const nlohmann::json &);
 
   struct Color {
     uint8_t r, g, b;
@@ -48,39 +44,36 @@ class Simulation {
   WebSocketServer::Response onNewClient();
   WebSocketServer::Response onMessage(const std::string &msg);
 
- private:
-
-  WebSocketServer::Response onCreateToken(const nlohmann::json &j);
-  WebSocketServer::Response onMoveToken(const nlohmann::json &j);
-  WebSocketServer::Response onDeleteToken(const nlohmann::json &j);
-  WebSocketServer::Response onChat(const nlohmann::json &j);
-  WebSocketServer::Response onCreateDoodadLine(const nlohmann::json &j);
-  WebSocketServer::Response onClearDoodads(const nlohmann::json &j);
-  WebSocketServer::Response onClearTokens(const nlohmann::json &j);
-  WebSocketServer::Response onTokenToggleFoe(const nlohmann::json &j);
-  WebSocketServer::Response onInitSession(const nlohmann::json &j);
-  WebSocketServer::Response onSetUsername(const nlohmann::json &j);
-  WebSocketServer::Response onSetBuilding(const nlohmann::json &j);
-  WebSocketServer::Response onToggleDoor(const nlohmann::json &j);
-
-  Token *tokenById(uint64_t id);
-
-  std::vector<std::string> splitWs(const std::string &s);
-
-  std::string cmdRollDice(const std::string &who, const std::vector<std::string> &cmd);
-  std::string cmdSetname(const std::string &who, const std::string &uid, const std::vector<std::string> &cmd);
-  std::string cmdHelp(const std::string &who, const std::string &uid, const std::vector<std::string> &cmd);
-
   /**
    * @return  The player with the uid or nullptr if no such player exists.
    */
   Player *getPlayer(const std::string &uid);
 
-  bool checkPermissions(const nlohmann::json &packet, Permissions min_perm);
+ private:
+  WebSocketServer::Response onCreateToken(const Packet &j);
+  WebSocketServer::Response onMoveToken(const Packet &j);
+  WebSocketServer::Response onDeleteToken(const Packet &j);
+  WebSocketServer::Response onChat(const Packet &j);
+  WebSocketServer::Response onCreateDoodadLine(const Packet &j);
+  WebSocketServer::Response onClearDoodads(const Packet &j);
+  WebSocketServer::Response onClearTokens(const Packet &j);
+  WebSocketServer::Response onTokenToggleFoe(const Packet &j);
+  WebSocketServer::Response onInitSession(const Packet &j);
+  WebSocketServer::Response onSetUsername(const Packet &j);
+
+  Token *tokenById(uint64_t id);
+
+  std::vector<std::string> splitWs(const std::string &s);
+
+  std::string cmdRollDice(const std::string &who,
+                          const std::vector<std::string> &cmd);
+  std::string cmdSetname(const std::string &who, const std::string &uid,
+                         const std::vector<std::string> &cmd);
+  std::string cmdHelp(const std::string &who, const std::string &uid,
+                      const std::vector<std::string> &cmd);
 
   Color nextColor();
 
-  size_t _next_id;
   size_t _next_color;
 
   unsigned int _rand_seed;
@@ -90,12 +83,13 @@ class Simulation {
 
   std::vector<Player> _players;
 
-  nlohmann::json _building_json;
-
   std::mutex _simulation_mutex;
 
   static const int NUM_COLORS = 11;
   static const Color COLORS[NUM_COLORS];
 
-  static const std::unordered_map<std::string, MemberMsgHandler_t> MSG_HANDLERS;
+  std::unordered_map<std::string, MemberMsgHandler_t> _msg_handlers;
+
+  BuildingManager _building_manager;
+  IdGenerator _id_generator;
 };

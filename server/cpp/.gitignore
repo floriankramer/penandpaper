@@ -1,2 +1,4 @@
 build
+.clangd
+compile-commands.json
 CMakeLists.txt.user*

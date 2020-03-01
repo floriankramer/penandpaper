@@ -21,21 +21,6 @@
 
 #include "Logger.h"
 
-const std::unordered_map<std::string, Simulation::MemberMsgHandler_t>
-    Simulation::MSG_HANDLERS = {
-        {"CreateToken", &Simulation::onCreateToken},
-        {"MoveToken", &Simulation::onMoveToken},
-        {"DeleteToken", &Simulation::onDeleteToken},
-        {"Chat", &Simulation::onChat},
-        {"CreateDoodadLine", &Simulation::onCreateDoodadLine},
-        {"ClearDoodads", &Simulation::onClearDoodads},
-        {"ClearTokens", &Simulation::onClearTokens},
-        {"TokenToggleFoe", &Simulation::onTokenToggleFoe},
-        {"InitSession", &Simulation::onInitSession},
-        {"SetUsername", &Simulation::onSetUsername},
-        {"SetBuilding", &Simulation::onSetBuilding},
-        {"ToggleDoor", &Simulation::onToggleDoor}};
-
 const Simulation::Color Simulation::COLORS[Simulation::NUM_COLORS] = {
     {240, 50, 50},   // red
     {176, 30, 90},   // burgund
@@ -50,8 +35,22 @@ const Simulation::Color Simulation::COLORS[Simulation::NUM_COLORS] = {
     {201, 201, 30}   // yellow
 };
 
-Simulation::Simulation() : _next_id(0), _next_color(0) {
+Simulation::Simulation() : _next_color(0), _building_manager(&_id_generator) {
   _rand_seed = time(NULL);
+  using std::placeholders::_1;
+  _msg_handlers = {
+      {"CreateToken", std::bind(&Simulation::onCreateToken, this, _1)},
+      {"MoveToken", std::bind(&Simulation::onMoveToken, this, _1)},
+      {"DeleteToken", std::bind(&Simulation::onDeleteToken, this, _1)},
+      {"Chat", std::bind(&Simulation::onChat, this, _1)},
+      {"CreateDoodadLine",
+       std::bind(&Simulation::onCreateDoodadLine, this, _1)},
+      {"ClearDoodads", std::bind(&Simulation::onClearDoodads, this, _1)},
+      {"ClearTokens", std::bind(&Simulation::onClearTokens, this, _1)},
+      {"TokenToggleFoe", std::bind(&Simulation::onTokenToggleFoe, this, _1)},
+      {"InitSession", std::bind(&Simulation::onInitSession, this, _1)},
+      {"SetUsername", std::bind(&Simulation::onSetUsername, this, _1)}};
+  _building_manager.registerPackets(_msg_handlers);
 }
 
 Token *Simulation::tokenById(uint64_t id) {
@@ -86,9 +85,8 @@ WebSocketServer::Response Simulation::onNewClient() {
     }
     data["doodads"] = _encoded_doodads;
 
-    data["building"] = _building_json;
+    data["building"] = _building_manager.toJson();
 
-    data["nextId"] = _next_id;
     data["nextColor"] = _next_color;
     answer["data"] = data;
     answer_str = answer.dump();
@@ -109,10 +107,10 @@ WebSocketServer::Response Simulation::onMessage(const std::string &msg) {
     LOG_DEBUG << "Received a message of type " << type << " : " << j.dump()
               << LOG_END;
     std::unordered_map<std::string, MemberMsgHandler_t>::const_iterator
-        handler_it = MSG_HANDLERS.find(type);
-    if (handler_it != MSG_HANDLERS.end()) {
+        handler_it = _msg_handlers.find(type);
+    if (handler_it != _msg_handlers.end()) {
       // call the handler
-      return (this->*(handler_it->second))(j);
+      return (handler_it->second)(Packet(j, this));
     }
 
     WebSocketServer::Response r;
@@ -138,32 +136,23 @@ Simulation::Color Simulation::nextColor() {
   return c;
 }
 
-WebSocketServer::Response Simulation::onCreateToken(const nlohmann::json &j) {
-  if (!checkPermissions(j, Permissions::GAMEMASTER)) {
-    nlohmann::json response;
-    response["type"] = "Error";
-
-    nlohmann::json resp_data;
-    resp_data["msg"] = "Missing permissions.";
-    resp_data["cause"] = j;
-
-    response["data"] = resp_data;
-    return {response.dump(), WebSocketServer::ResponseType::RETURN};
+WebSocketServer::Response Simulation::onCreateToken(const Packet &j) {
+  if (j.checkPermissions(Permissions::GAMEMASTER)) {
+    return j.makeMissingPermissionsResponse();
   }
   _tokens.emplace_back();
-  float x = j.at("data").at("x");
-  float y = j.at("data").at("y");
+  float x = j.json().at("data").at("x");
+  float y = j.json().at("data").at("y");
   Token &t = _tokens.back();
   t.x() = x;
   t.y() = y;
-  t.id() = _next_id;
+  t.id() = _id_generator();
   t.radius() = 0.25;
   t.is_enemy() = false;
   Color c = nextColor();
   t.r() = c.r;
   t.g() = c.g;
   t.b() = c.b;
-  _next_id++;
 
   nlohmann::json response;
   response["type"] = "CreateToken";
@@ -172,8 +161,8 @@ WebSocketServer::Response Simulation::onCreateToken(const nlohmann::json &j) {
   return {response.dump(), WebSocketServer::ResponseType::BROADCAST};
 }
 
-WebSocketServer::Response Simulation::onMoveToken(const nlohmann::json &j) {
-  nlohmann::json data = j.at("data");
+WebSocketServer::Response Simulation::onMoveToken(const Packet &j) {
+  nlohmann::json data = j.json().at("data");
   uint64_t id = data.at("id").get<uint64_t>();
   Token *t = tokenById(id);
   if (t != nullptr) {
@@ -183,20 +172,12 @@ WebSocketServer::Response Simulation::onMoveToken(const nlohmann::json &j) {
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
-WebSocketServer::Response Simulation::onDeleteToken(const nlohmann::json &j) {
-  if (!checkPermissions(j, Permissions::GAMEMASTER)) {
-    nlohmann::json response;
-    response["type"] = "Error";
-
-    nlohmann::json resp_data;
-    resp_data["msg"] = "Missing permissions.";
-    resp_data["cause"] = j;
-
-    response["data"] = resp_data;
-    return {response.dump(), WebSocketServer::ResponseType::RETURN};
+WebSocketServer::Response Simulation::onDeleteToken(const Packet &j) {
+  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
+    return j.makeMissingPermissionsResponse();
   }
   bool did_delete = false;
-  nlohmann::json data = j.at("data");
+  nlohmann::json data = j.json().at("data");
   uint64_t id = data.at("id").get<uint64_t>();
   for (size_t i = 0; i < _tokens.size(); i++) {
     if (_tokens[i].id() == id) {
@@ -215,10 +196,10 @@ WebSocketServer::Response Simulation::onDeleteToken(const nlohmann::json &j) {
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
-WebSocketServer::Response Simulation::onChat(const nlohmann::json &j) {
+WebSocketServer::Response Simulation::onChat(const Packet &j) {
   using nlohmann::json;
-  std::string uid = j.at("uid");
-  std::string msg = j.at("data").at("message");
+  std::string uid = j.json().at("uid");
+  std::string msg = j.json().at("data").at("message");
   std::string sender = "unknown";
 
   Player *player = getPlayer(uid);
@@ -227,7 +208,7 @@ WebSocketServer::Response Simulation::onChat(const nlohmann::json &j) {
   }
   if (msg[0] == '/') {
     WebSocketServer::Response resp;
-    json resp_json = j;
+    json resp_json = j.json();
     resp.type = WebSocketServer::ResponseType::BROADCAST;
 
     // The message is a command
@@ -265,71 +246,37 @@ WebSocketServer::Response Simulation::onChat(const nlohmann::json &j) {
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
-WebSocketServer::Response Simulation::onCreateDoodadLine(
-    const nlohmann::json &j) {
-  if (!checkPermissions(j, Permissions::GAMEMASTER)) {
-    nlohmann::json response;
-    response["type"] = "Error";
-
-    nlohmann::json resp_data;
-    resp_data["msg"] = "Missing permissions.";
-    resp_data["cause"] = j;
-
-    response["data"] = resp_data;
-    return {response.dump(), WebSocketServer::ResponseType::RETURN};
+WebSocketServer::Response Simulation::onCreateDoodadLine(const Packet &j) {
+  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
+    return j.makeMissingPermissionsResponse();
   }
   _doodad_lines.emplace_back();
   DoodadLine &d = _doodad_lines.back();
-  d.deserialize(j.at("data"));
+  d.deserialize(j.json().at("data"));
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
-WebSocketServer::Response Simulation::onClearDoodads(const nlohmann::json &j) {
-  if (!checkPermissions(j, Permissions::GAMEMASTER)) {
-    nlohmann::json response;
-    response["type"] = "Error";
-
-    nlohmann::json resp_data;
-    resp_data["msg"] = "Missing permissions.";
-    resp_data["cause"] = j;
-
-    response["data"] = resp_data;
-    return {response.dump(), WebSocketServer::ResponseType::RETURN};
+WebSocketServer::Response Simulation::onClearDoodads(const Packet &j) {
+  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
+    return j.makeMissingPermissionsResponse();
   }
   _doodad_lines.clear();
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
-WebSocketServer::Response Simulation::onClearTokens(const nlohmann::json &j) {
-  if (!checkPermissions(j, Permissions::GAMEMASTER)) {
-    nlohmann::json response;
-    response["type"] = "Error";
-
-    nlohmann::json resp_data;
-    resp_data["msg"] = "Missing permissions.";
-    resp_data["cause"] = j;
-
-    response["data"] = resp_data;
-    return {response.dump(), WebSocketServer::ResponseType::RETURN};
+WebSocketServer::Response Simulation::onClearTokens(const Packet &j) {
+  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
+    return j.makeMissingPermissionsResponse();
   }
   _tokens.clear();
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
-WebSocketServer::Response Simulation::onTokenToggleFoe(
-    const nlohmann::json &j) {
-  if (!checkPermissions(j, Permissions::GAMEMASTER)) {
-    nlohmann::json response;
-    response["type"] = "Error";
-
-    nlohmann::json resp_data;
-    resp_data["msg"] = "Missing permissions.";
-    resp_data["cause"] = j;
-
-    response["data"] = resp_data;
-    return {response.dump(), WebSocketServer::ResponseType::RETURN};
+WebSocketServer::Response Simulation::onTokenToggleFoe(const Packet &j) {
+  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
+    return j.makeMissingPermissionsResponse();
   }
-  nlohmann::json data = j.at("data");
+  nlohmann::json data = j.json().at("data");
   uint64_t id = data.at("id").get<uint64_t>();
   Token *t = tokenById(id);
   if (t != nullptr) {
@@ -339,9 +286,9 @@ WebSocketServer::Response Simulation::onTokenToggleFoe(
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
-WebSocketServer::Response Simulation::onInitSession(const nlohmann::json &j) {
+WebSocketServer::Response Simulation::onInitSession(const Packet &j) {
   using nlohmann::json;
-  json req_data = j.at("data");
+  json req_data = j.json().at("data");
   std::string uid = req_data.at("uid");
   Player *player = getPlayer(uid);
 
@@ -372,9 +319,9 @@ WebSocketServer::Response Simulation::onInitSession(const nlohmann::json &j) {
   return {response.dump(), WebSocketServer::ResponseType::RETURN};
 }
 
-WebSocketServer::Response Simulation::onSetUsername(const nlohmann::json &j) {
-  std::string uid = j.at("uid");
-  std::string newname = j.at("data").at("name");
+WebSocketServer::Response Simulation::onSetUsername(const Packet &j) {
+  std::string uid = j.json().at("uid");
+  std::string newname = j.json().at("data").at("name");
 
   LOG_INFO << "The player with uid " << uid << " is now called " << newname
            << LOG_END;
@@ -384,58 +331,6 @@ WebSocketServer::Response Simulation::onSetUsername(const nlohmann::json &j) {
     p->name = newname;
   }
   return {"", WebSocketServer::ResponseType::SILENCE};
-}
-
-WebSocketServer::Response Simulation::onSetBuilding(const nlohmann::json &j) {
-  if (!checkPermissions(j, Permissions::GAMEMASTER)) {
-    nlohmann::json response;
-    response["type"] = "Error";
-
-    nlohmann::json resp_data;
-    resp_data["msg"] = "Missing permissions.";
-    resp_data["cause"] = j;
-
-    response["data"] = resp_data;
-    return {response.dump(), WebSocketServer::ResponseType::RETURN};
-  }
-  _building_json = j.at("data");
-  return {"", WebSocketServer::ResponseType::FORWARD};
-}
-
-WebSocketServer::Response Simulation::onToggleDoor(const nlohmann::json &j) {
-  if (!checkPermissions(j, Permissions::GAMEMASTER)) {
-    nlohmann::json response;
-    response["type"] = "Error";
-
-    nlohmann::json resp_data;
-    resp_data["msg"] = "Missing permissions.";
-    resp_data["cause"] = j;
-
-    response["data"] = resp_data;
-    return {response.dump(), WebSocketServer::ResponseType::RETURN};
-  }
-  try {
-    if (!_building_json.is_null()) {
-      // Toggle all doors in the building by modifying the json
-      // TODO: parse the json and use a class for storing buildings
-      nlohmann::json &doors = _building_json.at("doors");
-      for (const nlohmann::json &jid : j.at("data").at("ids")) {
-        for (nlohmann::json &door : doors) {
-          LOG_DEBUG << "Comparing two door ids " << door.at("id").get<int>() << " and " << jid.get<int>()<< LOG_END;
-          if (door.at("id").get<int>() == jid.get<int>()) {
-            LOG_DEBUG << "toggeling door" << LOG_END;
-            door["isOpen"] = !door.at("isOpen").get<bool>();
-          }
-        }
-      }
-    }
-  } catch (const std::exception &e) {
-    LOG_ERROR << "Caught an exception while trying to update the building json "
-                 "by toggling doors: "
-              << e.what() << LOG_END;
-  }
-
-  return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
 std::string Simulation::cmdRollDice(const std::string &who,
@@ -530,23 +425,11 @@ std::vector<std::string> Simulation::splitWs(const std::string &s) {
   return parts;
 }
 
-Simulation::Player *Simulation::getPlayer(const std::string &uid) {
+Player *Simulation::getPlayer(const std::string &uid) {
   for (Player &p : _players) {
     if (p.uid == uid) {
       return &p;
     }
   }
   return nullptr;
-}
-
-bool Simulation::checkPermissions(const nlohmann::json &packet,
-                                  Permissions min_perm) {
-  if (packet.contains("uid")) {
-    std::string uid = packet.at("uid");
-    Player *p = getPlayer(uid);
-    if (p != nullptr) {
-      return p->permissions == min_perm;
-    }
-  }
-  return false;
 }

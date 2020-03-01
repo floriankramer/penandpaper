@@ -47,6 +47,9 @@ if (BUILD_ATLAS_MODULE)
   add_subdirectory(atlas)
 endif ()
 
+add_subdirectory(geometry)
+add_subdirectory(building)
+
 add_executable(penandpaper-server main.cpp
   HttpServer.cpp HttpServer.h
   WebSocketServer.cpp WebSocketServer.h
@@ -54,7 +57,12 @@ add_executable(penandpaper-server main.cpp
   Logger.h
   Token.cpp Token.h
   Doodad.cpp Doodad.h
-  Serializeable.h)
+  Serializeable.h
+  Util.h
+  Packet.cpp Packet.h
+  Permissions.h
+  Player.h
+  IdGenerator.cpp IdGenerator.h)
 
-target_link_libraries(penandpaper-server OpenSSL::SSL ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(penandpaper-server building geometry OpenSSL::SSL ${CMAKE_THREAD_LIBS_INIT})
 
