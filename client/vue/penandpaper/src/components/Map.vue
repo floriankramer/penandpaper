@@ -34,6 +34,7 @@ import ToolLine from '../tools/tool_line'
 import ToolRoom from '../tools/tool_room'
 import ToolDoor from '../tools/tool_door'
 import ToolFurniture from '../tools/tool_furniture'
+import ToolReveal from '../tools/tool_reveal'
 import * as B from '../simulation/building'
 
 enum MouseAction {
@@ -568,6 +569,8 @@ export default class Map extends Vue {
       this.tool = new ToolDoor(this)
     } else if (type === 'furniture') {
       this.tool = new ToolFurniture(this)
+    } else if (type === 'reveal') {
+      this.tool = new ToolReveal(this)
     }
   }
 
