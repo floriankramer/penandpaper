@@ -1,12 +1,12 @@
 /**
  * Copyright 2020 Florian Kramer
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -171,39 +171,52 @@ export class Door {
 export class Wall {
   start: Sim.Point = new Sim.Point(0, 0)
   stop: Sim.Point = new Sim.Point(0, 0)
+  visible: boolean = false
 
   constructor (start: Sim.Point, stop: Sim.Point) {
     this.start = start
     this.stop = stop
   }
 
-  render (ctx: CanvasRenderingContext2D, pass: number = 0) {
-    if (pass === 0) {
-      // draw the outline
-      ctx.fillStyle = '#111111'
-      let wt2 = (WALL_THICKNESS / 2 + WALL_OUTLINE) * (this.start.x < this.stop.x ? 1 : -1)
-      let ht2 = (WALL_THICKNESS / 2 + WALL_OUTLINE) * (this.start.y < this.stop.y ? 1 : -1)
+  render (ctx: CanvasRenderingContext2D, pass: number = 0, isGm: boolean = true) {
+    if (this.visible || isGm) {
+      let initAlpha = ctx.globalAlpha
+      if (!this.visible) {
+        ctx.globalAlpha = 0.5
+      }
+      if (pass === 0) {
+        // draw the outline
+        ctx.fillStyle = '#111111'
+        let wt2 = (WALL_THICKNESS / 2 + WALL_OUTLINE) * (this.start.x < this.stop.x ? 1 : -1)
+        let ht2 = (WALL_THICKNESS / 2 + WALL_OUTLINE) * (this.start.y < this.stop.y ? 1 : -1)
 
-      ctx.fillRect(this.start.x - wt2, this.start.y - ht2, this.stop.x - this.start.x + 2 * wt2, this.stop.y - this.start.y + 2 * ht2)
-    } else if (pass === 1) {
-      // draw the center
-      ctx.fillStyle = '#222222'
-      let wt2 = WALL_THICKNESS / 2 * (this.start.x < this.stop.x ? 1 : -1)
-      let ht2 = WALL_THICKNESS / 2 * (this.start.y < this.stop.y ? 1 : -1)
+        ctx.fillRect(this.start.x - wt2, this.start.y - ht2, this.stop.x - this.start.x + 2 * wt2, this.stop.y - this.start.y + 2 * ht2)
+      } else if (pass === 1) {
+        // draw the center
+        ctx.fillStyle = '#222222'
+        let wt2 = WALL_THICKNESS / 2 * (this.start.x < this.stop.x ? 1 : -1)
+        let ht2 = WALL_THICKNESS / 2 * (this.start.y < this.stop.y ? 1 : -1)
 
-      ctx.fillRect(this.start.x - wt2, this.start.y - ht2, this.stop.x - this.start.x + 2 * wt2, this.stop.y - this.start.y + 2 * ht2)
+        ctx.fillRect(this.start.x - wt2, this.start.y - ht2, this.stop.x - this.start.x + 2 * wt2, this.stop.y - this.start.y + 2 * ht2)
+      }
+      ctx.globalAlpha = initAlpha
     }
   }
 
   toSerializable () : any {
     return {
       start: this.start.toSerializable(),
-      stop: this.stop.toSerializable()
+      stop: this.stop.toSerializable(),
+      visible: this.visible
     }
   }
 
   static fromSerializable (data: any) : Wall {
-    return new Wall(Sim.Point.fromSerializable(data.start), Sim.Point.fromSerializable(data.stop))
+    let w =  new Wall(Sim.Point.fromSerializable(data.start), Sim.Point.fromSerializable(data.stop))
+    if ('visible' in data) {
+      w.visible = data.visible
+    }
+    return w
   }
 }
 
@@ -259,38 +272,37 @@ export class Room {
   }
 
   render (ctx: CanvasRenderingContext2D, pass: number = 0, isGm: boolean = true) {
-    if (!this.isVisible && !isGm) {
-      return
-    }
-    let initAlpha = ctx.globalAlpha
-    if (!this.isVisible) {
-      ctx.globalAlpha = 0.5
-    }
-    if (pass === 0) {
-      // Draw the floor
-      ctx.fillStyle = '#444444'
-      ctx.fillRect(this.min.x, this.min.y, this.width(), this.height())
+    if (this.isVisible || isGm) {
+      let initAlpha = ctx.globalAlpha
+      if (!this.isVisible) {
+        ctx.globalAlpha = 0.5
+      }
+      if (pass === 0) {
+        // Draw the floor
+        ctx.fillStyle = '#444444'
+        ctx.fillRect(this.min.x, this.min.y, this.width(), this.height())
 
-      ctx.strokeStyle = '#FFFFFF'
-      ctx.beginPath()
-      ctx.moveTo(this.min.x, this.min.y)
-      ctx.lineTo(this.max.x, this.min.y)
-      ctx.lineTo(this.max.x, this.max.y)
-      ctx.lineTo(this.min.x, this.max.y)
-      ctx.lineTo(this.min.x, this.min.y)
-      ctx.stroke()
+        ctx.strokeStyle = '#FFFFFF'
+        ctx.beginPath()
+        ctx.moveTo(this.min.x, this.min.y)
+        ctx.lineTo(this.max.x, this.min.y)
+        ctx.lineTo(this.max.x, this.max.y)
+        ctx.lineTo(this.min.x, this.max.y)
+        ctx.lineTo(this.min.x, this.min.y)
+        ctx.stroke()
+      }
+
+      // Draw the furniture
+      this.furniture.forEach(f => {
+        f.render(ctx, pass)
+      })
+      ctx.globalAlpha = initAlpha
     }
-    // Draw the walls
+
+    // Draw the walls. Walls could be independently visible
     this.walls.forEach(wall => {
-      wall.render(ctx, pass)
+      wall.render(ctx, pass, isGm)
     })
-
-    // Draw the furniture
-    this.furniture.forEach(f => {
-      f.render(ctx, pass)
-    })
-
-    ctx.globalAlpha = initAlpha
   }
 
   contains (x: number, y: number, margin: number = 0) : boolean {
@@ -445,6 +457,9 @@ export class Building {
     for (let i = 0; i < this.rooms.length; ++i) {
       if (this.rooms[i].contains(pos.x, pos.y)) {
         this.rooms[i].isVisible = true
+        this.rooms[i].walls.forEach(w => {
+          w.visible = true
+        })
         for (let j = 0; j < this.doors.length; ++j) {
           let door = this.doors[j]
           if (this.rooms[i].contains(door.position.x, door.position.y, 0.2)) {
@@ -452,6 +467,27 @@ export class Building {
           }
         }
       }
+    }
+  }
+
+  revealWallAt (pos: Sim.Point) {
+    let roomIdx = -1
+    let wallIdx = -1
+    let minDist = 5
+    for (let i = 0; i < this.rooms.length; ++i) {
+      for (let j = 0; j < this.rooms[i].walls.length; ++j) {
+        let w = this.rooms[i].walls[j]
+        let center = new Sim.Point((w.start.x + w.stop.x) / 2, (w.start.y + w.stop.y) / 2)
+        let dist = Math.hypot(center.x - pos.x, center.y - pos.y)
+        if (dist < minDist) {
+          minDist = dist
+          roomIdx = i
+          wallIdx = j
+        }
+      }
+    }
+    if (roomIdx >= 0) {
+      this.rooms[roomIdx].walls[wallIdx].visible = true
     }
   }
 
