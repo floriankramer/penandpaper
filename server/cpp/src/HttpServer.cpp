@@ -62,6 +62,7 @@ void HttpServer::run() {
     if (realpath == "/index.html") {
       if (_do_keycheck &&
           (!req.has_param("key") || req.get_param_value("key") != key)) {
+        LOG_INFO << "A client failed the ip check." << std::endl;
         resp.body = "Invalid or missing key";
         resp.status = 200;
         return;
@@ -105,6 +106,7 @@ void HttpServer::run() {
     try {
       LOG_INFO << "Stating the http server on 8082..." << LOG_END;
       server.listen("0.0.0.0", 8082);
+      std::this_thread::sleep_for(std::chrono::seconds(15));
     } catch (const std::exception &e) {
       LOG_ERROR << "Unable to listen on 0.0.0.0:8082 : " << e.what() << LOG_END;
       std::this_thread::sleep_for(std::chrono::seconds(15));

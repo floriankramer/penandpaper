@@ -40,6 +40,7 @@ import TokenActor from '../rendering/token_actor'
 import Actor from '../rendering/actor'
 import DiffuseMaterial from '../rendering/diffuse_material'
 import * as B from '../simulation/building'
+import FontActor from '../rendering/fontactor'
 
 enum MouseAction {
   NONE,
@@ -149,93 +150,93 @@ export default class World extends Vue {
   }
 
   addRoom (room: B.Room) {
-    if (this.currentBuilding === undefined) {
-      this.currentBuilding = new B.Building()
-    }
-    this.currentBuilding.addRoom(room)
-    this.requestRedraw()
+    // if (this.currentBuilding === undefined) {
+    //   this.currentBuilding = new B.Building()
+    // }
+    // this.currentBuilding.addRoom(room)
+    // this.requestRedraw()
   }
 
   addFurniture (f: B.Furniture) {
-    if (this.currentBuilding === undefined) {
-      this.currentBuilding = new B.Building()
-    }
-    this.currentBuilding.addFurniture(f)
-    this.requestRedraw()
+    // if (this.currentBuilding === undefined) {
+    //   this.currentBuilding = new B.Building()
+    // }
+    // this.currentBuilding.addFurniture(f)
+    // this.requestRedraw()
   }
 
   addDoor (door: B.Door) {
-    if (this.currentBuilding === undefined) {
-      this.currentBuilding = new B.Building()
-    }
-    this.currentBuilding.addDoor(door)
-    this.requestRedraw()
+    // if (this.currentBuilding === undefined) {
+    //   this.currentBuilding = new B.Building()
+    // }
+    // this.currentBuilding.addDoor(door)
+    // this.requestRedraw()
   }
 
   removeRoomAt (wx: number, wy: number) {
-    if (this.currentBuilding !== undefined) {
-      this.currentBuilding.removeRoomAt(wx, wy)
-    }
+    // if (this.currentBuilding !== undefined) {
+    //   this.currentBuilding.removeRoomAt(wx, wy)
+    // }
   }
 
   removeFurnitureAt (pos: Sim.Point) {
-    if (this.currentBuilding !== undefined) {
-      this.currentBuilding.removeFurnitureAt(pos)
-    }
+    // if (this.currentBuilding !== undefined) {
+    //   this.currentBuilding.removeFurnitureAt(pos)
+    // }
   }
 
   getFurnitureAt (pos: Sim.Point): B.Furniture | undefined {
-    if (this.currentBuilding !== undefined) {
-      return this.currentBuilding.getFurnitureAt(pos)
-    }
+    // if (this.currentBuilding !== undefined) {
+    //   return this.currentBuilding.getFurnitureAt(pos)
+    // }
     return undefined
   }
 
   removeDoorAt (wx: number, wy: number) {
-    if (this.currentBuilding !== undefined) {
-      this.currentBuilding.removeDoorAt(wx, wy)
-    }
+    // if (this.currentBuilding !== undefined) {
+    //   this.currentBuilding.removeDoorAt(wx, wy)
+    // }
   }
 
   canToggleDoorAt (wx: number, wy: number) : boolean {
-    if (this.$store.state.permissions === 1) {
-      if (this.currentBuilding !== undefined) {
-        return this.currentBuilding.isDoorAt(wx, wy)
-      }
-      return false
-    }
+    // if (this.$store.state.permissions === 1) {
+    //   if (this.currentBuilding !== undefined) {
+    //     return this.currentBuilding.isDoorAt(wx, wy)
+    //   }
+    //   return false
+    // }
     return false
   }
 
   getDoorsAt (wx: number, wy: number) : B.Door[] {
-    if (this.currentBuilding !== undefined) {
-      return this.currentBuilding.getDoorsAt(wx, wy)
-    }
+    // if (this.currentBuilding !== undefined) {
+    //   return this.currentBuilding.getDoorsAt(wx, wy)
+    // }
     return []
   }
 
   getRoomAt (pos: Sim.Point) : B.Room | undefined {
-    if (this.currentBuilding !== undefined) {
-      return this.currentBuilding.getRoomAt(pos)
-    }
+    // if (this.currentBuilding !== undefined) {
+    //   return this.currentBuilding.getRoomAt(pos)
+    // }
     return undefined
   }
 
   onServerToggleDoor (doors: number[]) {
-    if (this.currentBuilding !== undefined) {
-      // TODO: synchronize
-      let b = this.currentBuilding.toggleDoors(doors)
-      this.requestRedraw()
-      return b
-    }
-    return false
+    // if (this.currentBuilding !== undefined) {
+    //   // TODO: synchronize
+    //   let b = this.currentBuilding.toggleDoors(doors)
+    //   this.requestRedraw()
+    //   return b
+    // }
+    // return false
   }
 
   revealRoomsAt (wpos: Sim.Point) {
-    if (this.currentBuilding !== undefined) {
-      this.currentBuilding.revealRoomsAt(wpos)
-      eventBus.$emit('/client/building/set', this.currentBuilding)
-    }
+    // if (this.currentBuilding !== undefined) {
+    //   this.currentBuilding.revealRoomsAt(wpos)
+    //   eventBus.$emit('/client/building/set', this.currentBuilding)
+    // }
   }
 
   /**
@@ -336,7 +337,7 @@ export default class World extends Vue {
 
     this.ctx = this.canvas.getContext('webgl')
     if (this.ctx) {
-      this.renderer.ctx = this.ctx
+      this.renderer.gl = this.ctx
       this.renderer.init()
       this.renderer.onResize(this.canvas.width, this.canvas.height)
       this.initActors()
@@ -357,6 +358,10 @@ export default class World extends Vue {
 
   initActors () {
     this.renderer.addActor(this.gridActor, 0)
+    let f = new FontActor()
+    f.setText('Hello World!')
+    this.renderer.addActor(f, 1)
+    this.renderer.addActor(new FontActor(), 1)
   }
 
   updateMovingTokens () {

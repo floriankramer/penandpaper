@@ -19,10 +19,11 @@ import Matrix from './matrix'
 
 export enum ShaderInputType {
   POSITION,
-  VERTEX_COLOR
+  VERTEX_COLOR,
+  TEXTURE_COORD
 }
 
-const ShaderInputTypeSize = [2, 4]
+const ShaderInputTypeSize = [2, 4, 2]
 
 export default class Actor {
   material: Material = new Material()
@@ -57,7 +58,7 @@ export default class Actor {
     for (const input of this.vertexShaderInput) {
       let attrPos = this.material.attributes.get(input[0])
       let vbo = this.vbos.get(input[0])
-      if (attrPos && vbo) {
+      if (attrPos !== undefined && vbo !== undefined) {
         ctx.bindBuffer(ctx.ARRAY_BUFFER, vbo)
         ctx.vertexAttribPointer(
           attrPos,
@@ -75,6 +76,14 @@ export default class Actor {
     let positions = this.vertexShaderInput.get(ShaderInputType.POSITION)
     if (positions) {
       ctx.drawArrays(ctx.TRIANGLES, 0, positions.length / 2)
+    }
+
+    for (const input of this.vertexShaderInput) {
+      let attrPos = this.material.attributes.get(input[0])
+      let vbo = this.vbos.get(input[0])
+      if (attrPos !== undefined && vbo !== undefined) {
+        ctx.disableVertexAttribArray(attrPos)
+      }
     }
   }
 

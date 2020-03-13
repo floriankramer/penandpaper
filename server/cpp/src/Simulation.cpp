@@ -137,7 +137,7 @@ Simulation::Color Simulation::nextColor() {
 }
 
 WebSocketServer::Response Simulation::onCreateToken(const Packet &j) {
-  if (j.checkPermissions(Permissions::GAMEMASTER)) {
+  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
   }
   _tokens.emplace_back();

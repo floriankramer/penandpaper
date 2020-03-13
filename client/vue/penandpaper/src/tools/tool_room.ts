@@ -81,30 +81,30 @@ export default class ToolRoom extends Tool {
   }
 
   updateRoom () {
-    this.currentRoom.min.x = Math.min(this.start.x, this.stop.x)
-    this.currentRoom.min.y = Math.min(this.start.y, this.stop.y)
-    this.currentRoom.max.x = Math.max(this.start.x, this.stop.x)
-    this.currentRoom.max.y = Math.max(this.start.y, this.stop.y)
+    // this.currentRoom.min.x = Math.min(this.start.x, this.stop.x)
+    // this.currentRoom.min.y = Math.min(this.start.y, this.stop.y)
+    // this.currentRoom.max.x = Math.max(this.start.x, this.stop.x)
+    // this.currentRoom.max.y = Math.max(this.start.y, this.stop.y)
   }
 
   render (ctx: CanvasRenderingContext2D) {
-    if (this.isDrawing) {
-      // Draw the lines
-      this.updateRoom()
-      ctx.lineWidth = this.map.computeLineWidth()
-      this.currentRoom.render(ctx)
+    // if (this.isDrawing) {
+    //   // Draw the lines
+    //   this.updateRoom()
+    //   ctx.lineWidth = this.map.computeLineWidth()
+    //   this.currentRoom.render(ctx)
 
-      let text = this.currentRoom.width().toFixed(1) + 'm x ' + this.currentRoom.height().toFixed(1) + 'm'
-      ctx.fillStyle = '#FFFFFF'
-      this.map.setupScreenSpaceFont(ctx)
-      let screenSpacePos = this.map.worldToScreenPos(new Sim.Point(this.currentRoom.max.x, this.currentRoom.max.y))
-      let transform = ctx.getTransform()
-      ctx.resetTransform()
-      ctx.fillText(text, screenSpacePos.x + 10, screenSpacePos.y)
-      ctx.setTransform(transform)
-    } else {
-      ctx.lineWidth = this.map.computeLineWidth()
-      this.currentRoom.render(ctx)
-    }
+    //   let text = this.currentRoom.width().toFixed(1) + 'm x ' + this.currentRoom.height().toFixed(1) + 'm'
+    //   ctx.fillStyle = '#FFFFFF'
+    //   this.map.setupScreenSpaceFont(ctx)
+    //   let screenSpacePos = this.map.worldToScreenPos(new Sim.Point(this.currentRoom.max.x, this.currentRoom.max.y))
+    //   let transform = ctx.getTransform()
+    //   ctx.resetTransform()
+    //   ctx.fillText(text, screenSpacePos.x + 10, screenSpacePos.y)
+    //   ctx.setTransform(transform)
+    // } else {
+    //   ctx.lineWidth = this.map.computeLineWidth()
+    //   this.currentRoom.render(ctx)
+    // }
   }
 }

@@ -101,6 +101,7 @@ void WebSocketServer::run() {
       _socket.start_accept();
       LOG_INFO << "Starting the wss server on 8081" << LOG_END;
       _socket.run();
+      std::this_thread::sleep_for(std::chrono::seconds(15));
     } catch (const std::exception &e) {
       LOG_ERROR << "A socket error occured in the wss server: " << e.what()
                 << LOG_END;

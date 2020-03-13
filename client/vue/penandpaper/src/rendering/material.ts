@@ -29,7 +29,6 @@ export default class Material {
   attributes: Map<ShaderInputType, number> = new Map()
 
   build (ctx: WebGLRenderingContext, shaderCache: ShaderCache) {
-    // TODO: cache the program and reuse it where possible
     this.isBuilt = true
     let cached = shaderCache.getProgram(this.vertexShaderSrc, this.fragmentShaderSrc)
     if (cached !== undefined) {

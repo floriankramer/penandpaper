@@ -81,24 +81,24 @@ export default class ToolDoor extends Tool {
   }
 
   updateDoor () {
-    let delta = new Sim.Point(this.stop.x - this.start.x, this.stop.y - this.start.y)
-    this.currentDoor.facing = delta.normalized()
-    this.currentDoor.facing.toCardinalDirection()
-    if (this.useStandardDoor) {
-      this.currentDoor.width = this.standardDoorWidth
-    } else {
-      this.currentDoor.width = delta.length()
-    }
+    // let delta = new Sim.Point(this.stop.x - this.start.x, this.stop.y - this.start.y)
+    // this.currentDoor.facing = delta.normalized()
+    // this.currentDoor.facing.toCardinalDirection()
+    // if (this.useStandardDoor) {
+    //   this.currentDoor.width = this.standardDoorWidth
+    // } else {
+    //   this.currentDoor.width = delta.length()
+    // }
 
-    if (Math.abs(this.currentDoor.facing.x) < 0.5) {
-      // snap to y
-      this.currentDoor.position.x = this.start.x
-      this.currentDoor.position.y = Math.round(this.start.y * this.accuracy) / this.accuracy
-    } else {
-      // snap to x
-      this.currentDoor.position.x = Math.round(this.start.x * this.accuracy) / this.accuracy
-      this.currentDoor.position.y = this.start.y
-    }
+    // if (Math.abs(this.currentDoor.facing.x) < 0.5) {
+    //   // snap to y
+    //   this.currentDoor.position.x = this.start.x
+    //   this.currentDoor.position.y = Math.round(this.start.y * this.accuracy) / this.accuracy
+    // } else {
+    //   // snap to x
+    //   this.currentDoor.position.x = Math.round(this.start.x * this.accuracy) / this.accuracy
+    //   this.currentDoor.position.y = this.start.y
+    // }
   }
 
   render (ctx: CanvasRenderingContext2D) {

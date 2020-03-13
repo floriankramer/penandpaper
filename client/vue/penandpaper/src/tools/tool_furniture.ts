@@ -44,7 +44,7 @@ export default class ToolFurniture extends Tool {
       if (f !== undefined) {
         this.currentFurniture = B.Furniture.fromSerializable(f.toSerializable())
         this.isCloning = true
-        let c = this.currentFurniture.center()
+        let c = this.currentFurniture.position
         this.cloningOffset.x = c.x - worldPos.x
         this.cloningOffset.y = c.y - worldPos.y
       }
@@ -70,7 +70,7 @@ export default class ToolFurniture extends Tool {
           this.rotatedFurniture = undefined
         } else {
           this.isRotating = true
-          this.rotationPivot = this.rotatedFurniture.center()
+          this.rotationPivot = this.rotatedFurniture.position
         }
       }
     } else {
@@ -122,29 +122,29 @@ export default class ToolFurniture extends Tool {
   }
 
   updateFurniture () {
-    this.currentFurniture.min.x = Math.min(this.start.x, this.stop.x)
-    this.currentFurniture.min.y = Math.min(this.start.y, this.stop.y)
-    this.currentFurniture.max.x = Math.max(this.start.x, this.stop.x)
-    this.currentFurniture.max.y = Math.max(this.start.y, this.stop.y)
+    // this.currentFurniture.min.x = Math.min(this.start.x, this.stop.x)
+    // this.currentFurniture.min.y = Math.min(this.start.y, this.stop.y)
+    // this.currentFurniture.max.x = Math.max(this.start.x, this.stop.x)
+    // this.currentFurniture.max.y = Math.max(this.start.y, this.stop.y)
   }
 
   render (ctx: CanvasRenderingContext2D) {
-    if (this.isDrawing || this.isCloning) {
-      // Draw the lines
-      if (this.isDrawing) {
-        this.updateFurniture()
-      }
-      ctx.lineWidth = this.map.computeLineWidth()
-      this.currentFurniture.render(ctx)
+    // if (this.isDrawing || this.isCloning) {
+    //   // Draw the lines
+    //   if (this.isDrawing) {
+    //     this.updateFurniture()
+    //   }
+    //   ctx.lineWidth = this.map.computeLineWidth()
+    //   this.currentFurniture.render(ctx)
 
-      let text = this.currentFurniture.width().toFixed(1) + 'm x ' + this.currentFurniture.height().toFixed(1) + 'm'
-      ctx.fillStyle = '#FFFFFF'
-      this.map.setupScreenSpaceFont(ctx)
-      let screenSpacePos = this.map.worldToScreenPos(new Sim.Point(this.currentFurniture.max.x, this.currentFurniture.max.y))
-      let transform = ctx.getTransform()
-      ctx.resetTransform()
-      ctx.fillText(text, screenSpacePos.x + 10, screenSpacePos.y)
-      ctx.setTransform(transform)
-    }
+    //   let text = this.currentFurniture.width().toFixed(1) + 'm x ' + this.currentFurniture.height().toFixed(1) + 'm'
+    //   ctx.fillStyle = '#FFFFFF'
+    //   this.map.setupScreenSpaceFont(ctx)
+    //   let screenSpacePos = this.map.worldToScreenPos(new Sim.Point(this.currentFurniture.max.x, this.currentFurniture.max.y))
+    //   let transform = ctx.getTransform()
+    //   ctx.resetTransform()
+    //   ctx.fillText(text, screenSpacePos.x + 10, screenSpacePos.y)
+    //   ctx.setTransform(transform)
+    // }
   }
 }

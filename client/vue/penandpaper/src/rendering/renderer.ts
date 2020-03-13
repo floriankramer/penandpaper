@@ -18,43 +18,48 @@ import Actor from './actor'
 import Camera from './camera'
 import DiffuseMaterial from './diffuse_material'
 import ShaderCache from './shader_cache'
+import { FontLoader } from './fontloader'
 
 export default class Renderer {
   sceneTree: Actor[][] = []
   camera: Camera = new Camera()
 
-  ctx?: WebGLRenderingContext
+  gl?: WebGLRenderingContext
 
   shaderCache: ShaderCache = new ShaderCache()
 
   init () {
-    if (this.ctx === undefined) {
+    if (this.gl === undefined) {
       return
     }
-    this.ctx.clearColor(0, 0, 0, 1)
-    this.ctx.disable(this.ctx.DEPTH_TEST)
-    this.ctx.disable(this.ctx.CULL_FACE)
+    // Prepare the sdf font
+    FontLoader.loadFont('sans-serif', this.gl)
+    this.gl.clearColor(0, 0, 0, 1)
+    this.gl.disable(this.gl.DEPTH_TEST)
+    this.gl.disable(this.gl.CULL_FACE)
+    this.gl.enable(this.gl.BLEND)
+    this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA)
     this.camera.reset()
   }
 
   beginFrame () {
-    if (this.ctx === undefined) {
+    if (this.gl === undefined) {
       return
     }
-    this.ctx.clear(WebGLRenderingContext.COLOR_BUFFER_BIT)
+    this.gl.clear(WebGLRenderingContext.COLOR_BUFFER_BIT)
     this.camera.updateMatrix()
   }
 
   drawFrame () {
-    if (this.ctx === undefined) {
+    if (this.gl === undefined) {
       return
     }
-    let ctx: WebGLRenderingContext = this.ctx
+    let gl: WebGLRenderingContext = this.gl
     this.sceneTree.forEach(actors => {
       actors.forEach(actor => {
-        actor.material.activate(ctx, this.shaderCache, this.camera, actor)
-        actor.activate(ctx)
-        actor.callDraw(ctx)
+        actor.material.activate(gl, this.shaderCache, this.camera, actor)
+        actor.activate(gl)
+        actor.callDraw(gl)
       })
     })
   }
@@ -83,8 +88,8 @@ export default class Renderer {
   onResize (width: number, height: number) {
     this.camera.aspectRatio = width / height
     this.camera.heightPixels = height
-    if (this.ctx) {
-      this.ctx.viewport(0, 0, width, height)
+    if (this.gl) {
+      this.gl.viewport(0, 0, width, height)
     }
   }
 }

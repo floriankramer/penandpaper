@@ -19,7 +19,7 @@
     <div class="login-popup">
       <div class="login-centered-content">
         <span>Please enter a username:</span>
-        <input autofocus="true" v-on:keyup.enter="onInputEnter" v-model="username"/>
+        <input autofocus="true" v-on:keyup.enter="onInputEnter" v-model="username" style="margin-right: 10px;"/>
         <button v-on:click="onOkClicked">ok</button>
       </div>
     </div>
