@@ -15,37 +15,39 @@
 -->
 
 <template>
-  <div class="toolbar-container">
-    <label>
-      <input type="radio" name="current_tool" value='view' v-model='currentTool' v-on:change='onToolView'>
-      <img src="images/eye.svg" width="38" height="38">
-    </label>
-    <label>
-      <input type="radio" name="current_tool" value='token' v-model='currentTool' v-on:change='onToolToken'>
-      <img src="images/circle.svg" width="38" height="38">
-    </label>
-    <label>
-      <input type="radio" name="current_tool" value='line' v-model='currentTool' v-on:change='onToolLine'>
-      <img src="images/line.svg" width="38" height="38">
-    </label>
-    <label>
-      <input type="radio" name="current_tool" value='room' v-model='currentTool' v-on:change='onToolRoom'>
-      <img src="images/room.svg" width="38" height="38">
-    </label>
-    <label>
-      <input type="radio" name="current_tool" value='door' v-model='currentTool' v-on:change='onToolDoor'>
-      <img src="images/door.svg" width="38" height="38">
-    </label>
-    <label>
-      <input type="radio" name="current_tool" value='furniture' v-model='currentTool' v-on:change='onToolFurniture'>
-      <img src="images/table.svg" width="38" height="38">
-    </label>
+  <div>
+    <div class="toolbar-container">
+      <label>
+        <input type="radio" name="current_tool" value='view' v-model='currentTool' v-on:change='onToolView'>
+        <img src="images/eye.svg" width="38" height="38">
+      </label>
+      <label>
+        <input type="radio" name="current_tool" value='token' v-model='currentTool' v-on:change='onToolToken'>
+        <img src="images/circle.svg" width="38" height="38">
+      </label>
+      <label>
+        <input type="radio" name="current_tool" value='line' v-model='currentTool' v-on:change='onToolLine'>
+        <img src="images/line.svg" width="38" height="38">
+      </label>
+      <label>
+        <input type="radio" name="current_tool" value='room' v-model='currentTool' v-on:change='onToolRoom'>
+        <img src="images/room.svg" width="38" height="38">
+      </label>
+      <label>
+        <input type="radio" name="current_tool" value='door' v-model='currentTool' v-on:change='onToolDoor'>
+        <img src="images/door.svg" width="38" height="38">
+      </label>
+      <label>
+        <input type="radio" name="current_tool" value='furniture' v-model='currentTool' v-on:change='onToolFurniture'>
+        <img src="images/table.svg" width="38" height="38">
+      </label>
 
-    <button class="toolbar-align-right toolbar-center-verticaly" v-on:click="clearBuilding">Clear Building</button>
-    <button class="toolbar-align-right toolbar-center-verticaly" v-on:click="saveBuilding">Save Building</button>
-    <input type="file" class="toolbar-align-right toolbar-center-verticaly" v-on:change="loadBuilding" accept=".json"/>
-    <button class="toolbar-align-right toolbar-center-verticaly" v-on:click="clearTokens">Clear Tokens</button>
-    <button class="toolbar-align-right toolbar-margin-right toolbar-center-verticaly" v-on:click="clearDoodads">Clear Doodads</button>
+      <button class="toolbar-align-right toolbar-center-verticaly" v-on:click="clearBuilding">Clear Building</button>
+      <button class="toolbar-align-right toolbar-center-verticaly" v-on:click="saveBuilding">Save Building</button>
+      <input type="file" class="toolbar-align-right toolbar-center-verticaly" v-on:change="loadBuilding" accept=".json"/>
+      <button class="toolbar-align-right toolbar-center-verticaly" v-on:click="clearTokens">Clear Tokens</button>
+      <button class="toolbar-align-right toolbar-margin-right toolbar-center-verticaly" v-on:click="clearDoodads">Clear Doodads</button>
+    </div>
   </div>
 </template>
 
@@ -111,11 +113,12 @@ export default class Toolbar extends Vue {
 
 <style scoped>
 div .toolbar-container {
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  top: 0px;
-  bottom: 0px;
+  height: calc(100% - 5px);
+  width: calc(100% - 20px);
+  padding-left: 10px;
+  padding-right: 10px;
+  padding-top: 5px;
+  background-color: rgb(51, 51, 51);
 }
 
 .toolbar-align-right {

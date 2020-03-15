@@ -77,6 +77,9 @@ export default class World extends Vue {
 
   currentBuilding?: B.Building = undefined
 
+  lastCanvasWidth: number = 0
+  lastCanvasHeight: number = 0
+
   constructor () {
     super()
 
@@ -98,6 +101,9 @@ export default class World extends Vue {
   }
 
   requestRedraw () {
+    if (this.lastCanvasWidth !== this.$el.clientWidth || this.lastCanvasHeight !== this.$el.clientHeight) {
+      this.onResize()
+    }
     requestAnimationFrame(this.renderMap)
   }
 
@@ -345,25 +351,28 @@ export default class World extends Vue {
 
     // Handle window resizes
     window.addEventListener('resize', (ev: UIEvent) => {
-      if (this.canvas) {
-        this.canvas.width = this.$el.clientWidth
-        this.canvas.height = this.$el.clientHeight
-        this.renderer.onResize(this.canvas.width, this.canvas.height)
-        this.requestRedraw()
-        this.pixelPerMeter = this.canvas.height / 10
-      }
+      this.onResize()
+    })
+    document.addEventListener('DockSpawnResizedEvent', () => {
+      this.onResize()
     })
     this.requestRedraw()
   }
 
+  onResize () {
+    this.lastCanvasWidth = this.$el.clientWidth
+    this.lastCanvasHeight = this.$el.clientHeight
+    if (this.canvas) {
+      this.canvas.width = this.$el.clientWidth
+      this.canvas.height = this.$el.clientHeight
+      this.renderer.onResize(this.canvas.width, this.canvas.height)
+      this.requestRedraw()
+      this.pixelPerMeter = this.canvas.height / 10
+    }
+  }
+
   initActors () {
     this.renderer.addActor(this.gridActor, 0)
-    let f = new FontActor()
-    f.setText('Hello World!')
-    f.translate(10, 0)
-    f.scale(5, 5)
-    this.renderer.addActor(f, 1)
-    this.renderer.addActor(new FontActor(), 1)
   }
 
   updateMovingTokens () {

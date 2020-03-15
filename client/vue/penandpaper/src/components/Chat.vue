@@ -16,15 +16,18 @@
 
 <template>
   <div class="chat-area">
-    <div id="chat-text" class="chat-text">
-      <dl>
-        <template v-for="chat in chatHistory">
-          <dt v-bind:key="'sender' + chat.id">{{chat.from}}</dt>
-          <dd v-bind:key="'msg' + chat.id" v-html="chat.text"></dd>
-        </template>
-      </dl>
+    <!-- We need a second container here for the docking library, as paddings break otherwise. -->
+    <div class="chat-flex-container">
+      <div id="chat-text" class="chat-text">
+        <dl>
+          <template v-for="chat in chatHistory">
+            <dt v-bind:key="'sender' + chat.id">{{chat.from}}</dt>
+            <dd v-bind:key="'msg' + chat.id" v-html="chat.text"></dd>
+          </template>
+        </dl>
+      </div>
+      <input class="chat-input" v-model="currentText" v-on:keyup.up="up" v-on:keyup.down="down" v-on:keyup.enter="send"/>
     </div>
-    <input class="chat-input" v-model="currentText" v-on:keyup.up="up" v-on:keyup.down="down" v-on:keyup.enter="send"/>
   </div>
 </template>
 
@@ -137,12 +140,13 @@ export default class Chat extends Vue {
 </script>
 
 <style scoped>
-div .chat-area {
+
+div .chat-flex-container {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  padding-bottom: 5px;
-  padding-top: 5px;
+  background-color: rgb(51, 51, 51);
+  height: calc(100% - 20px);
+  padding: 10px;
 }
 
 div .chat-text {

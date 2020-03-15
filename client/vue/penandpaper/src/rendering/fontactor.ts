@@ -32,7 +32,7 @@ export default class GridActor extends Actor {
     this.vertexShaderInput.set(ShaderInputType.TEXTURE_COORD, uv)
   }
 
-  setText(text: string) {
+  setText (text: string) {
     this.text = text
     this.textDirty = true
   }

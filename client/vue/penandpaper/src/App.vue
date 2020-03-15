@@ -17,22 +17,11 @@
 <template>
   <div id="app">
     <CriticalError v-if="hasCriticalError">{{criticalErrorString}}</CriticalError>
-    <template v-else-if="hasUsername">
-      <div class="categorybar">
-        <button>Game</button>
-        <button>Map Editor</button>
-      </div>
-      <div class="topbar">
-        <div v-if="isGamemaster">
-          <Toolbar></Toolbar>
-        </div>
-      </div>
-      <div class="sidebar">
-        <Chat></Chat>
-      </div>
-      <Map class="content-area"/>
-    </template>
-    <template v-else>
+    <div id="dock-container"></div>
+    <Toolbar id="toolbar"></Toolbar>
+    <Chat id="chat"></Chat>
+    <Map id="map" class="content-area"/>
+    <template v-if="noUsername">
       <Login v-bind:server="server"></Login>
     </template>
   </div>
@@ -47,6 +36,13 @@ import Map from './components/Map.vue'
 import CriticalError from './components/CriticalError.vue'
 import Server from './components/server'
 import { MutationPayload } from 'vuex'
+
+import { DockManager } from 'dock-spawn-ts/lib/js/DockManager'
+import { PanelContainer } from 'dock-spawn-ts/lib/js/PanelContainer'
+import { PanelType } from 'dock-spawn-ts/lib/js/enums/PanelContainerType'
+
+import 'dock-spawn-ts/lib/css/dock-manager.css'
+import 'dock-spawn-ts/lib/css/dock-manager-style.css'
 
 @Component({
   components: {
@@ -63,8 +59,11 @@ export default class App extends Vue {
   hasCriticalError:boolean = false;
   criticalErrorString:string = '';
 
-  hasUsername: boolean = false;
+  noUsername: boolean = true;
   isGamemaster: boolean = false;
+
+  dockManager?: DockManager = undefined
+  dockManagerDiv : HTMLElement | null = null
 
   mounted () {
     console.log('The app has been mounted')
@@ -75,13 +74,58 @@ export default class App extends Vue {
     this.$store.subscribe((mutation: MutationPayload, state: any) => {
       if (mutation.type === 'setUsername') {
         if (state.username.length > 0) {
-          app.hasUsername = true
+          app.noUsername = false
         }
       }
       if (mutation.type === 'setPermissions') {
         app.isGamemaster = state.permissions > 0
       }
     })
+
+    this.dockManagerDiv = document.getElementById('dock-container')
+    if (this.dockManagerDiv) {
+      // Initialize the dock manager
+      this.dockManager = new DockManager(this.dockManagerDiv)
+      this.dockManager.initialize()
+      this.dockManager.resize(this.$el.clientWidth,
+        this.$el.clientHeight)
+
+      // dock the elements
+      let documentNode = this.dockManager.context.model.documentManagerNode
+      // The map
+      let mapDiv = document.getElementById('map')
+      if (mapDiv) {
+        let mapContainer = new PanelContainer(mapDiv, this.dockManager)
+        mapContainer.setTitle('Map')
+        this.dockManager.dockFill(documentNode, mapContainer)
+      }
+      // The Chat
+      let chatDiv = document.getElementById('chat')
+      if (chatDiv) {
+        let chatContainer = new PanelContainer(chatDiv, this.dockManager)
+        chatContainer.setTitle('Chat')
+        this.dockManager.dockRight(documentNode, chatContainer, 0.2)
+      }
+      // The Toolbar
+      let toolbarDiv = document.getElementById('toolbar')
+      if (toolbarDiv) {
+        let toolbarContainer = new PanelContainer(toolbarDiv, this.dockManager)
+        toolbarContainer.setTitle('Toolbar')
+        this.dockManager.dockUp(documentNode, toolbarContainer, 0.15)
+      }
+
+      // Trigger a round of resizes by firing the dock library's custom resize event
+      let dockSpawnResizedEvent = new CustomEvent('DockSpawnResizedEvent', { composed: true, bubbles: true })
+      document.dispatchEvent(dockSpawnResizedEvent)
+    } else {
+      this.criticalErrorString = 'Unable to initalize the ui.'
+    }
+    window.onresize = () => {
+      if (this.dockManager !== undefined && this.dockManagerDiv !== null) {
+        this.dockManager.resize(this.$el.clientWidth,
+          this.$el.clientHeight)
+      }
+    }
   }
 
   onConnectError () {
@@ -92,13 +136,14 @@ export default class App extends Vue {
 </script>
 
 <style>
+
 body {
   font-family: 'Avenir', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: white;
   background-color: rgb(51, 51, 51);
-  font-size: 14pt;
+  font-size: 13pt;
 }
 
 input {
@@ -128,51 +173,33 @@ button {
   position: absolute;
 }
 
-div .categorybar {
-  position: absolute;
+#dock-container {
+  top: 0px;
   left: 0px;
-  width: 0px;
-  top: 0px;
-  bottom: 0px;
-  overflow: hidden;
-}
-
-div .categorybar button {
-  writing-mode: vertical-rl;
-  text-orientation: upright;
-  text-align: center;
-  line-height: 0px;
-  width: 40px;
-}
-
-div .sidebar {
-  width: 350px;
-  position: absolute;
-  top: 0px;
   bottom: 0px;
   right: 0px;
-  background-color: rgb(51, 51, 51);
-  color: white;
-  box-shadow: -3px 0px 5px black;
-  padding-left: 10px;
-  padding-right: 10px;
+  position: relative;
 }
 
-div .topbar {
-  position: absolute;
-  left: 0px;
-  top: 0px;
-  height: 40px;
-  right: 380px;
-  border-bottom: 2px solid black;
+/** Overwrite some of the dock library's default css */
+.dockspan-tab-handle-list-container {
+    background-color: rgb(41, 41, 41);
 }
 
-.content-area {
-  position: absolute;
-  top: 42px;
-  left: 0px;
-  bottom: 0px;
-  right: 380px;
+.dockspan-tab-content {
+    background-color: rgb(41, 41, 41);
+}
+
+.dockspan-tab-content > * {
+    background-color: rgb(41, 41, 41);
+}
+
+.panel-titlebar-button-close {
+  display: none !important;
+}
+
+.dockspan-tab-handle-close-button {
+  display: none !important;
 }
 
 /** Image radio buttons: https://stackoverflow.com/questions/17541614/use-images-instead-of-radio-buttons*/

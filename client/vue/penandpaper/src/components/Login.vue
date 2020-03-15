@@ -52,7 +52,7 @@ export default class Login extends Vue {
   height: 100%;
   left: 0px;
   top: 0px;
-  background-color: rgba(70, 70, 70, 0.5);
+  background-color: rgba(71, 71, 71, 1);
 }
 
 .login-popup {
