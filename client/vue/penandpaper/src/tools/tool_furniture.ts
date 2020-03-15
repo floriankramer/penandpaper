@@ -19,6 +19,7 @@ import Map from '../components/Map.vue'
 import * as Sim from '../simulation/simulation'
 import eventBus from '../eventbus'
 import * as B from '../simulation/building'
+import Renderer from '../rendering/renderer'
 
 export default class ToolFurniture extends Tool {
   isDrawing: boolean = false
@@ -128,7 +129,7 @@ export default class ToolFurniture extends Tool {
     // this.currentFurniture.max.y = Math.max(this.start.y, this.stop.y)
   }
 
-  render (ctx: CanvasRenderingContext2D) {
+  render (renderer: Renderer) {
     // if (this.isDrawing || this.isCloning) {
     //   // Draw the lines
     //   if (this.isDrawing) {

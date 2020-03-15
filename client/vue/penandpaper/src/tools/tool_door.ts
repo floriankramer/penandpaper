@@ -19,6 +19,7 @@ import Map from '../components/Map.vue'
 import * as Sim from '../simulation/simulation'
 import eventBus from '../eventbus'
 import * as B from '../simulation/building'
+import Renderer from '../rendering/renderer'
 
 export default class ToolDoor extends Tool {
   isDrawing: boolean = false
@@ -101,19 +102,6 @@ export default class ToolDoor extends Tool {
     // }
   }
 
-  render (ctx: CanvasRenderingContext2D) {
-    if (this.isDrawing) {
-      ctx.lineWidth = this.map.computeLineWidth()
-      this.currentDoor.render(ctx)
-
-      let text = this.currentDoor.width.toFixed(1) + 'm'
-      ctx.fillStyle = '#FFFFFF'
-      this.map.setupScreenSpaceFont(ctx)
-      let screenSpacePos = this.map.worldToScreenPos(new Sim.Point(this.currentDoor.position.x, this.currentDoor.position.y))
-      let transform = ctx.getTransform()
-      ctx.resetTransform()
-      ctx.fillText(text, screenSpacePos.x + 10, screenSpacePos.y)
-      ctx.setTransform(transform)
-    }
+  render (renderer: Renderer) {
   }
 }

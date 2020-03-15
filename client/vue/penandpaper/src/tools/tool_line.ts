@@ -18,6 +18,7 @@ import Tool from './tool'
 import Map from '../components/Map.vue'
 import * as Sim from '../simulation/simulation'
 import eventBus from '../eventbus'
+import Renderer from '../rendering/renderer'
 
 export default class ToolToken extends Tool {
   isDrawing: boolean = false
@@ -78,15 +79,15 @@ export default class ToolToken extends Tool {
     return false
   }
 
-  render (ctx: CanvasRenderingContext2D) {
-    if (this.isDrawing) {
-      // Draw the lines
-      ctx.strokeStyle = '#FFFFEE'
-      ctx.lineWidth = this.map.computeLineWidth()
-      ctx.beginPath()
-      ctx.moveTo(this.lastLineStop.x, this.lastLineStop.y)
-      ctx.lineTo(this.currentLineStop.x, this.currentLineStop.y)
-      ctx.stroke()
-    }
+  render (renderer: Renderer) {
+    // if (this.isDrawing) {
+    //   // Draw the lines
+    //   ctx.strokeStyle = '#FFFFEE'
+    //   ctx.lineWidth = this.map.computeLineWidth()
+    //   ctx.beginPath()
+    //   ctx.moveTo(this.lastLineStop.x, this.lastLineStop.y)
+    //   ctx.lineTo(this.currentLineStop.x, this.currentLineStop.y)
+    //   ctx.stroke()
+    // }
   }
 }

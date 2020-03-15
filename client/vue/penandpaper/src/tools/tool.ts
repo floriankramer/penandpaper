@@ -26,7 +26,7 @@ export default class Tool {
 
   isDragging: boolean = false
 
-  fontActor: FontActor = new FontActor
+  fontActor: FontActor = new FontActor()
 
   shouldDrawText = false
   isDrawingText = false
@@ -124,16 +124,18 @@ export default class Tool {
     }
 
     if (this.map.hasSelection()) {
-      let t : Sim.Token = this.map.getSelection()
-      let mp : Sim.Point = this.map.getLastMousePos()
-      let wmp = renderer.camera.screenToWorldSpace(mp)
-      let d = wmp.distTo(new Sim.Point(t.x, t.y))
+      let t : Sim.Token | undefined = this.map.getSelection()
+      if (t) {
+        let mp : Sim.Point = this.map.getLastMousePos()
+        let wmp = renderer.camera.screenToWorldSpace(mp)
+        let d = wmp.distTo(new Sim.Point(t.x, t.y))
 
-      // Make the font 30 px high
-      let scale = renderer.camera.screenToWorldSpaceDist(30)
-      this.fontActor.setText(d.toFixed(2).toString() + 'm')
-      this.fontActor.setPosition(wmp.x, wmp.y)
-      this.fontActor.setScale(scale, scale)
+        // Make the font 30 px high
+        let scale = renderer.camera.screenToWorldSpaceDist(30)
+        this.fontActor.setText(d.toFixed(2).toString() + 'm')
+        this.fontActor.setPosition(wmp.x, wmp.y)
+        this.fontActor.setScale(scale, scale)
+      }
     }
 
     if (!this.shouldDrawText && this.isDrawingText) {

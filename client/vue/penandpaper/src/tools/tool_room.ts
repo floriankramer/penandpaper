@@ -19,6 +19,7 @@ import Map from '../components/Map.vue'
 import * as Sim from '../simulation/simulation'
 import eventBus from '../eventbus'
 import * as B from '../simulation/building'
+import Renderer from '../rendering/renderer'
 
 export default class ToolRoom extends Tool {
   isDrawing: boolean = false
@@ -87,7 +88,7 @@ export default class ToolRoom extends Tool {
     // this.currentRoom.max.y = Math.max(this.start.y, this.stop.y)
   }
 
-  render (ctx: CanvasRenderingContext2D) {
+  render (renderer: Renderer) {
     // if (this.isDrawing) {
     //   // Draw the lines
     //   this.updateRoom()
