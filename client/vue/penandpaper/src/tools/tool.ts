@@ -18,10 +18,18 @@ import Map from '../components/Map.vue'
 import * as Sim from '../simulation/simulation'
 import eventbus from '../eventbus'
 
+import FontActor from '../rendering/fontactor'
+import Renderer from '../rendering/renderer'
+
 export default class Tool {
   map: Map
 
   isDragging: boolean = false
+
+  fontActor: FontActor = new FontActor
+
+  shouldDrawText = false
+  isDrawingText = false
 
   constructor (map: Map) {
     this.map = map
@@ -59,6 +67,7 @@ export default class Tool {
       consumeEvent = true
     }
     this.map.setLastMousePos(event.offsetX, event.offsetY)
+    this.shouldDrawText = this.map.hasSelection()
     return consumeEvent
   }
 
@@ -108,6 +117,28 @@ export default class Tool {
     return consumeEvent
   }
 
-  render (ctx: CanvasRenderingContext2D) {
+  render (renderer: Renderer) {
+    if (this.shouldDrawText && !this.isDrawingText) {
+      this.isDrawingText = true
+      renderer.addActor(this.fontActor, 4)
+    }
+
+    if (this.map.hasSelection()) {
+      let t : Sim.Token = this.map.getSelection()
+      let mp : Sim.Point = this.map.getLastMousePos()
+      let wmp = renderer.camera.screenToWorldSpace(mp)
+      let d = wmp.distTo(new Sim.Point(t.x, t.y))
+
+      // Make the font 30 px high
+      let scale = renderer.camera.screenToWorldSpaceDist(30)
+      this.fontActor.setText(d.toFixed(2).toString() + 'm')
+      this.fontActor.setPosition(wmp.x, wmp.y)
+      this.fontActor.setScale(scale, scale)
+    }
+
+    if (!this.shouldDrawText && this.isDrawingText) {
+      this.isDrawingText = false
+      renderer.removeActor(this.fontActor)
+    }
   }
 }

@@ -119,6 +119,7 @@ export default class World extends Vue {
     let now = new Date().getTime()
 
     if (this.ctx !== null && this.canvas) {
+      this.tool.render(this.renderer)
       this.renderer.beginFrame()
       this.renderer.drawFrame()
       this.renderer.endFrame()
@@ -145,6 +146,10 @@ export default class World extends Vue {
     return this.selected !== undefined
   }
 
+  getSelection () : Sim.Token | undefined {
+    return this.selected
+  }
+
   resetCamera () {
     this.renderer.camera.reset()
     this.requestRedraw()
@@ -153,6 +158,10 @@ export default class World extends Vue {
   setLastMousePos (sx: number, sy: number) {
     this.lastMouseX = sx
     this.lastMouseY = sy
+  }
+
+  getLastMousePos () : Sim.Point {
+    return new Sim.Point(this.lastMouseX, this.lastMouseY)
   }
 
   addRoom (room: B.Room) {
@@ -439,14 +448,10 @@ export default class World extends Vue {
 
   onServerState (data: ServerState) {
     // Copy the list of tokens
-    // this.tokens.push(...data.tokens)
     this.lines.push(...data.lines)
 
     data.tokens.forEach((t : Sim.Token) => {
       this.onNewToken(t)
-      // t.displayX = t.x
-      // t.displayY = t.y
-      // this.createTokenActor(t)
     })
 
     if (data.building !== null) {

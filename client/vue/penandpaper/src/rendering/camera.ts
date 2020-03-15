@@ -67,4 +67,12 @@ export default class Camera {
   worldToScreenSpace (sp: Sim.Point) : Sim.Point {
     return new Sim.Point(((sp.x - this.x) / this.height + this.aspectRatio) / 2 * this.heightPixels, -((sp.y - this.y) / this.height + 1) / 2 * this.heightPixels)
   }
+
+  screenToWorldSpaceDist (d: number) : number {
+    return d / this.heightPixels * 2 * this.height
+  }
+
+  worldToScreenSpaceDist (d: number) : number {
+    return d / this.height / 2 * this.heightPixels
+  }
 }
