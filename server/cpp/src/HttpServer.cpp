@@ -140,8 +140,10 @@ std::string HttpServer::guessMimeType(const std::string &path) {
     return "image/jpeg";
   } else if (ending.empty() || ending == "htm" || ending == "html") {
     return "text/html";
-  } else if (ending.empty() || ending == "svg") {
+  } else if (ending == "svg") {
     return "image/svg+xml";
+  } else if (ending == "json") {
+    return "application/json";
   } else {
     return "application/octet-stream";
   }

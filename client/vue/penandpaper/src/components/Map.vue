@@ -360,6 +360,8 @@ export default class World extends Vue {
     this.renderer.addActor(this.gridActor, 0)
     let f = new FontActor()
     f.setText('Hello World!')
+    f.translate(10, 0)
+    f.scale(5, 5)
     this.renderer.addActor(f, 1)
     this.renderer.addActor(new FontActor(), 1)
   }

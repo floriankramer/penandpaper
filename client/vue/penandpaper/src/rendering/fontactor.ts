@@ -19,6 +19,9 @@ import FontMaterial from './fontmaterial'
 import * as F from './fontloader'
 
 export default class GridActor extends Actor {
+  text: string = ''
+  textDirty = false
+
   constructor () {
     super()
     this.material = new FontMaterial()
@@ -30,50 +33,61 @@ export default class GridActor extends Actor {
   }
 
   setText(text: string) {
+    this.text = text
+    this.textDirty = true
+  }
+
+  activate (ctx: WebGLRenderingContext) {
+    if (this.textDirty && F.FontLoader.default.ready) {
+      this.rebuildMesh()
+    }
+    super.activate(ctx)
+  }
+
+  rebuildMesh () {
     let font: F.Font = F.FontLoader.default
+    let s = font.scale
     let offX = 0
     let positions: number[] = []
     let uv: number[] = []
-    for (let i = 0; i < text.length; ++i) {
-      if (text[i] == ' ') {
-        // TODO: this is a hack
-        offX += 1
-        continue
-      }
-      let g = font.glyphs.get(text[i])
+    for (let i = 0; i < this.text.length; ++i) {
+      let g = font.glyphs.get(this.text[i])
       if (g === undefined) {
         g = font.glyphs.get('a')
         if (g === undefined) {
           continue
         }
       }
-      console.log(g)
-      let sx = offX + g.bearingX
-      let offY = g.bearingY - g.height
-      positions.push(
-        // first triangle
-        sx, offY + g.height,
-        sx, offY,
-        sx + g.width, offY + g.height,
-        // second triangle
-        sx + g.width, offY + g.height,
-        sx, offY,
-        sx + g.width, offY
-      )
-      uv.push(
-        // first triangle
-        g.uMin, g.vMin,
-        g.uMin, g.vMax,
-        g.uMax, g.vMin,
-        // second triangle
-        g.uMax, g.vMin,
-        g.uMin, g.vMax,
-        g.uMax, g.vMax
-      )
-      offX += g.advance
+      if (g.character !== ' ') {
+        console.log(g)
+        let sx = offX + g.bearingX * s
+        let offY = (g.bearingY - g.height) * s
+        positions.push(
+          // first triangle
+          sx, offY + g.height * s,
+          sx, offY,
+          sx + g.width * s, offY + g.height * s,
+          // second triangle
+          sx + g.width * s, offY + g.height * s,
+          sx, offY,
+          sx + g.width * s, offY
+        )
+        uv.push(
+          // first triangle
+          g.uMin, g.vMin,
+          g.uMin, g.vMax,
+          g.uMax, g.vMin,
+          // second triangle
+          g.uMax, g.vMin,
+          g.uMin, g.vMax,
+          g.uMax, g.vMax
+        )
+      }
+      offX += g.advance * s
     }
     this.vertexShaderInput.set(ShaderInputType.POSITION, positions)
     this.vertexShaderInput.set(ShaderInputType.TEXTURE_COORD, uv)
     this.setVertexDataChanged()
+    this.textDirty = false
   }
 }

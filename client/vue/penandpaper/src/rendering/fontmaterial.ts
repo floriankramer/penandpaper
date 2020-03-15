@@ -61,10 +61,17 @@ export default class FontMaterial extends Material {
 
       varying vec2 vUV;
 
+      float median(float r, float g, float b) {
+        return max(min(r, g), min(max(r, g), b));
+      }
+
       void main() {
         vec4 val = texture2D(uFontTexture, vUV);
-        float cutoff = step(0.75, val.r);
-        gl_FragColor = uColor * cutoff;
+        float d = median(val.r, val.g, val.b);
+        d = clamp(d * 2.0, 0.0, 1.0);
+        d = clamp(d * 2.0 - 1.0, 0.0, 1.0);
+        // d = 1.0 - clamp(0.5 - d, 0.0, 1.0);
+        gl_FragColor = uColor * d;
       }
     `
   }

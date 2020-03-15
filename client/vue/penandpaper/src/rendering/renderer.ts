@@ -33,7 +33,7 @@ export default class Renderer {
       return
     }
     // Prepare the sdf font
-    FontLoader.loadFont('sans-serif', this.gl)
+    FontLoader.loadPrecomputedFont('res/font', this.gl)
     this.gl.clearColor(0, 0, 0, 1)
     this.gl.disable(this.gl.DEPTH_TEST)
     this.gl.disable(this.gl.CULL_FACE)

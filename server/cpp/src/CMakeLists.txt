@@ -49,6 +49,7 @@ endif ()
 
 add_subdirectory(geometry)
 add_subdirectory(building)
+add_subdirectory(fontrenderer)
 
 add_executable(penandpaper-server main.cpp
   HttpServer.cpp HttpServer.h

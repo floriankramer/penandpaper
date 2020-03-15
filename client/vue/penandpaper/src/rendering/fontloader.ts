@@ -1,4 +1,5 @@
 import TinySDF from 'tiny-sdf'
+import $ from 'jquery'
 
 export class Glyph {
   character: string = ''
@@ -11,11 +12,71 @@ export class Glyph {
   bearingY: number = 0 // the distance from the origin to the top of the glyph
   width: number = 0 // the width of the glyph
   height: number = 0 // the height of the glyph
+
+  static fromJson (src: any): Glyph {
+    let g = new Glyph()
+    g.character = src['character']
+    g.uMin = src['uMin']
+    g.uMax = src['uMax']
+    g.vMin = src['vMin']
+    g.vMax = src['vMax']
+    g.advance = src['advance']
+    g.bearingX = src['bearingX']
+    g.bearingY = src['bearingY']
+    g.width = src['width']
+    g.height = src['height']
+    return g
+  }
 }
 
 export class Font {
   texture: WebGLTexture | null = null
   glyphs: Map<string, Glyph> = new Map()
+  // A scaling factor for a font size of 1
+  scale: number = 1
+  ready: boolean = false
+
+  loadPrecomputed (url: string, gl: WebGLRenderingContext) {
+    this.texture = gl.createTexture()
+    if (this.texture === null) {
+      console.log('Error: Unable to create a texture for the fonts.')
+      return
+    }
+    gl.bindTexture(gl.TEXTURE_2D, this.texture)
+    // Upload the data into a luminance texture
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1,
+      0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4))
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+
+    // Load the actual texture
+    const img = new Image()
+    img.onload = () => {
+      gl.bindTexture(gl.TEXTURE_2D, this.texture)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,
+        gl.RGBA, gl.UNSIGNED_BYTE, img)
+    }
+    img.src = url + '.png'
+
+    // Load the glyph info
+    $.get(url + '.json', (data) => {
+      let src = data
+      if (src instanceof String) {
+        src = JSON.parse(data)
+      }
+      let maxTop: number = 0
+      let minBot: number = 0
+      src.forEach((rawG: any) => {
+        let g: Glyph = Glyph.fromJson(rawG)
+        maxTop = Math.max(maxTop, g.bearingY)
+        minBot = Math.min(minBot, g.height - g.bearingY)
+        this.glyphs.set(g.character, g)
+      })
+      this.scale = 1 / (maxTop - minBot)
+      console.log('Font scale: ', this.scale)
+      this.ready = true
+    })
+  }
 
   load (fontname: string, gl: WebGLRenderingContext) {
     if (this.texture != null) {
@@ -86,7 +147,7 @@ export class Font {
     gl.bindTexture(gl.TEXTURE_2D, this.texture)
     // Upload the data into a luminance texture
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, textureSize, textureSize,
-                  0, gl.LUMINANCE, gl.UNSIGNED_BYTE, buffer)
+      0, gl.LUMINANCE, gl.UNSIGNED_BYTE, buffer)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 
@@ -111,6 +172,10 @@ export class Font {
 
 export class FontLoader {
   static default: Font = new Font()
+
+  static loadPrecomputedFont (url: string, gl: WebGLRenderingContext) {
+    FontLoader.default.loadPrecomputed(url, gl)
+  }
 
   static loadFont (fontname: string, gl: WebGLRenderingContext) {
     FontLoader.default.load(fontname, gl)
