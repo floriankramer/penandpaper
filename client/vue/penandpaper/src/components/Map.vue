@@ -101,7 +101,7 @@ export default class World extends Vue {
   }
 
   requestRedraw () {
-    if (this.lastCanvasWidth !== this.$el.clientWidth || this.lastCanvasHeight !== this.$el.clientHeight) {
+    if (this.canvas && (this.lastCanvasWidth !== this.$el.clientWidth || this.lastCanvasHeight !== this.$el.clientHeight)) {
       this.onResize()
     }
     requestAnimationFrame(this.renderMap)
@@ -124,7 +124,7 @@ export default class World extends Vue {
       this.renderer.endFrame()
     }
     let end: number = Date.now()
-    console.log(end - now)
+    // console.log(end - now)
   }
 
   setupScreenSpaceFont (ctx: CanvasRenderingContext2D) {
@@ -293,12 +293,6 @@ export default class World extends Vue {
       move.y = y
       move.token = this.selected
       eventBus.$emit('/client/token/move', move)
-
-      // Avoid having the token twice in the move queue
-      let midx = this.movingTokens.indexOf(this.selected)
-      if (midx !== undefined) {
-        this.movingTokens.splice(midx, 1)
-      }
     }
   }
 
@@ -468,9 +462,12 @@ export default class World extends Vue {
     // We use the same tokens as the server
     this.requestRedraw()
     data.token.displaySpeed = Math.hypot(data.token.x - data.token.displayX, data.token.y - data.token.displayY)
-    this.movingTokens.push(data.token)
-    if (this.movingTokens.length === 1) {
-      this.updateMovingTokens()
+    if (this.movingTokens.indexOf(data.token) !== undefined) {
+      this.movingTokens.push(data.token)
+      if (this.movingTokens.length === 1) {
+        // Start the updates
+        this.updateMovingTokens()
+      }
     }
   }
 
