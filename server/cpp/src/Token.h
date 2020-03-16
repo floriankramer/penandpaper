@@ -34,6 +34,7 @@ class Token : public Serializable {
   float &r() { return _r; }
   float &g() { return _g; }
   float &b() { return _b; }
+  float &rotation() { return _rotation; }
   bool &is_enemy() { return _is_enemy; }
 
  private:
@@ -42,4 +43,5 @@ class Token : public Serializable {
   float _radius;
   float _r, _g, _b;
   bool _is_enemy;
+  float _rotation;
 };

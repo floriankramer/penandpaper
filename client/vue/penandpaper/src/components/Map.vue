@@ -40,7 +40,7 @@ import TokenActor from '../rendering/token_actor'
 import Actor from '../rendering/actor'
 import DiffuseMaterial from '../rendering/diffuse_material'
 import * as B from '../simulation/building'
-import FontActor from '../rendering/fontactor'
+import LineActor from '../rendering/lineactor'
 
 enum MouseAction {
   NONE,
@@ -100,9 +100,9 @@ export default class World extends Vue {
     eventBus.$on('/tools/select_tool', (data: string) => { this.onToolSelected(data) })
   }
 
-  requestRedraw () {
-    if (this.canvas && (this.lastCanvasWidth !== this.$el.clientWidth || this.lastCanvasHeight !== this.$el.clientHeight)) {
-      this.onResize()
+  requestRedraw (dontResize: boolean = false) {
+    if (!dontResize && this.canvas && (this.lastCanvasWidth !== this.$el.clientWidth || this.lastCanvasHeight !== this.$el.clientHeight)) {
+      this.onResize(true)
     }
     requestAnimationFrame(this.renderMap)
   }
@@ -294,12 +294,13 @@ export default class World extends Vue {
     this.tool.onMouseDown(event)
   }
 
-  clientMoveSelectedTo (x: number, y: number) {
+  clientMoveSelectedTo (x: number, y: number, a: number) {
     if (this.selected !== undefined) {
       // move the selected token
       let move = new Sim.TokenMoveOrder()
       move.x = x
       move.y = y
+      move.rotation = a
       move.token = this.selected
       eventBus.$emit('/client/token/move', move)
     }
@@ -362,20 +363,24 @@ export default class World extends Vue {
     this.requestRedraw()
   }
 
-  onResize () {
+  onResize (dontRedraw: boolean = false) {
     this.lastCanvasWidth = this.$el.clientWidth
     this.lastCanvasHeight = this.$el.clientHeight
     if (this.canvas) {
       this.canvas.width = this.$el.clientWidth
       this.canvas.height = this.$el.clientHeight
       this.renderer.onResize(this.canvas.width, this.canvas.height)
-      this.requestRedraw()
+      if (!dontRedraw) {
+        this.requestRedraw()
+      }
       this.pixelPerMeter = this.canvas.height / 10
     }
   }
 
   initActors () {
     this.renderer.addActor(this.gridActor, 0)
+    let l = new LineActor()
+    l.setLine(0, 0, 1, 1, 0.5)
   }
 
   updateMovingTokens () {
@@ -429,6 +434,7 @@ export default class World extends Vue {
     let a = new TokenActor()
     a.setScale(t.radius, t.radius)
     a.setPosition(t.x, t.y)
+    a.setRotation(t.rotation)
     a.setColor(t.color.r / 255, t.color.g / 255, t.color.b / 255)
     a.setIsFoe(t.isFoe)
     this.renderer.addActor(a, 2)
@@ -465,6 +471,11 @@ export default class World extends Vue {
 
   onServerMoveToken (data : Sim.TokenMoveOrder) {
     // We use the same tokens as the server
+    let t = this.tokenActors.get(data.token.id)
+    if (t) {
+      t.setRotation(data.rotation)
+    }
+
     this.requestRedraw()
     data.token.displaySpeed = Math.hypot(data.token.x - data.token.displayX, data.token.y - data.token.displayY)
     if (this.movingTokens.indexOf(data.token) !== undefined) {

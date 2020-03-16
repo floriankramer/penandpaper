@@ -18,6 +18,7 @@ import Map from '../components/Map.vue'
 import * as Sim from '../simulation/simulation'
 import eventbus from '../eventbus'
 
+import LineActor from '../rendering/lineactor'
 import FontActor from '../rendering/fontactor'
 import Renderer from '../rendering/renderer'
 
@@ -25,11 +26,16 @@ export default class Tool {
   map: Map
 
   isDragging: boolean = false
+  isMovingToken: boolean = false
 
   fontActor: FontActor = new FontActor()
+  lineActor: LineActor = new LineActor()
 
   shouldDrawText = false
   isDrawingText = false
+
+  mouseDownX: number = 0
+  mouseDownY: number = 0
 
   constructor (map: Map) {
     this.map = map
@@ -39,6 +45,8 @@ export default class Tool {
     // Wether this tool did something with the given event
     let consumeEvent: boolean = false
     let worldPos = this.map.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
+    this.mouseDownX = event.offsetX
+    this.mouseDownY = event.offsetY
     if (event.button === 0) {
       if (event.altKey) {
         if (this.map.hasSelection()) {
@@ -63,7 +71,7 @@ export default class Tool {
       this.map.resetCamera()
       consumeEvent = true
     } else if (event.button === 2) {
-      this.map.clientMoveSelectedTo(worldPos.x, worldPos.y)
+      this.isMovingToken = true
       consumeEvent = true
     }
     this.map.setLastMousePos(event.offsetX, event.offsetY)
@@ -94,6 +102,15 @@ export default class Tool {
   onMouseUp (event: MouseEvent) : boolean {
     // Wether this tool did something with the given event
     let consumeEvent: boolean = false
+    if (this.isMovingToken) {
+      this.isMovingToken = false
+      consumeEvent = true
+      let swp = this.map.screenToWorldPos(new Sim.Point(this.mouseDownX, this.mouseDownY))
+      let ewp = this.map.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
+      let a = Math.atan2(ewp.y - swp.y, ewp.x - swp.x)
+      this.map.clientMoveSelectedTo(swp.x, swp.y, a)
+    }
+
     this.isDragging = false
     this.map.setLastMousePos(event.offsetX, event.offsetY)
     this.map.requestRedraw()
@@ -121,6 +138,7 @@ export default class Tool {
     if (this.shouldDrawText && !this.isDrawingText) {
       this.isDrawingText = true
       renderer.addActor(this.fontActor, 4)
+      renderer.addActor(this.lineActor, 4)
     }
 
     if (this.map.hasSelection()) {
@@ -135,12 +153,15 @@ export default class Tool {
         this.fontActor.setText(d.toFixed(2).toString() + 'm')
         this.fontActor.setPosition(wmp.x, wmp.y)
         this.fontActor.setScale(scale, scale)
+
+        this.lineActor.setLine(t.displayX, t.displayY, wmp.x, wmp.y, renderer.camera.screenToWorldSpaceDist(0.6))
       }
     }
 
     if (!this.shouldDrawText && this.isDrawingText) {
       this.isDrawingText = false
       renderer.removeActor(this.fontActor)
+      renderer.removeActor(this.lineActor)
     }
   }
 }

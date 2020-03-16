@@ -60,11 +60,17 @@ export default class TokenActor extends Actor {
       let a = i * step
       let a2 = (i + 1) * step
       positions.push(0, 0)
-      colors.push(this._r, this._g, this._b, 1)
       positions.push(Math.cos(a), Math.sin(a))
-      colors.push(this._r, this._g, this._b, 1)
       positions.push(Math.cos(a2), Math.sin(a2))
-      colors.push(this._r, this._g, this._b, 1)
+      if (i === 0 || i + 1 === sampleCount) {
+        colors.push(1, 1, 1, 1)
+        colors.push(1, 1, 1, 1)
+        colors.push(1, 1, 1, 1)
+      } else {
+        colors.push(this._r, this._g, this._b, 1)
+        colors.push(this._r, this._g, this._b, 1)
+        colors.push(this._r, this._g, this._b, 1)
+      }
     }
 
     if (this._isSelected || this._isFoe) {

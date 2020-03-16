@@ -168,6 +168,7 @@ WebSocketServer::Response Simulation::onMoveToken(const Packet &j) {
   if (t != nullptr) {
     t->x() = data.at("x").get<float>();
     t->y() = data.at("y").get<float>();
+    t->rotation() = data.at("rotation").get<float>();
   }
   return {"", WebSocketServer::ResponseType::FORWARD};
 }

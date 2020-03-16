@@ -131,6 +131,7 @@ export default class Server {
         token.color.r = rawToken.r
         token.color.g = rawToken.g
         token.color.b = rawToken.b
+        token.rotation = rawToken.rotation
         // TODO: The map does not yet exist. It will have to request the entire state.
         eventBus.$emit('/server/token/create', token)
         this.tokens.push(token)
@@ -207,7 +208,8 @@ export default class Server {
         data: {
           'x': move.x,
           'y': move.y,
-          'id': move.token.id
+          'id': move.token.id,
+          'rotation': move.rotation
         }
       }
       this.send(JSON.stringify(packet))
@@ -219,11 +221,13 @@ export default class Server {
         let move = new Sim.TokenMoveOrder()
         move.x = data.x
         move.y = data.y
+        move.rotation = data.rotation
         move.token = token
 
         // Apply the move to our state
         move.token.x = move.x
         move.token.y = move.y
+        move.token.rotation = move.rotation
 
         eventBus.$emit('/server/token/move', move)
       } else {

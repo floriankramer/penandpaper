@@ -90,6 +90,8 @@ export class Token {
   isFoe: boolean = false
   color: Color = new Color(255, 0, 255)
 
+  rotation: number = 0
+
   // Rendering variables
   displayX: number = 0
   displayY: number = 0
@@ -119,5 +121,6 @@ export const TOKEN_COLORS = [
 export class TokenMoveOrder {
   x: number = 0
   y: number = 0
+  rotation: number = 0
   token: Token = new Token()
 }

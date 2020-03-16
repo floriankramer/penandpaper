@@ -30,16 +30,18 @@ nlohmann::json Token::serialize() {
   j["g"] = _g;
   j["b"] = _b;
   j["foe"] = _is_enemy;
+  j["rotation"] = _rotation;
   return j;
 }
 
 void Token::deserialize(const nlohmann::json &j) {
-  _id = j["id"].get<uint64_t>();
-  _x = j["x"].get<float>();
-  _y = j["y"].get<float>();
-  _radius = j["radius"].get<float>();
-  _r = j["r"].get<float>();
-  _g = j["g"].get<float>();
-  _b = j["b"].get<float>();
-  _is_enemy = j["foe"].get<bool>();
+  _id = j.at("id").get<uint64_t>();
+  _x = j.at("x").get<float>();
+  _y = j.at("y").get<float>();
+  _radius = j.at("radius").get<float>();
+  _r = j.at("r").get<float>();
+  _g = j.at("g").get<float>();
+  _b = j.at("b").get<float>();
+  _is_enemy = j.at("foe").get<bool>();
+  _rotation = j.at("rotation").get<float>();
 }

@@ -35,6 +35,7 @@ export default class Actor {
 
   _scale: number[] = [1, 1]
   _position: number[] = [0, 0]
+  _rotation: number = 0
 
   _transform: Matrix = new Matrix()
 
@@ -99,6 +100,16 @@ export default class Actor {
     this._updateTransform()
   }
 
+  rotate (r: number) {
+    this._rotation += r
+    this._updateTransform()
+  }
+
+  setRotation (r: number) {
+    this._rotation = r
+    this._updateTransform()
+  }
+
   setScale (sx: number, sy: number) {
     this._scale[0] = sx
     this._scale[1] = sy
@@ -114,6 +125,7 @@ export default class Actor {
   _updateTransform () {
     this._transform.setIdentity()
     this._transform.scale(this._scale[0], this._scale[1])
+    this._transform.rotate(this._rotation)
     this._transform.translate(this._position[0], this._position[1])
   }
 

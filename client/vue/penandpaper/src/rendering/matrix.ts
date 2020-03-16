@@ -69,4 +69,15 @@ export default class Matrix {
     m.set(2, 2, z)
     this.data = m.mul(this).data
   }
+
+  rotate (r: number = 0) {
+    let rcos = Math.cos(r)
+    let rsin = Math.sin(r)
+    let m = new Matrix()
+    m.set(0, 0, rcos)
+    m.set(0, 1, -rsin)
+    m.set(1, 1, rcos)
+    m.set(1, 0, rsin)
+    this.data = m.mul(this).data
+  }
 }

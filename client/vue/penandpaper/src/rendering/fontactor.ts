@@ -59,7 +59,6 @@ export default class GridActor extends Actor {
         }
       }
       if (g.character !== ' ') {
-        console.log(g)
         let sx = offX + g.bearingX * s
         let offY = (g.bearingY - g.height) * s
         positions.push(
