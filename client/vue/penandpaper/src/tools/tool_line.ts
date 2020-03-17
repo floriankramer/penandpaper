@@ -23,6 +23,7 @@ import Renderer from '../rendering/renderer'
 export default class ToolToken extends Tool {
   isDrawing: boolean = false
   lastLineStop: Sim.Point = new Sim.Point(0, 0)
+  lastLineStopScreen: Sim.Point = new Sim.Point(0, 0)
   currentLineStop: Sim.Point = new Sim.Point(0, 0)
 
   onMouseDown (event: MouseEvent) : boolean {
@@ -30,6 +31,8 @@ export default class ToolToken extends Tool {
       let worldPos = this.map.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
       this.lastLineStop.x = worldPos.x
       this.lastLineStop.y = worldPos.y
+      this.lastLineStopScreen.x = event.offsetX
+      this.lastLineStopScreen.y = event.offsetY
       this.currentLineStop.x = worldPos.x
       this.currentLineStop.y = worldPos.y
       this.isDrawing = true
@@ -42,10 +45,9 @@ export default class ToolToken extends Tool {
   onMouseMove (event: MouseEvent) : boolean {
     if (this.isDrawing) {
       let worldPos = this.map.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
-      let lastLineScreen = this.map.worldToScreenPos(this.lastLineStop)
       this.currentLineStop.x = worldPos.x
       this.currentLineStop.y = worldPos.y
-      if (Math.hypot(lastLineScreen.x - event.offsetX, lastLineScreen.y - event.offsetY) > this.map.$el.clientHeight / 20) {
+      if (Math.hypot(this.lastLineStopScreen.x - event.offsetX, this.lastLineStopScreen.y - event.offsetY) > this.map.$el.clientHeight / 20) {
         // create a new line
         let line = new Sim.Line()
         line.start.x = this.lastLineStop.x
@@ -54,6 +56,8 @@ export default class ToolToken extends Tool {
         line.stop.y = worldPos.y
         eventBus.$emit('/client/line/create', line)
         this.lastLineStop = worldPos
+        this.lastLineStopScreen.x = event.offsetX
+        this.lastLineStopScreen.y = event.offsetY
       }
       this.map.requestRedraw()
     } else {

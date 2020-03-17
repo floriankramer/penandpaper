@@ -41,6 +41,9 @@ import Actor from '../rendering/actor'
 import DiffuseMaterial from '../rendering/diffuse_material'
 import * as B from '../simulation/building'
 import LineActor from '../rendering/lineactor'
+import RoomActor from '../rendering/roomactor'
+import WallActor from '../rendering/wallactor'
+import FurnitureActor from '../rendering/furnitureactor'
 
 enum MouseAction {
   NONE,
@@ -60,6 +63,10 @@ export default class World extends Vue {
   gridActor: GridActor = new GridActor()
 
   tokenActors: Map<number, Actor> = new Map()
+  doodadLineActors: Map<number, Actor> = new Map()
+  roomActor: RoomActor = new RoomActor()
+  wallActor: WallActor = new WallActor()
+  furnitureActor: FurnitureActor = new FurnitureActor()
 
   mouseAction: MouseAction = MouseAction.NONE
 
@@ -379,8 +386,46 @@ export default class World extends Vue {
 
   initActors () {
     this.renderer.addActor(this.gridActor, 0)
-    let l = new LineActor()
-    l.setLine(0, 0, 1, 1, 0.5)
+
+    let r = new B.Room()
+    r.position.x = 10
+    r.position.y = 5
+    r.size.x = 7
+    r.size.y = 5
+    this.roomActor.addRoom(r)
+
+    let r2 = new B.Room()
+    r2.position.x = -7
+    r2.position.y = 13
+    r2.size.x = 1
+    r2.size.y = 10
+
+    this.roomActor.addRoom(r2)
+    this.renderer.addActor(this.roomActor, 1)
+
+    let w = new B.Wall()
+    w.start.x = -5
+    w.start.y = 5
+    w.end.x = 5
+    w.end.y = -7
+    this.wallActor.addWall(w)
+
+    let w2 = new B.Wall()
+    w2.start.x = -10
+    w2.start.y = 1
+    w2.end.x = 10
+    w2.end.y = 1
+    this.wallActor.addWall(w2)
+    this.renderer.addActor(this.wallActor, 1)
+
+    let f = new B.Furniture()
+    f.position.x = 5
+    f.position.y = 3
+    f.size.x = 2
+    f.size.y = 3
+    f.rotation = 0
+    this.furnitureActor.addFurniture(f)
+    this.renderer.addActor(this.furnitureActor, 1)
   }
 
   updateMovingTokens () {
@@ -419,6 +464,19 @@ export default class World extends Vue {
     }
   }
 
+  onNewDoodadLine (line: Sim.Line) {
+    this.lines.push(line)
+    this.createDoodadLineActor(line)
+    this.requestRedraw()
+  }
+
+  createDoodadLineActor (line: Sim.Line) {
+    let l = new LineActor()
+    l.setLine(line.start.x, line.start.y, line.stop.x, line.stop.y, 0.1)
+    this.renderer.addActor(l, 1)
+    this.doodadLineActors.set(line.id, l)
+  }
+
   onNewToken (data: Sim.Token) {
     data.displayX = data.x
     data.displayY = data.y
@@ -430,7 +488,6 @@ export default class World extends Vue {
   }
 
   createTokenActor (t: Sim.Token) {
-    console.log('creating a new token actor')
     let a = new TokenActor()
     a.setScale(t.radius, t.radius)
     a.setPosition(t.x, t.y)
@@ -439,7 +496,6 @@ export default class World extends Vue {
     a.setIsFoe(t.isFoe)
     this.renderer.addActor(a, 2)
     this.tokenActors.set(t.id, a)
-    console.log(this.renderer)
   }
 
   clearTokens () {
@@ -455,6 +511,10 @@ export default class World extends Vue {
   onServerState (data: ServerState) {
     // Copy the list of tokens
     this.lines.push(...data.lines)
+
+    data.lines.forEach((t : Sim.Line) => {
+      this.onNewDoodadLine(t)
+    })
 
     data.tokens.forEach((t : Sim.Token) => {
       this.onNewToken(t)
@@ -513,12 +573,15 @@ export default class World extends Vue {
   }
 
   onServerCreateLine (data: Sim.Line) {
-    this.lines.push(data)
-    this.requestRedraw()
+    this.onNewDoodadLine(data)
   }
 
   onServerClearLines () {
     this.lines.splice(0, this.lines.length)
+    this.doodadLineActors.forEach(actor => {
+      this.renderer.removeActor(actor)
+    })
+    this.doodadLineActors.clear()
     this.requestRedraw()
   }
 

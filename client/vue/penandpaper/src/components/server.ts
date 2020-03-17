@@ -277,6 +277,7 @@ export default class Server {
       line.start.y = data.sy
       line.stop.x = data.ex
       line.stop.y = data.ey
+      line.id = data.id
       eventBus.$emit('/server/line/create', line)
       this.lines.push(line)
     }

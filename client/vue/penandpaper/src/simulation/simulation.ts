@@ -99,6 +99,7 @@ export class Token {
 }
 
 export class Line {
+  id: number = -1
   start: Point = new Point(0, 0)
   stop: Point = new Point(0, 0)
 }

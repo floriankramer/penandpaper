@@ -19,10 +19,11 @@
 #include <cstdint>
 
 #include "Serializeable.h"
+#include "IdGenerator.h"
 
 class DoodadLine : public Serializable {
  public:
-  DoodadLine();
+  DoodadLine(IdGenerator *idg);
 
   virtual nlohmann::json serialize() override;
   virtual void deserialize(const nlohmann::json &json) override;

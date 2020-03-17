@@ -248,13 +248,19 @@ WebSocketServer::Response Simulation::onChat(const Packet &j) {
 }
 
 WebSocketServer::Response Simulation::onCreateDoodadLine(const Packet &j) {
+  using nlohmann::json;
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
   }
-  _doodad_lines.emplace_back();
+  _doodad_lines.emplace_back(&_id_generator);
   DoodadLine &d = _doodad_lines.back();
   d.deserialize(j.json().at("data"));
-  return {"", WebSocketServer::ResponseType::FORWARD};
+
+  json response;
+  response["type"] = "CreateDoodadLine";
+  response["data"] = d.serialize();
+
+  return {response.dump(), WebSocketServer::ResponseType::BROADCAST};
 }
 
 WebSocketServer::Response Simulation::onClearDoodads(const Packet &j) {
