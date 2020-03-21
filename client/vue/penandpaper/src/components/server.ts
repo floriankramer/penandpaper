@@ -21,6 +21,9 @@ import Vuex, { Store, MutationPayload } from 'vuex'
 import eventBus from '../eventbus'
 import * as Sim from '../simulation/simulation'
 import * as B from '../simulation/building'
+import PacketDispatcher from './packetdispatcher'
+
+import BuildingServer from './buildingserver'
 
 // Used to communicate the simulation state of the server via the event bus
 export class ServerState {
@@ -29,7 +32,7 @@ export class ServerState {
   building: B.Building | null = null
 }
 
-export default class Server {
+export default class Server implements PacketDispatcher {
     uid: string;
     socket?: WebSocket;
     store: Store<any>;
@@ -37,7 +40,7 @@ export default class Server {
     tokens: Sim.Token[] = []
     lines: Sim.Line[] = []
 
-    building: B.Building | null = null
+    buildingServer: BuildingServer
 
     errorhandler?: () => void;
 
@@ -49,6 +52,7 @@ export default class Server {
       this.store.subscribe((mutation: MutationPayload, state: any) => {
         this.onmutation(mutation, state)
       })
+      this.buildingServer = new BuildingServer(this, this.uid)
       eventBus.$on('/chat/send', (data:string) => { this.sendChat(data) })
       eventBus.$on('/client/token/create', (data:Sim.Point) => { this.clientCreateToken(data) })
       eventBus.$on('/client/token/move', (data: Sim.TokenMoveOrder) => { this.onClientMoveToken(data) })
@@ -57,9 +61,6 @@ export default class Server {
       eventBus.$on('/client/token/delete', (data: Sim.Token) => { this.onClientDeleteToken(data) })
       eventBus.$on('/client/line/create', (data: Sim.Line) => { this.onClientCreateLine(data) })
       eventBus.$on('/client/line/clear', () => { this.onClientClearLines() })
-      eventBus.$on('/client/building/set', (data: B.Building) => { this.onClientSetBuilding(data) })
-      eventBus.$on('/client/building/clear', () => { this.onClientClearBuilding() })
-      eventBus.$on('/client/building/toggle_door', (data: B.Door[]) => { this.onClientToggleDoor(data) })
       eventBus.$on('/server/request_state', () => { this.onStateRequest() })
     }
 
@@ -110,10 +111,10 @@ export default class Server {
         this.onServerClearDoodads()
       } else if (type === 'TokenToggleFoe') {
         this.onServerTokenToggleFoe(data)
-      } else if (type === 'SetBuilding') {
-        this.onServerSetBuilding(data)
       } else if (type === 'ToggleDoor') {
         this.onServerToggleDoor(data)
+      } else if (this.buildingServer.onmessage(data)) {
+        // the message was handled by the buildingServer
       }
     }
 
@@ -143,11 +144,6 @@ export default class Server {
         line.stop.x = rawLine.ex
         line.stop.y = rawLine.ey
         this.lines.push(line)
-      }
-      if (data.building === null) {
-        this.building = null
-      } else {
-        this.building = B.Building.fromSerializable(data.building)
       }
     }
 
@@ -291,35 +287,6 @@ export default class Server {
       this.send(JSON.stringify(packet))
     }
 
-    onClientSetBuilding (data: B.Building) {
-      let packet = {
-        type: 'SetBuilding',
-        uid: this.uid,
-        data: data.toSerializable()
-      }
-      this.send(JSON.stringify(packet))
-    }
-
-    onClientClearBuilding () {
-      let packet = {
-        type: 'SetBuilding',
-        uid: this.uid,
-        data: null
-      }
-      this.send(JSON.stringify(packet))
-    }
-
-    onClientToggleDoor (doors: B.Door[]) {
-      let packet = {
-        type: 'ToggleDoor',
-        uid: this.uid,
-        data: {
-          ids: doors.map(door => door.id)
-        }
-      }
-      this.send(JSON.stringify(packet))
-    }
-
     onServerToggleDoor (data: any) {
       eventBus.$emit('/server/building/toggle_door', data.ids)
     }
@@ -333,7 +300,7 @@ export default class Server {
       let state = new ServerState()
       state.tokens = this.tokens
       state.lines = this.lines
-      state.building = this.building
+      state.building = this.buildingServer.building
       eventBus.$emit('/server/state', state)
     }
 
@@ -361,15 +328,6 @@ export default class Server {
     onServerSession (data: any) {
       this.store.commit('setUsername', data['name'])
       this.store.commit('setPermissions', parseInt(data['permissions']))
-    }
-
-    onServerSetBuilding (data: any) {
-      let b = null
-      if (data !== null) {
-        b = B.Building.fromSerializable(data)
-      }
-      this.building = b
-      eventBus.$emit('/server/building/set', b)
     }
 
     onerror (err:Event) {

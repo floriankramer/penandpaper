@@ -44,7 +44,7 @@ export default class DoorActor extends Actor {
   }
 
   updateVertexData () {
-    const closed_color =  0.4
+    const closedColor = 0.4
     let positions: number[] = []
     let colors: number[] = []
 
@@ -71,7 +71,6 @@ export default class DoorActor extends Actor {
     base.push([1, -0.5 - t])
     base.push([0, -0.5 - t])
 
-
     // The arc
     let steps = 8
     let astep = Math.PI / 2 / steps
@@ -79,8 +78,8 @@ export default class DoorActor extends Actor {
     let a = 0
     let ls = 1 - t
     let ll = 1 + t
-    for (let i = 0 ; i < steps; ++i) {
-      let na = a + astep;
+    for (let i = 0; i < steps; ++i) {
+      let na = a + astep
 
       let aco = Math.cos(a)
       let asi = Math.sin(a)
@@ -96,7 +95,7 @@ export default class DoorActor extends Actor {
       base.push([naco * ls, nasi * ls - 0.5])
       base.push([aco * ls, asi * ls - 0.5])
 
-      a += astep;
+      a += astep
     }
 
     this.doors.forEach((d) => {
@@ -113,13 +112,13 @@ export default class DoorActor extends Actor {
       // Colors
       // The frame
       if (d.isOpen) {
-        colors.push(closed_color, closed_color, closed_color, 1)
-        colors.push(closed_color, closed_color, closed_color, 1)
-        colors.push(closed_color, closed_color, closed_color, 1)
+        colors.push(closedColor, closedColor, closedColor, 1)
+        colors.push(closedColor, closedColor, closedColor, 1)
+        colors.push(closedColor, closedColor, closedColor, 1)
 
-        colors.push(closed_color, closed_color, closed_color, 1)
-        colors.push(closed_color, closed_color, closed_color, 1)
-        colors.push(closed_color, closed_color, closed_color, 1)
+        colors.push(closedColor, closedColor, closedColor, 1)
+        colors.push(closedColor, closedColor, closedColor, 1)
+        colors.push(closedColor, closedColor, closedColor, 1)
       } else {
         colors.push(1, 1, 1, 1)
         colors.push(1, 1, 1, 1)
@@ -140,13 +139,13 @@ export default class DoorActor extends Actor {
         colors.push(1, 1, 1, 1)
         colors.push(1, 1, 1, 1)
       } else {
-        colors.push(closed_color, closed_color, closed_color, 1)
-        colors.push(closed_color, closed_color, closed_color, 1)
-        colors.push(closed_color, closed_color, closed_color, 1)
+        colors.push(closedColor, closedColor, closedColor, 1)
+        colors.push(closedColor, closedColor, closedColor, 1)
+        colors.push(closedColor, closedColor, closedColor, 1)
 
-        colors.push(closed_color, closed_color, closed_color, 1)
-        colors.push(closed_color, closed_color, closed_color, 1)
-        colors.push(closed_color, closed_color, closed_color, 1)
+        colors.push(closedColor, closedColor, closedColor, 1)
+        colors.push(closedColor, closedColor, closedColor, 1)
+        colors.push(closedColor, closedColor, closedColor, 1)
       }
 
       // The Arc
@@ -163,13 +162,13 @@ export default class DoorActor extends Actor {
         }
       } else {
         for (let i = 0; i < steps; ++i) {
-          colors.push(closed_color, closed_color, closed_color, 1)
-          colors.push(closed_color, closed_color, closed_color, 1)
-          colors.push(closed_color, closed_color, closed_color, 1)
+          colors.push(closedColor, closedColor, closedColor, 1)
+          colors.push(closedColor, closedColor, closedColor, 1)
+          colors.push(closedColor, closedColor, closedColor, 1)
 
-          colors.push(closed_color, closed_color, closed_color, 1)
-          colors.push(closed_color, closed_color, closed_color, 1)
-          colors.push(closed_color, closed_color, closed_color, 1)
+          colors.push(closedColor, closedColor, closedColor, 1)
+          colors.push(closedColor, closedColor, closedColor, 1)
+          colors.push(closedColor, closedColor, closedColor, 1)
         }
       }
     })

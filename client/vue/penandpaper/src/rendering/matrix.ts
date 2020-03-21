@@ -82,7 +82,6 @@ export default class Matrix {
   }
 }
 
-
 export class Matrix3 {
   data: Float32Array = new Float32Array(9)
 

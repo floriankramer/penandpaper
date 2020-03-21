@@ -388,66 +388,6 @@ export default class World extends Vue {
 
   initActors () {
     this.renderer.addActor(this.gridActor, 0)
-
-    let r = new B.Room()
-    r.position.x = 10
-    r.position.y = 5
-    r.size.x = 7
-    r.size.y = 5
-    this.roomActor.addRoom(r)
-
-    let r2 = new B.Room()
-    r2.position.x = -7
-    r2.position.y = 13
-    r2.size.x = 1
-    r2.size.y = 10
-
-    this.roomActor.addRoom(r2)
-    this.renderer.addActor(this.roomActor, 1)
-
-    let w = new B.Wall()
-    w.start.x = -5
-    w.start.y = 5
-    w.end.x = 5
-    w.end.y = -7
-    this.wallActor.addWall(w)
-
-    let w2 = new B.Wall()
-    w2.start.x = -10
-    w2.start.y = 1
-    w2.end.x = 10
-    w2.end.y = 1
-    this.wallActor.addWall(w2)
-    this.renderer.addActor(this.wallActor, 1)
-
-    let f = new B.Furniture()
-    f.position.x = 5
-    f.position.y = 3
-    f.size.x = 2
-    f.size.y = 3
-    f.rotation = 0
-    this.furnitureActor.addFurniture(f)
-    this.renderer.addActor(this.furnitureActor, 1)
-
-    let d = new B.Door()
-    d.position.x = 0
-    d.position.y = 0
-    d.width = 1
-    d.isOpen = true
-    d.rotation = 0
-
-    this.doorActor.addDoor(d)
-
-    let d2 = new B.Door()
-    d2.position.x = -3
-    d2.position.y = -6
-    d2.width = 2
-    d2.isOpen = false
-    d2.rotation = 0.1
-
-    this.doorActor.addDoor(d2)
-
-    this.renderer.addActor(this.doorActor, 1)
   }
 
   updateMovingTokens () {

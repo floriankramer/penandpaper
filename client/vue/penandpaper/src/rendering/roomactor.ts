@@ -44,6 +44,11 @@ export default class RoomActor extends Actor {
     this.updateVertexData()
   }
 
+  clearRooms () {
+    this.rooms = []
+    this.updateVertexData()
+  }
+
   updateVertexData () {
     let positions: number[] = []
 

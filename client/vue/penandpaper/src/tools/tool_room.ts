@@ -21,6 +21,8 @@ import eventBus from '../eventbus'
 import * as B from '../simulation/building'
 import Renderer from '../rendering/renderer'
 
+import RoomActor from '../rendering/roomactor'
+
 export default class ToolRoom extends Tool {
   isDrawing: boolean = false
   start: Sim.Point = new Sim.Point(0, 0)
@@ -29,6 +31,14 @@ export default class ToolRoom extends Tool {
   accuracy: number = 4
 
   currentRoom: B.Room = new B.Room()
+
+  roomActor: RoomActor = new RoomActor()
+  isActorVisible: boolean = false
+
+  constructor (map: Map) {
+    super(map)
+    this.roomActor.addRoom(this.currentRoom)
+  }
 
   onMouseDown (event: MouseEvent) : boolean {
     if (event.ctrlKey) {
@@ -54,6 +64,7 @@ export default class ToolRoom extends Tool {
     if (this.isDrawing) {
       this.stop.x = Math.round(worldPos.x * this.accuracy) / this.accuracy
       this.stop.y = Math.round(worldPos.y * this.accuracy) / this.accuracy
+      this.updateRoom()
       this.map.requestRedraw()
     } else {
       super.onMouseMove(event)
@@ -72,9 +83,11 @@ export default class ToolRoom extends Tool {
       // add the room to the map
       this.updateRoom()
       if (this.currentRoom.width() > 0.1 && this.currentRoom.height() > 0.1) {
-        this.map.addRoom(this.currentRoom)
+        eventBus.$emit('/client/building/room/create', this.currentRoom)
       }
+      this.roomActor.clearRooms()
       this.currentRoom = new B.Room()
+      this.roomActor.addRoom(this.currentRoom)
     }
     super.onMouseUp(event)
     this.isDrawing = false
@@ -82,30 +95,22 @@ export default class ToolRoom extends Tool {
   }
 
   updateRoom () {
-    // this.currentRoom.min.x = Math.min(this.start.x, this.stop.x)
-    // this.currentRoom.min.y = Math.min(this.start.y, this.stop.y)
-    // this.currentRoom.max.x = Math.max(this.start.x, this.stop.x)
-    // this.currentRoom.max.y = Math.max(this.start.y, this.stop.y)
+    this.currentRoom.position.x = (this.start.x + this.stop.x) / 2
+    this.currentRoom.position.y = (this.start.y + this.stop.y) / 2
+    this.currentRoom.size.x = Math.abs(this.stop.x - this.start.x) / 2
+    this.currentRoom.size.y = Math.abs(this.stop.y - this.start.y) / 2
+    this.roomActor.updateVertexData()
   }
 
   render (renderer: Renderer) {
-    // if (this.isDrawing) {
-    //   // Draw the lines
-    //   this.updateRoom()
-    //   ctx.lineWidth = this.map.computeLineWidth()
-    //   this.currentRoom.render(ctx)
+    if (this.isDrawing && !this.isActorVisible) {
+      this.isActorVisible = true
+      renderer.addActor(this.roomActor, 4)
+    }
 
-    //   let text = this.currentRoom.width().toFixed(1) + 'm x ' + this.currentRoom.height().toFixed(1) + 'm'
-    //   ctx.fillStyle = '#FFFFFF'
-    //   this.map.setupScreenSpaceFont(ctx)
-    //   let screenSpacePos = this.map.worldToScreenPos(new Sim.Point(this.currentRoom.max.x, this.currentRoom.max.y))
-    //   let transform = ctx.getTransform()
-    //   ctx.resetTransform()
-    //   ctx.fillText(text, screenSpacePos.x + 10, screenSpacePos.y)
-    //   ctx.setTransform(transform)
-    // } else {
-    //   ctx.lineWidth = this.map.computeLineWidth()
-    //   this.currentRoom.render(ctx)
-    // }
+    if (!this.isDrawing && this.isActorVisible) {
+      this.isActorVisible = false
+      renderer.removeActor(this.roomActor)
+    }
   }
 }

@@ -29,7 +29,7 @@
         <input type="radio" name="current_tool" value='line' v-model='currentTool' v-on:change='onToolLine'>
         <img src="images/line.svg" width="38" height="38">
       </label>
-      <label>
+      <!--<label>
         <input type="radio" name="current_tool" value='room' v-model='currentTool' v-on:change='onToolRoom'>
         <img src="images/room.svg" width="38" height="38">
       </label>
@@ -40,11 +40,11 @@
       <label>
         <input type="radio" name="current_tool" value='furniture' v-model='currentTool' v-on:change='onToolFurniture'>
         <img src="images/table.svg" width="38" height="38">
-      </label>
+      </label>-->
 
-      <button class="toolbar-align-right toolbar-center-verticaly" v-on:click="clearBuilding">Clear Building</button>
+      <!--<button class="toolbar-align-right toolbar-center-verticaly" v-on:click="clearBuilding">Clear Building</button>
       <button class="toolbar-align-right toolbar-center-verticaly" v-on:click="saveBuilding">Save Building</button>
-      <input type="file" class="toolbar-align-right toolbar-center-verticaly" v-on:change="loadBuilding" accept=".json"/>
+      <input type="file" class="toolbar-align-right toolbar-center-verticaly" v-on:change="loadBuilding" accept=".json"/>-->
       <button class="toolbar-align-right toolbar-center-verticaly" v-on:click="clearTokens">Clear Tokens</button>
       <button class="toolbar-align-right toolbar-margin-right toolbar-center-verticaly" v-on:click="clearDoodads">Clear Doodads</button>
     </div>

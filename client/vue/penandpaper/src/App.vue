@@ -65,6 +65,8 @@ export default class App extends Vue {
   dockManager?: DockManager = undefined
   dockManagerDiv : HTMLElement | null = null
 
+  toolbarPanel: PanelContainer | null = null
+
   mounted () {
     console.log('The app has been mounted')
     this.server.setErrorHandler(this.onConnectError)
@@ -79,6 +81,14 @@ export default class App extends Vue {
       }
       if (mutation.type === 'setPermissions') {
         app.isGamemaster = state.permissions > 0
+        if (this.toolbarPanel !== null && this.dockManager !== undefined) {
+          if (this.isGamemaster) {
+            let documentNode = this.dockManager.context.model.documentManagerNode
+            this.dockManager.dockUp(documentNode, this.toolbarPanel, 0.15)
+          } else {
+            this.toolbarPanel.close()
+          }
+        }
       }
     })
 
@@ -109,9 +119,12 @@ export default class App extends Vue {
       // The Toolbar
       let toolbarDiv = document.getElementById('toolbar')
       if (toolbarDiv) {
-        let toolbarContainer = new PanelContainer(toolbarDiv, this.dockManager)
-        toolbarContainer.setTitle('Toolbar')
-        this.dockManager.dockUp(documentNode, toolbarContainer, 0.15)
+        this.toolbarPanel = new PanelContainer(toolbarDiv, this.dockManager)
+        this.toolbarPanel.setTitle('Toolbar')
+        this.dockManager.dockUp(documentNode, this.toolbarPanel, 0.15)
+        if (!this.isGamemaster) {
+          this.toolbarPanel.close()
+        }
       }
 
       // Trigger a round of resizes by firing the dock library's custom resize event
