@@ -35,7 +35,7 @@ export default class WallActor extends Actor {
   }
 
   removeWall (w: Wall) {
-    let idx = this.walls.findIndex((or) => { w == or })
+    let idx = this.walls.findIndex((or) => w === or)
     if (idx >= 0) {
       this.walls.splice(idx, 1)
     }
@@ -91,7 +91,6 @@ export default class WallActor extends Actor {
 
       let nx = -dy
       let ny = dx
-
 
       positions.push(w.start.x + nx * thickness, w.start.y + ny * thickness)
       positions.push(w.start.x - nx * thickness, w.start.y - ny * thickness)

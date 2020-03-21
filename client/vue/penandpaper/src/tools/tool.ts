@@ -50,7 +50,7 @@ export default class Tool {
     if (event.button === 0) {
       if (event.altKey) {
         if (this.map.hasSelection()) {
-          this.map.clientMoveSelectedTo(worldPos.x, worldPos.y)
+          this.isMovingToken = true
           consumeEvent = true
         } else {
           this.map.revealRoomsAt(worldPos)

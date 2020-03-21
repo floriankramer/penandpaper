@@ -37,7 +37,7 @@ export default class RoomActor extends Actor {
   }
 
   removeRoom (r: Room) {
-    let idx = this.rooms.findIndex((or) => { r == or })
+    let idx = this.rooms.findIndex((or) => r === or)
     if (idx >= 0) {
       this.rooms.splice(idx, 1)
     }

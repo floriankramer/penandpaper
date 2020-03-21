@@ -44,6 +44,7 @@ import LineActor from '../rendering/lineactor'
 import RoomActor from '../rendering/roomactor'
 import WallActor from '../rendering/wallactor'
 import FurnitureActor from '../rendering/furnitureactor'
+import DoorActor from '../rendering/dooractor'
 
 enum MouseAction {
   NONE,
@@ -67,6 +68,7 @@ export default class World extends Vue {
   roomActor: RoomActor = new RoomActor()
   wallActor: WallActor = new WallActor()
   furnitureActor: FurnitureActor = new FurnitureActor()
+  doorActor: DoorActor = new DoorActor()
 
   mouseAction: MouseAction = MouseAction.NONE
 
@@ -426,6 +428,26 @@ export default class World extends Vue {
     f.rotation = 0
     this.furnitureActor.addFurniture(f)
     this.renderer.addActor(this.furnitureActor, 1)
+
+    let d = new B.Door()
+    d.position.x = 0
+    d.position.y = 0
+    d.width = 1
+    d.isOpen = true
+    d.rotation = 0
+
+    this.doorActor.addDoor(d)
+
+    let d2 = new B.Door()
+    d2.position.x = -3
+    d2.position.y = -6
+    d2.width = 2
+    d2.isOpen = false
+    d2.rotation = 0.1
+
+    this.doorActor.addDoor(d2)
+
+    this.renderer.addActor(this.doorActor, 1)
   }
 
   updateMovingTokens () {

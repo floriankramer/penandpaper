@@ -35,7 +35,7 @@ export default class FurnitureActor extends Actor {
   }
 
   removeFurniture (w: Furniture) {
-    let idx = this.furniture.findIndex((or) => { w == or })
+    let idx = this.furniture.findIndex((or) => w === or)
     if (idx >= 0) {
       this.furniture.splice(idx, 1)
     }
@@ -69,7 +69,6 @@ export default class FurnitureActor extends Actor {
       colors.push(1, 1, 1, 1)
       colors.push(1, 1, 1, 1)
       colors.push(1, 1, 1, 1)
-
 
       let srx = Math.cos(r.rotation) * r.size.x
       let sry = -Math.sin(r.rotation) * r.size.x
