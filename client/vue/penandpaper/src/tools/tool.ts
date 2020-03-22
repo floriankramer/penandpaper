@@ -48,22 +48,18 @@ export default class Tool {
     this.mouseDownX = event.offsetX
     this.mouseDownY = event.offsetY
     if (event.button === 0) {
-      if (event.altKey) {
+      if (event.shiftKey) {
         if (this.map.hasSelection()) {
           this.isMovingToken = true
           consumeEvent = true
         } else {
-          this.map.revealRoomsAt(worldPos)
+          eventbus.$emit('/client/building/door/toggle', worldPos)
           consumeEvent = true
         }
       } else {
         let clickedToken: boolean = this.map.selectTokenAt(worldPos.x, worldPos.y)
         if (!clickedToken) {
-          if (!this.map.canToggleDoorAt(worldPos.x, worldPos.y)) {
-            this.isDragging = true
-          } else {
-            eventbus.$emit('/client/building/toggle_door', this.map.getDoorsAt(worldPos.x, worldPos.y))
-          }
+          this.isDragging = true
         }
         consumeEvent = true
       }

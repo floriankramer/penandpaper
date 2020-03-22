@@ -14,13 +14,6 @@
  * limitations under the License.
  */
 
-export class Rectangle {
-  minx : number = 0;
-  maxx : number = 0;
-  miny : number = 0;
-  maxy : number = 0;
-}
-
 export class Point {
   x: number = 0;
   y: number = 0;
@@ -39,8 +32,30 @@ export class Point {
     return new Point(this.x / l, this.y / l)
   }
 
+  normalize () {
+    let l = this.length()
+    this.x /= l
+    this.y /= l
+  }
+
+  dot (other: Point) : number {
+    return this.x * other.x + this.y * other.y
+  }
+
   distTo (other: Point) : number {
     return Math.hypot(this.x - other.x, this.y - other.y)
+  }
+
+  minus (other: Point): Point {
+    return new Point(this.x - other.x, this.y - other.y)
+  }
+
+  add (other: Point): Point {
+    return new Point(this.x + other.x, this.y + other.y)
+  }
+
+  scale (scalar: number): Point {
+    return new Point(this.x * scalar, this.y * scalar)
   }
 
   /**
@@ -63,6 +78,20 @@ export class Point {
 
   static fromSerializable (data: any) : Point {
     return new Point(data.x, data.y)
+  }
+}
+
+export class Rectangle {
+  min : Point
+  max : Point
+
+  constructor (minx: number, miny: number, maxx: number, maxy: number) {
+    this.min = new Point(minx, miny)
+    this.max = new Point(maxx, maxy)
+  }
+
+  contains (p: Point) {
+    return this.min.x < p.x && this.min.y < p.y && this.max.x > p.x && this.max.y > p.y
   }
 }
 

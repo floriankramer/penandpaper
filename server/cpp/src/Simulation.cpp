@@ -50,7 +50,7 @@ Simulation::Simulation() : _next_color(0), _building_manager(&_id_generator) {
       {"TokenToggleFoe", std::bind(&Simulation::onTokenToggleFoe, this, _1)},
       {"InitSession", std::bind(&Simulation::onInitSession, this, _1)},
       {"SetUsername", std::bind(&Simulation::onSetUsername, this, _1)}};
-  _building_manager.registerPackets(_msg_handlers);
+  _building_manager.registerPackets(&_msg_handlers);
 }
 
 Token *Simulation::tokenById(uint64_t id) {

@@ -16,6 +16,8 @@
 
 #include "BuildingManager.h"
 
+#include "Logger.h"
+
 BuildingManager::BuildingManager(IdGenerator *id_generator)
     : _building(id_generator), _id_generator(id_generator) {}
 
@@ -46,7 +48,7 @@ WebSocketServer::Response BuildingManager::onCreateRoom(const Packet &j) {
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
   }
-  Vector2f pos = Vector2f::fromJson(j.json().at("data").at("pos"));
+  Vector2f pos = Vector2f::fromJson(j.json().at("data").at("position"));
   Vector2f size = Vector2f::fromJson(j.json().at("data").at("size"));
   std::shared_ptr<Room> r = _building.addRoom(pos, size);
 
@@ -117,13 +119,15 @@ WebSocketServer::Response BuildingManager::onModifyRoom(const Packet &j) {
     return j.makeMissingPermissionsResponse();
   }
   uint64_t id = j.json().at("data").at("id").get<uint64_t>();
-  Vector2f pos = Vector2f::fromJson(j.json().at("data").at("pos"));
+  Vector2f pos = Vector2f::fromJson(j.json().at("data").at("position"));
   Vector2f size = Vector2f::fromJson(j.json().at("data").at("size"));
+  bool is_visible = j.json().at("data").at("is_visible").get<bool>();
 
   std::shared_ptr<Room> r = _building.room(id);
   if (r) {
     r->position() = pos;
     r->size() = size;
+    r->isVisible() = is_visible;
 
     json response;
     response["type"] = "ModifyRoom";
@@ -143,11 +147,13 @@ WebSocketServer::Response BuildingManager::onModifyWall(const Packet &j) {
   uint64_t id = j.json().at("data").at("id").get<uint64_t>();
   Vector2f start = Vector2f::fromJson(j.json().at("data").at("start"));
   Vector2f end = Vector2f::fromJson(j.json().at("data").at("end"));
+  bool is_visible = j.json().at("data").at("is_visible").get<bool>();
 
   std::shared_ptr<Wall> w = _building.wall(id);
   if (w) {
     w->start() = start;
     w->end() = end;
+    w->isVisible() = is_visible;
 
     json response;
     response["type"] = "ModifyWall";
@@ -168,18 +174,24 @@ WebSocketServer::Response BuildingManager::onModifyDoor(const Packet &j) {
   Vector2f position = Vector2f::fromJson(j.json().at("data").at("position"));
   float width = j.json().at("data").at("width").get<float>();
   float rotation = j.json().at("data").at("rotation").get<float>();
+  bool is_open = j.json().at("data").at("is_open").get<bool>();
+  bool is_visible = j.json().at("data").at("is_visible").get<bool>();
 
   std::shared_ptr<Door> d = _building.door(id);
   if (d) {
     d->position() = position;
     d->width() = width;
     d->rotation() = rotation;
+    d->isOpen() = is_open;
+    d->isVisible() = is_visible;
 
     json response;
     response["type"] = "ModifyDoor";
     response["data"] = d->toJson();
 
     return {response.dump(), WebSocketServer::ResponseType::BROADCAST};
+  } else {
+    LOG_WARN << "Tried to modify a nonexistant door" << LOG_END;
   }
   return {"", WebSocketServer::ResponseType::SILENCE};
 }
@@ -194,12 +206,14 @@ WebSocketServer::Response BuildingManager::onModifyFurniture(const Packet &j) {
   Vector2f position = Vector2f::fromJson(j.json().at("data").at("position"));
   Vector2f size = Vector2f::fromJson(j.json().at("data").at("size"));
   float rotation = j.json().at("data").at("rotation").get<float>();
+  bool is_visible = j.json().at("data").at("is_visible").get<bool>();
 
   std::shared_ptr<Furniture> f = _building.furniture(id);
   if (f) {
     f->position() = position;
     f->size() = size;
     f->rotation() = rotation;
+    f->isVisible() = is_visible;
 
     json response;
     response["type"] = "ModifyFurniture";
@@ -249,7 +263,7 @@ WebSocketServer::Response BuildingManager::onDeleteFurniture(const Packet &j) {
 void BuildingManager::registerPackets(
     std::unordered_map<std::string,
                        std::function<WebSocketServer::Response(const Packet &)>>
-        packet_handlers) {
+        *packet_handlers) {
   using std::placeholders::_1;
   std::unordered_map<std::string,
                      std::function<WebSocketServer::Response(const Packet &)>>
@@ -272,5 +286,5 @@ void BuildingManager::registerPackets(
           {"DeleteDoor", std::bind(&BuildingManager::onDeleteDoor, this, _1)},
           {"DeleteFurniture",
            std::bind(&BuildingManager::onDeleteFurniture, this, _1)}};
-  packet_handlers.insert(handlers.begin(), handlers.end());
+  packet_handlers->insert(handlers.begin(), handlers.end());
 }

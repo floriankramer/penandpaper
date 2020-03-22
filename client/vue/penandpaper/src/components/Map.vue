@@ -32,8 +32,10 @@ import Tool from '../tools/tool'
 import ToolToken from '../tools/tool_token'
 import ToolLine from '../tools/tool_line'
 import ToolRoom from '../tools/tool_room'
+import ToolWall from '../tools/tool_wall'
 import ToolDoor from '../tools/tool_door'
 import ToolFurniture from '../tools/tool_furniture'
+import ToolReveal from '../tools/tool_reveal'
 import Renderer from '../rendering/renderer'
 import GridActor from '../rendering/gridactor'
 import TokenActor from '../rendering/token_actor'
@@ -89,6 +91,9 @@ export default class World extends Vue {
   lastCanvasWidth: number = 0
   lastCanvasHeight: number = 0
 
+  // True if we already received the server state
+  hasState: boolean = false
+
   constructor () {
     super()
 
@@ -100,8 +105,21 @@ export default class World extends Vue {
     eventBus.$on('/server/line/create', (data: Sim.Line) => { this.onServerCreateLine(data) })
     eventBus.$on('/server/line/clear', () => { this.onServerClearLines() })
     eventBus.$on('/server/state', (data: ServerState) => { this.onServerState(data) })
+    eventBus.$on('/server/is_gm', (data: boolean) => { this.onServerIsGm(data) })
     eventBus.$on('/server/building/set', (data: B.Building) => { this.onServerSetBuilding(data) })
     eventBus.$on('/server/building/toggle_door', (data: number[]) => { this.onServerToggleDoor(data) })
+    eventBus.$on('/server/building/room/create', (data: B.Room) => { this.onServerCreateRoom(data) })
+    eventBus.$on('/server/building/room/delete', (data: B.Room) => { this.onServerDeleteRoom(data) })
+    eventBus.$on('/server/building/room/modified', (data: B.Room) => { this.onServerModifyRoom(data) })
+    eventBus.$on('/server/building/wall/create', (data: B.Wall) => { this.onServerCreateWall(data) })
+    eventBus.$on('/server/building/wall/delete', (data: B.Wall) => { this.onServerDeleteWall(data) })
+    eventBus.$on('/server/building/wall/modified', (data: B.Wall) => { this.onServerModifyWall(data) })
+    eventBus.$on('/server/building/door/create', (data: B.Door) => { this.onServerCreateDoor(data) })
+    eventBus.$on('/server/building/door/delete', (data: B.Door) => { this.onServerDeleteDoor(data) })
+    eventBus.$on('/server/building/door/modified', (data: B.Door) => { this.onServerModifyDoor(data) })
+    eventBus.$on('/server/building/furniture/create', (data: B.Furniture) => { this.onServerCreateFurniture(data) })
+    eventBus.$on('/server/building/furniture/delete', (data: B.Furniture) => { this.onServerDeleteFurniture(data) })
+    eventBus.$on('/server/building/furniture/modified', (data: B.Furniture) => { this.onServerModifyFurniture(data) })
 
     eventBus.$on('/client/building/save', () => { this.onClientSaveBuilding() })
     eventBus.$on('/client/building/load', (file: File) => { this.onClientLoadBuilding(file) })
@@ -173,14 +191,6 @@ export default class World extends Vue {
     return new Sim.Point(this.lastMouseX, this.lastMouseY)
   }
 
-  addRoom (room: B.Room) {
-    // if (this.currentBuilding === undefined) {
-    //   this.currentBuilding = new B.Building()
-    // }
-    // this.currentBuilding.addRoom(room)
-    // this.requestRedraw()
-  }
-
   addFurniture (f: B.Furniture) {
     // if (this.currentBuilding === undefined) {
     //   this.currentBuilding = new B.Building()
@@ -195,12 +205,6 @@ export default class World extends Vue {
     // }
     // this.currentBuilding.addDoor(door)
     // this.requestRedraw()
-  }
-
-  removeRoomAt (wx: number, wy: number) {
-    // if (this.currentBuilding !== undefined) {
-    //   this.currentBuilding.removeRoomAt(wx, wy)
-    // }
   }
 
   removeFurnitureAt (pos: Sim.Point) {
@@ -388,6 +392,10 @@ export default class World extends Vue {
 
   initActors () {
     this.renderer.addActor(this.gridActor, 0)
+    this.renderer.addActor(this.roomActor, 1)
+    this.renderer.addActor(this.doorActor, 1)
+    this.renderer.addActor(this.wallActor, 1)
+    this.renderer.addActor(this.furnitureActor, 1)
   }
 
   updateMovingTokens () {
@@ -471,6 +479,11 @@ export default class World extends Vue {
   }
 
   onServerState (data: ServerState) {
+    if (this.hasState || !data.isStateLoaded) {
+      return
+    }
+    this.hasState = true
+
     // Copy the list of tokens
     this.lines.push(...data.lines)
 
@@ -482,12 +495,40 @@ export default class World extends Vue {
       this.onNewToken(t)
     })
 
+    // if (data.building !== null) {
+    //   this.currentBuilding = data.building
+    // } else {
+    //   this.currentBuilding = undefined
+    // }
+
     if (data.building !== null) {
-      this.currentBuilding = data.building
-    } else {
-      this.currentBuilding = undefined
+      data.building.rooms.forEach((r: B.Room) => {
+        this.roomActor.addRoom(r)
+      })
+      data.building.walls.forEach((w: B.Wall) => {
+        this.wallActor.addWall(w)
+      })
+      data.building.doors.forEach((d: B.Door) => {
+        this.doorActor.addDoor(d)
+      })
+      data.building.furniture.forEach((f: B.Furniture) => {
+        this.furnitureActor.addFurniture(f)
+      })
     }
 
+    this.requestRedraw()
+  }
+
+  onServerIsGm (isGm: boolean) {
+    this.doorActor.showInvisible = isGm
+    this.roomActor.showInvisible = isGm
+    this.wallActor.showInvisible = isGm
+    this.furnitureActor.showInvisible = isGm
+
+    this.doorActor.updateVertexData()
+    this.roomActor.updateVertexData()
+    this.wallActor.updateVertexData()
+    this.furnitureActor.updateVertexData()
     this.requestRedraw()
   }
 
@@ -556,10 +597,14 @@ export default class World extends Vue {
       this.tool = new ToolLine(this)
     } else if (type === 'room') {
       this.tool = new ToolRoom(this)
+    } else if (type === 'wall') {
+      this.tool = new ToolWall(this)
     } else if (type === 'door') {
       this.tool = new ToolDoor(this)
     } else if (type === 'furniture') {
       this.tool = new ToolFurniture(this)
+    } else if (type === 'reveal') {
+      this.tool = new ToolReveal(this)
     }
   }
 
@@ -568,6 +613,66 @@ export default class World extends Vue {
     if (a) {
       a.setIsFoe(token.isFoe)
     }
+    this.requestRedraw()
+  }
+
+  onServerCreateRoom (room: B.Room) {
+    this.roomActor.addRoom(room)
+    this.requestRedraw()
+  }
+
+  onServerDeleteRoom (r: B.Room) {
+    this.roomActor.removeRoom(r)
+    this.requestRedraw()
+  }
+
+  onServerModifyRoom (d: B.Room) {
+    this.roomActor.updateVertexData()
+    this.requestRedraw()
+  }
+
+  onServerCreateWall (w: B.Wall) {
+    this.wallActor.addWall(w)
+    this.requestRedraw()
+  }
+
+  onServerDeleteWall (w: B.Wall) {
+    this.wallActor.removeWall(w)
+    this.requestRedraw()
+  }
+
+  onServerModifyWall (d: B.Furniture) {
+    this.wallActor.updateVertexData()
+    this.requestRedraw()
+  }
+
+  onServerCreateDoor (w: B.Door) {
+    this.doorActor.addDoor(w)
+    this.requestRedraw()
+  }
+
+  onServerDeleteDoor (w: B.Door) {
+    this.doorActor.removeDoor(w)
+    this.requestRedraw()
+  }
+
+  onServerModifyDoor (d: B.Door) {
+    this.doorActor.updateVertexData()
+    this.requestRedraw()
+  }
+
+  onServerCreateFurniture (w: B.Furniture) {
+    this.furnitureActor.addFurniture(w)
+    this.requestRedraw()
+  }
+
+  onServerDeleteFurniture (w: B.Furniture) {
+    this.furnitureActor.removeFurniture(w)
+    this.requestRedraw()
+  }
+
+  onServerModifyFurniture (d: B.Furniture) {
+    this.furnitureActor.updateVertexData()
     this.requestRedraw()
   }
 

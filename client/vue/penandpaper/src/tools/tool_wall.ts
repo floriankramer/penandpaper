@@ -21,37 +21,36 @@ import eventBus from '../eventbus'
 import * as B from '../simulation/building'
 import Renderer from '../rendering/renderer'
 
-import DoorActor from '../rendering/dooractor'
+import WallActor from '../rendering/wallactor'
+import FontActor from '../rendering/fontactor'
 
-export default class ToolDoor extends Tool {
+export default class ToolWall extends Tool {
   isDrawing: boolean = false
   start: Sim.Point = new Sim.Point(0, 0)
   stop: Sim.Point = new Sim.Point(0, 0)
 
   accuracy: number = 4
 
-  currentDoor: B.Door = new B.Door()
+  currentWall: B.Wall = new B.Wall()
 
-  standardDoorWidth: number = 1.2
-  useStandardDoor: boolean = false
-
-  doorActor = new DoorActor()
+  wallActor: WallActor = new WallActor()
+  fontActor: FontActor = new FontActor()
   isActorVisible: boolean = false
 
   constructor (map: Map) {
     super(map)
-    this.currentDoor.isVisible = true
-    this.doorActor.addDoor(this.currentDoor)
+    this.currentWall.isVisible = true
+    this.wallActor.addWall(this.currentWall)
   }
 
   onMouseDown (event: MouseEvent) : boolean {
     if (event.ctrlKey) {
       let worldPos = this.map.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
       if (event.button === 2) {
-        eventBus.$emit('/client/building/door/delete', worldPos)
+        eventBus.$emit('/client/building/wall/delete', worldPos)
       } else {
-        this.start.x = worldPos.x
-        this.start.y = worldPos.y
+        this.start.x = Math.round(worldPos.x * this.accuracy) / this.accuracy
+        this.start.y = Math.round(worldPos.y * this.accuracy) / this.accuracy
         this.stop.x = this.start.x
         this.stop.y = this.start.y
         this.isDrawing = true
@@ -65,69 +64,62 @@ export default class ToolDoor extends Tool {
   onMouseMove (event: MouseEvent) : boolean {
     let worldPos = this.map.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
     if (this.isDrawing) {
-      this.stop.x = worldPos.x
-      this.stop.y = worldPos.y
-      this.useStandardDoor = event.altKey
-      // Draw the lines
-      this.updateDoor()
+      this.stop.x = Math.round(worldPos.x * this.accuracy) / this.accuracy
+      this.stop.y = Math.round(worldPos.y * this.accuracy) / this.accuracy
+      this.updateWall()
       this.map.requestRedraw()
     } else {
       super.onMouseMove(event)
+      this.start.x = Math.round(worldPos.x * this.accuracy) / this.accuracy
+      this.start.y = Math.round(worldPos.y * this.accuracy) / this.accuracy
+      this.stop.x = this.start.x + 0.4
+      this.stop.y = this.start.y + 0.4
+      this.updateWall()
+      this.map.requestRedraw()
     }
     return false
   }
 
   onMouseUp (event: MouseEvent) : boolean {
     if (this.isDrawing) {
-      // create a new door
-      this.updateDoor()
-      if (this.currentDoor.width > 0.1) {
-        eventBus.$emit('/client/building/door/create', this.currentDoor)
+      // add the Wall to the map
+      this.updateWall()
+      if (this.currentWall.length() > 0.1) {
+        eventBus.$emit('/client/building/wall/create', this.currentWall)
       }
-      this.currentDoor = new B.Door()
-      this.currentDoor.isVisible = true
-      this.doorActor.clearDoors()
-      this.doorActor.addDoor(this.currentDoor)
+      this.wallActor.clearWalls()
+      this.currentWall = new B.Wall()
+      this.currentWall.isVisible = true
+      this.wallActor.addWall(this.currentWall)
     }
     super.onMouseUp(event)
     this.isDrawing = false
     return false
   }
 
-  updateDoor () {
-    let delta = this.stop.minus(this.start)
-    let step = Math.PI / 8
-    this.currentDoor.rotation = Math.round(Math.atan2(delta.y, delta.x) / step) * step
-    if (this.useStandardDoor) {
-      this.currentDoor.width = this.standardDoorWidth
-    } else {
-      this.currentDoor.width = delta.length()
-    }
-
-    let facingUp = this.currentDoor.rotation > Math.PI / 4 && this.currentDoor.rotation < 3 * Math.PI / 4
-    let facingDown = this.currentDoor.rotation > -Math.PI / 4 && this.currentDoor.rotation < 3 * -Math.PI / 4
-
-    if (facingUp || facingDown) {
-      // snap to y
-      this.currentDoor.position.x = this.start.x
-      this.currentDoor.position.y = Math.round(this.start.y * this.accuracy) / this.accuracy
-    } else {
-      // snap to x
-      this.currentDoor.position.x = Math.round(this.start.x * this.accuracy) / this.accuracy
-      this.currentDoor.position.y = this.start.y
-    }
-    this.doorActor.updateVertexData()
+  updateWall () {
+    this.currentWall.start.x = this.start.x
+    this.currentWall.start.y = this.start.y
+    this.currentWall.end.x = this.stop.x
+    this.currentWall.end.y = this.stop.y
+    this.wallActor.updateVertexData()
   }
 
   render (renderer: Renderer) {
     if (this.isDrawing && !this.isActorVisible) {
       this.isActorVisible = true
-      renderer.addActor(this.doorActor, 4)
+      renderer.addActor(this.wallActor, 4)
+      renderer.addActor(this.fontActor, 4)
     }
+
+    let t = this.currentWall.length().toFixed(2) + 'm'
+    this.fontActor.setText(t)
+    this.fontActor.setPosition(this.currentWall.end.x, this.currentWall.end.y)
 
     if (!this.isDrawing && this.isActorVisible) {
       this.isActorVisible = false
-      renderer.removeActor(this.doorActor)
+      renderer.removeActor(this.wallActor)
+      renderer.removeActor(this.fontActor)
     }
   }
 }

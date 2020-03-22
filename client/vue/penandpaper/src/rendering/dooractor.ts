@@ -22,11 +22,18 @@ import { Matrix3 } from './matrix'
 export default class DoorActor extends Actor {
   doors: Door[] = []
 
+  showInvisible = false
+
   constructor () {
     super()
     this.material = new DiffuseMaterial()
     let dm = this.material as DiffuseMaterial
     dm.enableVertexColors()
+    this.updateVertexData()
+  }
+
+  clearDoors () {
+    this.doors = []
     this.updateVertexData()
   }
 
@@ -99,34 +106,41 @@ export default class DoorActor extends Actor {
     }
 
     this.doors.forEach((d) => {
+      if (!d.isVisible && !this.showInvisible) {
+        return
+      }
+      let alpha = 1
+      if (!d.isVisible) {
+        alpha = 0.5
+      }
+
       let m = new Matrix3()
       m.scale(d.width, d.width)
       m.rotate(d.rotation)
       m.translate(d.position.x, d.position.y)
       base.forEach((p: number[]) => {
         let p0 = m.mulVec(p[0], p[1], 1)
-        console.log(p, p0)
         positions.push(p0[0], p0[1])
       })
 
       // Colors
       // The frame
       if (d.isOpen) {
-        colors.push(closedColor, closedColor, closedColor, 1)
-        colors.push(closedColor, closedColor, closedColor, 1)
-        colors.push(closedColor, closedColor, closedColor, 1)
+        colors.push(closedColor, closedColor, closedColor, alpha)
+        colors.push(closedColor, closedColor, closedColor, alpha)
+        colors.push(closedColor, closedColor, closedColor, alpha)
 
-        colors.push(closedColor, closedColor, closedColor, 1)
-        colors.push(closedColor, closedColor, closedColor, 1)
-        colors.push(closedColor, closedColor, closedColor, 1)
+        colors.push(closedColor, closedColor, closedColor, alpha)
+        colors.push(closedColor, closedColor, closedColor, alpha)
+        colors.push(closedColor, closedColor, closedColor, alpha)
       } else {
-        colors.push(1, 1, 1, 1)
-        colors.push(1, 1, 1, 1)
-        colors.push(1, 1, 1, 1)
+        colors.push(1, 1, 1, alpha)
+        colors.push(1, 1, 1, alpha)
+        colors.push(1, 1, 1, alpha)
 
-        colors.push(1, 1, 1, 1)
-        colors.push(1, 1, 1, 1)
-        colors.push(1, 1, 1, 1)
+        colors.push(1, 1, 1, alpha)
+        colors.push(1, 1, 1, alpha)
+        colors.push(1, 1, 1, alpha)
       }
 
       // The door
@@ -139,42 +153,39 @@ export default class DoorActor extends Actor {
         colors.push(1, 1, 1, 1)
         colors.push(1, 1, 1, 1)
       } else {
-        colors.push(closedColor, closedColor, closedColor, 1)
-        colors.push(closedColor, closedColor, closedColor, 1)
-        colors.push(closedColor, closedColor, closedColor, 1)
+        colors.push(closedColor, closedColor, closedColor, alpha)
+        colors.push(closedColor, closedColor, closedColor, alpha)
+        colors.push(closedColor, closedColor, closedColor, alpha)
 
-        colors.push(closedColor, closedColor, closedColor, 1)
-        colors.push(closedColor, closedColor, closedColor, 1)
-        colors.push(closedColor, closedColor, closedColor, 1)
+        colors.push(closedColor, closedColor, closedColor, alpha)
+        colors.push(closedColor, closedColor, closedColor, alpha)
+        colors.push(closedColor, closedColor, closedColor, alpha)
       }
 
       // The Arc
 
       if (d.isOpen) {
         for (let i = 0; i < steps; ++i) {
-          colors.push(1, 1, 1, 1)
-          colors.push(1, 1, 1, 1)
-          colors.push(1, 1, 1, 1)
+          colors.push(1, 1, 1, alpha)
+          colors.push(1, 1, 1, alpha)
+          colors.push(1, 1, 1, alpha)
 
-          colors.push(1, 1, 1, 1)
-          colors.push(1, 1, 1, 1)
-          colors.push(1, 1, 1, 1)
+          colors.push(1, 1, 1, alpha)
+          colors.push(1, 1, 1, alpha)
+          colors.push(1, 1, 1, alpha)
         }
       } else {
         for (let i = 0; i < steps; ++i) {
-          colors.push(closedColor, closedColor, closedColor, 1)
-          colors.push(closedColor, closedColor, closedColor, 1)
-          colors.push(closedColor, closedColor, closedColor, 1)
+          colors.push(closedColor, closedColor, closedColor, alpha)
+          colors.push(closedColor, closedColor, closedColor, alpha)
+          colors.push(closedColor, closedColor, closedColor, alpha)
 
-          colors.push(closedColor, closedColor, closedColor, 1)
-          colors.push(closedColor, closedColor, closedColor, 1)
-          colors.push(closedColor, closedColor, closedColor, 1)
+          colors.push(closedColor, closedColor, closedColor, alpha)
+          colors.push(closedColor, closedColor, closedColor, alpha)
+          colors.push(closedColor, closedColor, closedColor, alpha)
         }
       }
     })
-
-    console.log(positions)
-    console.log(colors)
 
     this.vertexShaderInput.set(ShaderInputType.POSITION, positions)
     this.vertexShaderInput.set(ShaderInputType.VERTEX_COLOR, colors)

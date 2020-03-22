@@ -49,7 +49,7 @@ class BuildingManager {
   void registerPackets(
       std::unordered_map<
           std::string, std::function<WebSocketServer::Response(const Packet &)>>
-          packet_handlers);
+          *packet_handlers);
 
  private:
   Building _building;

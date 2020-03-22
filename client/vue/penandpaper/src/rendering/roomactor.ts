@@ -21,13 +21,13 @@ import { Room } from '../simulation/building'
 export default class RoomActor extends Actor {
   rooms: Room[] = []
 
+  showInvisible = false
+
   constructor () {
     super()
     this.material = new DiffuseMaterial()
     let dm = this.material as DiffuseMaterial
-    dm.r = 0.27
-    dm.g = 0.27
-    dm.b = 0.27
+    dm.enableVertexColors()
     this.updateVertexData()
   }
 
@@ -51,8 +51,17 @@ export default class RoomActor extends Actor {
 
   updateVertexData () {
     let positions: number[] = []
+    let colors: number[] = []
 
     this.rooms.forEach((r) => {
+      if (!r.isVisible && !this.showInvisible) {
+        return
+      }
+      let alpha = 1
+      if (!r.isVisible) {
+        alpha = 0.5
+      }
+
       positions.push(r.position.x - r.size.x, r.position.y - r.size.y)
       positions.push(r.position.x - r.size.x, r.position.y + r.size.y)
       positions.push(r.position.x + r.size.x, r.position.y - r.size.y)
@@ -60,9 +69,18 @@ export default class RoomActor extends Actor {
       positions.push(r.position.x + r.size.x, r.position.y - r.size.y)
       positions.push(r.position.x - r.size.x, r.position.y + r.size.y)
       positions.push(r.position.x + r.size.x, r.position.y + r.size.y)
+
+      colors.push(0.27, 0.27, 0.27, alpha)
+      colors.push(0.27, 0.27, 0.27, alpha)
+      colors.push(0.27, 0.27, 0.27, alpha)
+
+      colors.push(0.27, 0.27, 0.27, alpha)
+      colors.push(0.27, 0.27, 0.27, alpha)
+      colors.push(0.27, 0.27, 0.27, alpha)
     })
 
     this.vertexShaderInput.set(ShaderInputType.POSITION, positions)
+    this.vertexShaderInput.set(ShaderInputType.VERTEX_COLOR, colors)
     this.setVertexDataChanged()
   }
 }

@@ -26,9 +26,13 @@ export class Furniture {
   rotation: number = 0
   isVisible: boolean = false
 
-  render (ctx: CanvasRenderingContext2D, pass: number = 2) {
-    // ctx.strokeStyle = '#FFFFFF'
-    // ctx.fillStyle = '#444444'
+  modify (of: Furniture) {
+    this.position.x = of.position.x
+    this.position.y = of.position.y
+    this.size.x = of.size.x
+    this.size.y = of.size.y
+    this.rotation = of.rotation
+    this.isVisible = of.isVisible
   }
 
   contains (pos: Sim.Point) {
@@ -88,51 +92,13 @@ export class Door {
   isVisible: boolean = false
   isOpen: boolean = true
 
-  render (ctx: CanvasRenderingContext2D, pass: number = 2, isGm: boolean = true) {
-    // if (!this.isVisible && !isGm) {
-    //   return
-    // }
-    // if (pass === 2) {
-    //   let initAlpha = ctx.globalAlpha
-    //   if (!this.isVisible) {
-    //     ctx.globalAlpha = 0.5
-    //   }
-
-    //   // Determine the start and stop along the wall
-    //   let left = new Sim.Point(-this.facing.y, this.facing.x)
-    //   let start = new Sim.Point(this.position.x + left.x * this.width / 2, this.position.y + left.y * this.width / 2)
-    //   let stop = new Sim.Point(this.position.x - left.x * this.width / 2, this.position.y - left.y * this.width / 2)
-
-    //   // replace the wall
-    //   ctx.fillStyle = '#444444'
-    //   let wt2 = (WALL_THICKNESS / 2 + WALL_OUTLINE) * this.facing.x
-    //   let ht2 = (WALL_THICKNESS / 2 + WALL_OUTLINE) * this.facing.y
-
-    //   ctx.fillRect(start.x - wt2, start.y - ht2, stop.x - start.x + 2 * wt2, stop.y - start.y + 2 * ht2)
-
-    //   // Draw the door
-    //   if (!this.isOpen) {
-    //     ctx.strokeStyle = '#666666'
-    //   } else {
-    //     ctx.strokeStyle = '#FFFFFF'
-    //   }
-    //   ctx.beginPath()
-    //   ctx.moveTo(stop.x, stop.y)
-    //   ctx.lineTo(stop.x + this.facing.x * this.width, stop.y + this.facing.y * this.width)
-    //   ctx.arcTo(start.x + this.facing.x * this.width, start.y + this.facing.y * this.width, start.x, start.y, this.width)
-    //   ctx.stroke()
-    //   if (!this.isOpen) {
-    //     ctx.strokeStyle = '#FFFFFF'
-    //     let l = ctx.lineWidth
-    //     ctx.lineWidth *= 2
-    //     ctx.beginPath()
-    //     ctx.moveTo(start.x, start.y)
-    //     ctx.lineTo(stop.x, stop.y)
-    //     ctx.stroke()
-    //     ctx.lineWidth = l
-    //   }
-    //   ctx.globalAlpha = initAlpha
-    // }
+  modify (od: Door) {
+    this.position.x = od.position.x
+    this.position.y = od.position.y
+    this.width = od.width
+    this.rotation = od.rotation
+    this.isVisible = od.isVisible
+    this.isOpen = od.isOpen
   }
 
   toSerializable () : any {
@@ -164,28 +130,35 @@ export class Wall {
   end: Sim.Point = new Sim.Point(0, 0)
   isVisible: boolean = false
 
-  // constructor (id: number, start: Sim.Point, stop: Sim.Point) {
-  //   this.id = id
-  //   this.start = start
-  //   this.end = stop
-  // }
+  modify (of: Wall) {
+    this.start.x = of.start.x
+    this.start.y = of.start.y
+    this.end.x = of.end.x
+    this.end.y = of.end.y
+    this.isVisible = of.isVisible
+  }
 
-  render (ctx: CanvasRenderingContext2D, pass: number = 0, isGm: boolean) {
-    // if (pass === 0) {
-    //   // draw the outline
-    //   ctx.fillStyle = '#111111'
-    //   let wt2 = (WALL_THICKNESS / 2 + WALL_OUTLINE) * (this.start.x < this.stop.x ? 1 : -1)
-    //   let ht2 = (WALL_THICKNESS / 2 + WALL_OUTLINE) * (this.start.y < this.stop.y ? 1 : -1)
+  length (): number {
+    return Math.hypot(this.start.x - this.end.x, this.start.y - this.end.y)
+  }
 
-    //   ctx.fillRect(this.start.x - wt2, this.start.y - ht2, this.stop.x - this.start.x + 2 * wt2, this.stop.y - this.start.y + 2 * ht2)
-    // } else if (pass === 1) {
-    //   // draw the center
-    //   ctx.fillStyle = '#222222'
-    //   let wt2 = WALL_THICKNESS / 2 * (this.start.x < this.stop.x ? 1 : -1)
-    //   let ht2 = WALL_THICKNESS / 2 * (this.start.y < this.stop.y ? 1 : -1)
-
-    //   ctx.fillRect(this.start.x - wt2, this.start.y - ht2, this.stop.x - this.start.x + 2 * wt2, this.stop.y - this.start.y + 2 * ht2)
-    // }
+  distTo (x: number, y: number): number {
+    let p = new Sim.Point(x, y)
+    let delta = this.end.minus(this.start)
+    let length = delta.length()
+    delta.normalize()
+    let pdelta = p.minus(this.start)
+    // Project the vector start->p onto the line described by this wall.
+    // Check if the projected point is outsuide of the wall and return
+    // the distance to an endpoint or to the projected point
+    let d = delta.dot(pdelta)
+    if (d < 0) {
+      return pdelta.length()
+    } else if (d > length) {
+      return p.minus(this.end).length()
+    } else {
+      return p.minus(this.start.add(delta.scale(d))).length()
+    }
   }
 
   toSerializable () : any {
@@ -213,47 +186,19 @@ export class Room {
   size: Sim.Point = new Sim.Point(0, 0)
   isVisible: boolean = false
 
-  render (ctx: CanvasRenderingContext2D, pass: number = 0, isGm: boolean = true) {
-    // if (!this.isVisible && !isGm) {
-    //   return
-    // }
-    // let initAlpha = ctx.globalAlpha
-    // if (!this.isVisible) {
-    //   ctx.globalAlpha = 0.5
-    // }
-    // if (pass === 0) {
-    //   // Draw the floor
-    //   ctx.fillStyle = '#444444'
-    //   ctx.fillRect(this.min.x, this.min.y, this.width(), this.height())
-
-    //   ctx.strokeStyle = '#FFFFFF'
-    //   ctx.beginPath()
-    //   ctx.moveTo(this.min.x, this.min.y)
-    //   ctx.lineTo(this.max.x, this.min.y)
-    //   ctx.lineTo(this.max.x, this.max.y)
-    //   ctx.lineTo(this.min.x, this.max.y)
-    //   ctx.lineTo(this.min.x, this.min.y)
-    //   ctx.stroke()
-    // }
-    // // Draw the walls
-    // this.walls.forEach(wall => {
-    //   wall.render(ctx, pass)
-    // })
-
-    // // Draw the furniture
-    // this.furniture.forEach(f => {
-    //   f.render(ctx, pass)
-    // })
-
-    // ctx.globalAlpha = initAlpha
+  modify (of: Room) {
+    this.position.x = of.position.x
+    this.position.y = of.position.y
+    this.size = of.size
+    this.isVisible = of.isVisible
   }
 
   width () : number {
-    return this.size.x
+    return this.size.x * 2
   }
 
   height () : number {
-    return this.size.y
+    return this.size.y * 2
   }
 
   contains (x: number, y: number, margin: number = 0) : boolean {
@@ -288,20 +233,6 @@ export class Building {
   doors: Door[] = []
   walls: Wall[] = []
   furniture: Furniture[] = []
-
-  render (ctx: CanvasRenderingContext2D, isGm: boolean = false) {
-    this.walls.forEach(wall => {
-      wall.render(ctx, 0, isGm)
-    })
-    // for (let pass = 0; pass < 3; ++pass) {
-    //   this.rooms.forEach(room => {
-    //     room.render(ctx, pass, isGm)
-    //   })
-    //   this.doors.forEach(door => {
-    //     door.render(ctx, pass, isGm)
-    //   })
-    // }
-  }
 
   toSerializable () : any {
     return {

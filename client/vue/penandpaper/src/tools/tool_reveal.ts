@@ -22,14 +22,11 @@ import * as B from '../simulation/building'
 import Renderer from '../rendering/renderer'
 
 import RoomActor from '../rendering/roomactor'
-import FontActor from '../rendering/fontactor'
 
 export default class ToolRoom extends Tool {
   isDrawing: boolean = false
   start: Sim.Point = new Sim.Point(0, 0)
   stop: Sim.Point = new Sim.Point(0, 0)
-
-  accuracy: number = 4
 
   currentRoom: B.Room = new B.Room()
 
@@ -45,15 +42,12 @@ export default class ToolRoom extends Tool {
   onMouseDown (event: MouseEvent) : boolean {
     if (event.ctrlKey) {
       let worldPos = this.map.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
-      if (event.button === 2) {
-        eventBus.$emit('/client/building/room/delete', worldPos)
-      } else {
-        this.start.x = Math.round(worldPos.x * this.accuracy) / this.accuracy
-        this.start.y = Math.round(worldPos.y * this.accuracy) / this.accuracy
-        this.stop.x = this.start.x
-        this.stop.y = this.start.y
-        this.isDrawing = true
-      }
+      this.start.x = worldPos.x
+      this.start.y = worldPos.y
+      this.stop.x = this.start.x
+      this.stop.y = this.start.y
+      this.isDrawing = true
+
       return true
     } else {
       return super.onMouseDown(event)
@@ -63,18 +57,12 @@ export default class ToolRoom extends Tool {
   onMouseMove (event: MouseEvent) : boolean {
     let worldPos = this.map.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
     if (this.isDrawing) {
-      this.stop.x = Math.round(worldPos.x * this.accuracy) / this.accuracy
-      this.stop.y = Math.round(worldPos.y * this.accuracy) / this.accuracy
+      this.stop.x = worldPos.x
+      this.stop.y = worldPos.y
       this.updateRoom()
       this.map.requestRedraw()
     } else {
       super.onMouseMove(event)
-      this.start.x = Math.round(worldPos.x * this.accuracy) / this.accuracy
-      this.start.y = Math.round(worldPos.y * this.accuracy) / this.accuracy
-      this.stop.x = this.start.x + 0.4
-      this.stop.y = this.start.y + 0.4
-      this.updateRoom()
-      this.map.requestRedraw()
     }
     return false
   }
@@ -83,9 +71,12 @@ export default class ToolRoom extends Tool {
     if (this.isDrawing) {
       // add the room to the map
       this.updateRoom()
-      if (this.currentRoom.width() > 0.1 && this.currentRoom.height() > 0.1) {
-        eventBus.$emit('/client/building/room/create', this.currentRoom)
-      }
+      let minx = Math.min(this.start.x, this.stop.x)
+      let miny = Math.min(this.start.y, this.stop.y)
+      let maxx = Math.max(this.start.x, this.stop.x)
+      let maxy = Math.max(this.start.y, this.stop.y)
+
+      eventBus.$emit('/client/building/reveal', new Sim.Rectangle(minx, miny, maxx, maxy))
       this.roomActor.clearRooms()
       this.currentRoom = new B.Room()
       this.currentRoom.isVisible = true
@@ -108,17 +99,11 @@ export default class ToolRoom extends Tool {
     if (this.isDrawing && !this.isActorVisible) {
       this.isActorVisible = true
       renderer.addActor(this.roomActor, 4)
-      renderer.addActor(this.fontActor, 4)
     }
-
-    let t = this.currentRoom.width().toFixed(2) + 'm x ' + this.currentRoom.height().toFixed(2) + 'm'
-    this.fontActor.setText(t)
-    this.fontActor.setPosition(this.currentRoom.position.x + this.currentRoom.size.x, this.currentRoom.position.y - this.currentRoom.size.y)
 
     if (!this.isDrawing && this.isActorVisible) {
       this.isActorVisible = false
       renderer.removeActor(this.roomActor)
-      renderer.removeActor(this.fontActor)
     }
   }
 }

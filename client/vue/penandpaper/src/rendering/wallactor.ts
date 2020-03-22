@@ -21,6 +21,8 @@ import { Wall } from '../simulation/building'
 export default class WallActor extends Actor {
   walls: Wall[] = []
 
+  showInvisible = false
+
   constructor () {
     super()
     this.material = new DiffuseMaterial()
@@ -42,6 +44,11 @@ export default class WallActor extends Actor {
     this.updateVertexData()
   }
 
+  clearWalls () {
+    this.walls = []
+    this.updateVertexData()
+  }
+
   updateVertexData () {
     let positions: number[] = []
     let colors: number[] = []
@@ -51,6 +58,13 @@ export default class WallActor extends Actor {
 
     // The outline
     this.walls.forEach((w) => {
+      if (!w.isVisible && !this.showInvisible) {
+        return
+      }
+      let alpha = 1
+      if (!w.isVisible) {
+        alpha = 0.5
+      }
       let dx = w.end.x - w.start.x
       let dy = w.end.y - w.start.y
       let l = Math.hypot(dx, dy)
@@ -73,16 +87,24 @@ export default class WallActor extends Actor {
       positions.push(w.end.x - nx * thickness - nxo + dxo, w.end.y - ny * thickness - nyo + dyo)
       positions.push(w.end.x + nx * thickness + nxo + dxo, w.end.y + ny * thickness + nyo + dyo)
 
-      colors.push(0.067, 0.067, 0.067, 1)
-      colors.push(0.067, 0.067, 0.067, 1)
-      colors.push(0.067, 0.067, 0.067, 1)
-      colors.push(0.067, 0.067, 0.067, 1)
-      colors.push(0.067, 0.067, 0.067, 1)
-      colors.push(0.067, 0.067, 0.067, 1)
+      colors.push(0.067, 0.067, 0.067, alpha)
+      colors.push(0.067, 0.067, 0.067, alpha)
+      colors.push(0.067, 0.067, 0.067, alpha)
+      colors.push(0.067, 0.067, 0.067, alpha)
+      colors.push(0.067, 0.067, 0.067, alpha)
+      colors.push(0.067, 0.067, 0.067, alpha)
     })
 
     // The core
     this.walls.forEach((w) => {
+      if (!w.isVisible && !this.showInvisible) {
+        return
+      }
+      let alpha = 1
+      if (!w.isVisible) {
+        alpha = 0.7
+      }
+
       let dx = w.end.x - w.start.x
       let dy = w.end.y - w.start.y
       let l = Math.hypot(dx, dy)
@@ -100,12 +122,12 @@ export default class WallActor extends Actor {
       positions.push(w.end.x - nx * thickness, w.end.y - ny * thickness)
       positions.push(w.end.x + nx * thickness, w.end.y + ny * thickness)
 
-      colors.push(0.133, 0.133, 0.133, 1)
-      colors.push(0.133, 0.133, 0.133, 1)
-      colors.push(0.133, 0.133, 0.133, 1)
-      colors.push(0.133, 0.133, 0.133, 1)
-      colors.push(0.133, 0.133, 0.133, 1)
-      colors.push(0.133, 0.133, 0.133, 1)
+      colors.push(0.133, 0.133, 0.133, alpha)
+      colors.push(0.133, 0.133, 0.133, alpha)
+      colors.push(0.133, 0.133, 0.133, alpha)
+      colors.push(0.133, 0.133, 0.133, alpha)
+      colors.push(0.133, 0.133, 0.133, alpha)
+      colors.push(0.133, 0.133, 0.133, alpha)
     })
 
     this.vertexShaderInput.set(ShaderInputType.POSITION, positions)

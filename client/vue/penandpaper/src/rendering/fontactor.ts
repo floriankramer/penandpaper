@@ -33,6 +33,9 @@ export default class GridActor extends Actor {
   }
 
   setText (text: string) {
+    if (text.length < 32 && text === this.text) {
+      return
+    }
     this.text = text
     this.textDirty = true
   }

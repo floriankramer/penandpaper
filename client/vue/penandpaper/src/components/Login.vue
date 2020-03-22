@@ -52,6 +52,7 @@ export default class Login extends Vue {
   height: 100%;
   left: 0px;
   top: 0px;
+  z-index: 1001;
   background-color: rgba(71, 71, 71, 1);
 }
 

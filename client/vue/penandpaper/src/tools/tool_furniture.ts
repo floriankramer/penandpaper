@@ -21,6 +21,9 @@ import eventBus from '../eventbus'
 import * as B from '../simulation/building'
 import Renderer from '../rendering/renderer'
 
+import FurnitureActor from '../rendering/furnitureactor'
+import FontActor from '../rendering/fontactor'
+
 export default class ToolFurniture extends Tool {
   isDrawing: boolean = false
   isRotating: boolean = false
@@ -38,21 +41,30 @@ export default class ToolFurniture extends Tool {
 
   cloningOffset: Sim.Point = new Sim.Point(0, 0)
 
+  furnitureActor = new FurnitureActor()
+  fontActor = new FontActor()
+  isActorVisible: boolean = false
+
+  constructor (map: Map) {
+    super(map)
+    this.currentFurniture.isVisible = true
+    this.furnitureActor.addFurniture(this.currentFurniture)
+  }
+
   onMouseDown (event: MouseEvent) : boolean {
     let worldPos = this.map.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
-    if (event.ctrlKey && event.altKey) {
+    if (event.ctrlKey && event.shiftKey) {
       let f : B.Furniture | undefined = this.map.getFurnitureAt(worldPos)
       if (f !== undefined) {
-        this.currentFurniture = B.Furniture.fromSerializable(f.toSerializable())
+        this.currentFurniture.modify(f)
         this.isCloning = true
         let c = this.currentFurniture.position
         this.cloningOffset.x = c.x - worldPos.x
         this.cloningOffset.y = c.y - worldPos.y
       }
-    } else if (event.ctrlKey && this.map.getRoomAt(worldPos) !== undefined) {
+    } else if (event.ctrlKey) {
       if (event.button === 2) {
-        this.map.removeFurnitureAt(worldPos)
-        this.map.requestRedraw()
+        eventBus.$emit('/client/building/furniture/delete', worldPos)
       } else {
         this.start.x = Math.round(worldPos.x * this.accuracy) / this.accuracy
         this.start.y = Math.round(worldPos.y * this.accuracy) / this.accuracy
@@ -85,6 +97,7 @@ export default class ToolFurniture extends Tool {
     if (this.isDrawing) {
       this.stop.x = Math.round(worldPos.x * this.accuracy) / this.accuracy
       this.stop.y = Math.round(worldPos.y * this.accuracy) / this.accuracy
+      this.updateFurniture()
       this.map.requestRedraw()
     } else if (this.isRotating && this.rotatedFurniture !== undefined) {
       this.rotatedFurniture.rotation = Math.atan2(worldPos.y - this.rotationPivot.y, worldPos.x - this.rotationPivot.x)
@@ -106,14 +119,20 @@ export default class ToolFurniture extends Tool {
       // add the room to the map
       this.updateFurniture()
       if (this.currentFurniture.width() > 0.1 && this.currentFurniture.height() > 0.1) {
-        this.map.addFurniture(this.currentFurniture)
+        eventBus.$emit('/client/building/furniture/create', this.currentFurniture)
       }
       this.currentFurniture = new B.Furniture()
+      this.currentFurniture.isVisible = true
+      this.furnitureActor.clearFurniture()
+      this.furnitureActor.addFurniture(this.currentFurniture)
     } else if (this.isRotating) {
       this.rotatedFurniture = undefined
     } else if (this.isCloning) {
-      this.map.addFurniture(this.currentFurniture)
+      eventBus.$emit('/client/building/furniture/create', this.currentFurniture)
       this.currentFurniture = new B.Furniture()
+      this.currentFurniture.isVisible = true
+      this.furnitureActor.clearFurniture()
+      this.furnitureActor.addFurniture(this.currentFurniture)
     }
     super.onMouseUp(event)
     this.isDrawing = false
@@ -123,29 +142,28 @@ export default class ToolFurniture extends Tool {
   }
 
   updateFurniture () {
-    // this.currentFurniture.min.x = Math.min(this.start.x, this.stop.x)
-    // this.currentFurniture.min.y = Math.min(this.start.y, this.stop.y)
-    // this.currentFurniture.max.x = Math.max(this.start.x, this.stop.x)
-    // this.currentFurniture.max.y = Math.max(this.start.y, this.stop.y)
+    this.currentFurniture.position.x = (this.start.x + this.stop.x) / 2
+    this.currentFurniture.position.y = (this.start.y + this.stop.y) / 2
+    this.currentFurniture.size.x = Math.abs(this.stop.x - this.start.x) / 2
+    this.currentFurniture.size.y = Math.abs(this.stop.y - this.start.y) / 2
+    this.furnitureActor.updateVertexData()
   }
 
   render (renderer: Renderer) {
-    // if (this.isDrawing || this.isCloning) {
-    //   // Draw the lines
-    //   if (this.isDrawing) {
-    //     this.updateFurniture()
-    //   }
-    //   ctx.lineWidth = this.map.computeLineWidth()
-    //   this.currentFurniture.render(ctx)
+    if ((this.isDrawing || this.isCloning) && !this.isActorVisible) {
+      this.isActorVisible = true
+      renderer.addActor(this.furnitureActor, 4)
+      renderer.addActor(this.fontActor, 4)
+    }
 
-    //   let text = this.currentFurniture.width().toFixed(1) + 'm x ' + this.currentFurniture.height().toFixed(1) + 'm'
-    //   ctx.fillStyle = '#FFFFFF'
-    //   this.map.setupScreenSpaceFont(ctx)
-    //   let screenSpacePos = this.map.worldToScreenPos(new Sim.Point(this.currentFurniture.max.x, this.currentFurniture.max.y))
-    //   let transform = ctx.getTransform()
-    //   ctx.resetTransform()
-    //   ctx.fillText(text, screenSpacePos.x + 10, screenSpacePos.y)
-    //   ctx.setTransform(transform)
-    // }
+    let t = this.currentFurniture.size.x.toFixed(2) + 'm x ' + this.currentFurniture.size.y.toFixed(2) + 'm'
+    this.fontActor.setText(t)
+    this.fontActor.setPosition(this.currentFurniture.position.x + this.currentFurniture.size.x, this.currentFurniture.position.y - this.currentFurniture.size.y)
+
+    if (!(this.isDrawing || this.isCloning) && this.isActorVisible) {
+      this.isActorVisible = false
+      renderer.removeActor(this.furnitureActor)
+      renderer.removeActor(this.fontActor)
+    }
   }
 }

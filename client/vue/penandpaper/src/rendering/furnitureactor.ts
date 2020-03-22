@@ -21,11 +21,18 @@ import { Furniture } from '../simulation/building'
 export default class FurnitureActor extends Actor {
   furniture: Furniture[] = []
 
+  showInvisible = false
+
   constructor () {
     super()
     this.material = new DiffuseMaterial()
     let dm = this.material as DiffuseMaterial
     dm.enableVertexColors()
+    this.updateVertexData()
+  }
+
+  clearFurniture () {
+    this.furniture = []
     this.updateVertexData()
   }
 
@@ -47,6 +54,14 @@ export default class FurnitureActor extends Actor {
     let colors: number[] = []
 
     this.furniture.forEach((r) => {
+      if (!r.isVisible && !this.showInvisible) {
+        return
+      }
+      let alpha = 1
+      if (!r.isVisible) {
+        alpha = 0.5
+      }
+
       let srxo = Math.cos(r.rotation) * (r.size.x + 0.03)
       let sryo = -Math.sin(r.rotation) * (r.size.x + 0.03)
 
@@ -62,13 +77,13 @@ export default class FurnitureActor extends Actor {
       positions.push(r.position.x - srxo + suxo, r.position.y - sryo + suyo)
       positions.push(r.position.x + srxo + suxo, r.position.y + sryo + suyo)
 
-      colors.push(1, 1, 1, 1)
-      colors.push(1, 1, 1, 1)
-      colors.push(1, 1, 1, 1)
+      colors.push(1, 1, 1, alpha)
+      colors.push(1, 1, 1, alpha)
+      colors.push(1, 1, 1, alpha)
 
-      colors.push(1, 1, 1, 1)
-      colors.push(1, 1, 1, 1)
-      colors.push(1, 1, 1, 1)
+      colors.push(1, 1, 1, alpha)
+      colors.push(1, 1, 1, alpha)
+      colors.push(1, 1, 1, alpha)
 
       let srx = Math.cos(r.rotation) * r.size.x
       let sry = -Math.sin(r.rotation) * r.size.x
@@ -85,13 +100,13 @@ export default class FurnitureActor extends Actor {
       positions.push(r.position.x - srx + sux, r.position.y - sry + suy)
       positions.push(r.position.x + srx + sux, r.position.y + sry + suy)
 
-      colors.push(0.267, 0.267, 0.267, 1)
-      colors.push(0.267, 0.267, 0.267, 1)
-      colors.push(0.267, 0.267, 0.267, 1)
+      colors.push(0.267, 0.267, 0.267, alpha)
+      colors.push(0.267, 0.267, 0.267, alpha)
+      colors.push(0.267, 0.267, 0.267, alpha)
 
-      colors.push(0.267, 0.267, 0.267, 1)
-      colors.push(0.267, 0.267, 0.267, 1)
-      colors.push(0.267, 0.267, 0.267, 1)
+      colors.push(0.267, 0.267, 0.267, alpha)
+      colors.push(0.267, 0.267, 0.267, alpha)
+      colors.push(0.267, 0.267, 0.267, alpha)
     })
 
     this.vertexShaderInput.set(ShaderInputType.POSITION, positions)

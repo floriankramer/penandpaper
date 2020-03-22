@@ -30,6 +30,7 @@ export class ServerState {
   tokens: Sim.Token[] = []
   lines: Sim.Line[] = []
   building: B.Building | null = null
+  isStateLoaded = false
 }
 
 export default class Server implements PacketDispatcher {
@@ -41,6 +42,8 @@ export default class Server implements PacketDispatcher {
     lines: Sim.Line[] = []
 
     buildingServer: BuildingServer
+
+    isStateLoaded = false
 
     errorhandler?: () => void;
 
@@ -86,7 +89,7 @@ export default class Server implements PacketDispatcher {
       }
     }
 
-    onmessage (msg:MessageEvent) {
+    onmessage (msg: MessageEvent) {
       let packet = JSON.parse(msg.data)
       let type = packet['type']
       let data = packet['data']
@@ -113,7 +116,7 @@ export default class Server implements PacketDispatcher {
         this.onServerTokenToggleFoe(data)
       } else if (type === 'ToggleDoor') {
         this.onServerToggleDoor(data)
-      } else if (this.buildingServer.onmessage(data)) {
+      } else if (this.buildingServer.onmessage(type, data)) {
         // the message was handled by the buildingServer
       }
     }
@@ -123,6 +126,7 @@ export default class Server implements PacketDispatcher {
     }
 
     onServerInit (data: any) {
+      this.isStateLoaded = true
       for (let rawToken of data.tokens) {
         let token = new Sim.Token()
         token.x = rawToken.x
@@ -133,8 +137,6 @@ export default class Server implements PacketDispatcher {
         token.color.g = rawToken.g
         token.color.b = rawToken.b
         token.rotation = rawToken.rotation
-        // TODO: The map does not yet exist. It will have to request the entire state.
-        eventBus.$emit('/server/token/create', token)
         this.tokens.push(token)
       }
       for (let rawLine of data.doodads) {
@@ -145,6 +147,9 @@ export default class Server implements PacketDispatcher {
         line.stop.y = rawLine.ey
         this.lines.push(line)
       }
+      this.buildingServer.onServerInit(data)
+      // Broadcast our initialized state
+      this.onStateRequest()
     }
 
     sendChat (text : string) {
@@ -301,6 +306,7 @@ export default class Server implements PacketDispatcher {
       state.tokens = this.tokens
       state.lines = this.lines
       state.building = this.buildingServer.building
+      state.isStateLoaded = this.isStateLoaded
       eventBus.$emit('/server/state', state)
     }
 
@@ -326,8 +332,10 @@ export default class Server implements PacketDispatcher {
     }
 
     onServerSession (data: any) {
+      let permissions = parseInt(data['permissions'])
       this.store.commit('setUsername', data['name'])
-      this.store.commit('setPermissions', parseInt(data['permissions']))
+      this.store.commit('setPermissions', permissions)
+      eventBus.$emit('/server/is_gm', permissions > 0)
     }
 
     onerror (err:Event) {
