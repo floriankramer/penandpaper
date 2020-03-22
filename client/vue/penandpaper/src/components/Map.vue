@@ -641,7 +641,7 @@ export default class World extends Vue {
     this.requestRedraw()
   }
 
-  onServerModifyWall (d: B.Furniture) {
+  onServerModifyWall (d: B.Wall) {
     this.wallActor.updateVertexData()
     this.requestRedraw()
   }

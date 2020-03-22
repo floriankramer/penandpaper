@@ -42,7 +42,7 @@ export default class BuildingServer {
       this.onServerCreateWall(data)
     } else if (type === 'DeleteWall') {
       this.onServerDeleteWall(data)
-    }  else if (type === 'ModifyWall') {
+    } else if (type === 'ModifyWall') {
       this.onServerModifyWall(data)
     } else if (type === 'CreateDoor') {
       this.onServerCreateDoor(data)
