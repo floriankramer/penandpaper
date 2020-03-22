@@ -210,6 +210,7 @@ WebSocketServer::Response Simulation::onChat(const Packet &j) {
   if (msg[0] == '/') {
     WebSocketServer::Response resp;
     json resp_json = j.json();
+    resp_json["data"]["sender"] = "The Server";
     resp.type = WebSocketServer::ResponseType::BROADCAST;
 
     // The message is a command
@@ -329,6 +330,9 @@ WebSocketServer::Response Simulation::onInitSession(const Packet &j) {
 WebSocketServer::Response Simulation::onSetUsername(const Packet &j) {
   std::string uid = j.json().at("uid");
   std::string newname = j.json().at("data").at("name");
+  if (newname == "The Server") {
+    newname = "not The Server";
+  }
 
   LOG_INFO << "The player with uid " << uid << " is now called " << newname
            << LOG_END;
