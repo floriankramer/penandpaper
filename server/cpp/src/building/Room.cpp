@@ -31,6 +31,16 @@ nlohmann::json Room::toJson() const {
   return j;
 }
 
+
+Room Room::fromJson(const nlohmann::json &j, uint64_t id) {
+  Vector2f position = Vector2f::fromJson(j["position"]);
+  Vector2f size = Vector2f::fromJson(j["size"]);
+  bool is_visible = j["is_visible"].get<bool>();
+  Room r(id, position, size);
+  r._is_visible = is_visible;
+  return r;
+}
+
 bool Room::contains(const Vector2f &pos) const {
   return pos.x() > _position.x() - _size.x() / 2 &&
          pos.x() < _position.y() + _size.y() / 2 &&

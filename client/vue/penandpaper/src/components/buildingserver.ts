@@ -24,6 +24,8 @@ export default class BuildingServer {
     eventBus.$on('/client/building/furniture/create', (data: B.Furniture) => { this.onClientCreateFurniture(data) })
     eventBus.$on('/client/building/furniture/delete', (data: Sim.Point) => { this.onClientDeleteFurniture(data) })
 
+    eventBus.$on('/client/building/save', () => { this.onClientSaveBuilding() })
+    eventBus.$on('/client/building/load', (file: File) => { this.onClientLoadBuilding(file) })
     eventBus.$on('/client/building/clear', () => { this.onClientClearBuilding() })
 
     eventBus.$on('/client/building/reveal', (data: Sim.Rectangle) => { this.onClientReveal(data) })
@@ -56,6 +58,10 @@ export default class BuildingServer {
       this.onServerDeleteFurniture(data)
     } else if (type === 'ModifyFurniture') {
       this.onServerModifyFurniture(data)
+    } else if (type === 'ClearBuilding') {
+      this.onServerClearBuilding()
+    } else if (type === 'LoadBuilding') {
+      this.onServerLoadBuilding(data)
     }
     return false
   }
@@ -395,5 +401,36 @@ export default class BuildingServer {
   onServerClearBuilding () {
     this.building = new B.Building()
     eventBus.$emit('/server/building/clear')
+  }
+
+  onClientSaveBuilding () {
+    if (this.building !== null) {
+      let data = new Blob([JSON.stringify(this.building.toSerializable())], { type: 'application/json' })
+      let fileSaver = require('../lib/filesaver/FileSaver.min.js')
+      fileSaver.saveAs(data, 'Building.json')
+    }
+  }
+
+  onClientLoadBuilding (file: File) {
+    let reader: FileReader = new FileReader()
+    reader.onload = (raw: any) => {
+      if (typeof reader.result === 'string') {
+        let data = JSON.parse(reader.result as string)
+        let b = B.Building.fromSerializable(data)
+        let packet = {
+          type: 'LoadBuilding',
+          uid: this.uid,
+          data: b.toSerializable()
+        }
+        this.dispatcher.send(JSON.stringify(packet))
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  onServerLoadBuilding (data: any) {
+    eventBus.$emit('/server/building/clear')
+    this.building = B.Building.fromSerializable(data)
+    eventBus.$emit('/server/building/load', this.building)
   }
 }

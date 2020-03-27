@@ -31,6 +31,7 @@ class Building {
   Building(IdGenerator *id_generator);
 
   nlohmann::json toJson() const;
+  void fromJson(const nlohmann::json &j);
 
   std::shared_ptr<Room> addRoom(const Vector2f &pos, const Vector2f &size);
   std::shared_ptr<Wall> addWall(const Vector2f &start, const Vector2f &end);

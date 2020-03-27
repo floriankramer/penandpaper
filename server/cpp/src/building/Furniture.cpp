@@ -30,6 +30,16 @@ nlohmann::json Furniture::toJson() const {
   return j;
 }
 
+Furniture Furniture::fromJson(const nlohmann::json &j, uint64_t id) {
+  Vector2f position = Vector2f::fromJson(j["position"]);
+  Vector2f size = Vector2f::fromJson(j["size"]);
+  bool is_visible = j["is_visible"].get<bool>();
+  float rotation = j["rotation"].get<float>();
+  Furniture r(id, position, size, rotation);
+  r._is_visible = is_visible;
+  return r;
+}
+
 uint64_t Furniture::id() const { return _id; }
 
 Vector2f &Furniture::position() { return _position; }

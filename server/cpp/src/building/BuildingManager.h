@@ -28,7 +28,6 @@ class BuildingManager {
   BuildingManager(IdGenerator *id_generator);
 
   WebSocketServer::Response onSetDoorOpen(const Packet &j);
-  WebSocketServer::Response onClearBuilding(const Packet &j);
   WebSocketServer::Response onCreateRoom(const Packet &j);
   WebSocketServer::Response onCreateWall(const Packet &j);
   WebSocketServer::Response onCreateDoor(const Packet &j);
@@ -43,6 +42,9 @@ class BuildingManager {
   WebSocketServer::Response onDeleteWall(const Packet &j);
   WebSocketServer::Response onDeleteDoor(const Packet &j);
   WebSocketServer::Response onDeleteFurniture(const Packet &j);
+
+  WebSocketServer::Response onClearBuilding(const Packet &j);
+  WebSocketServer::Response onLoadBuilding(const Packet &j);
 
   nlohmann::json toJson() const;
 

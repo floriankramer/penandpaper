@@ -25,7 +25,6 @@ nlohmann::json Building::toJson() const {
   using nlohmann::json;
   json j;
   j["id"] = _id;
-  std::vector<json> serialized_rooms(_rooms.size());
   j["rooms"] = util::map<std::shared_ptr<Room>, json>(
       _rooms,
       [](const std::shared_ptr<Room> &r) -> json { return r->toJson(); });
@@ -43,6 +42,26 @@ nlohmann::json Building::toJson() const {
       [](const std::shared_ptr<Furniture> &d) -> json { return d->toJson(); });
 
   return j;
+}
+
+void Building::fromJson(const nlohmann::json &j) {
+  using nlohmann::json;
+  for (const json &room : j.at("rooms")) {
+    _rooms.emplace_back(
+        std::make_shared<Room>(Room::fromJson(room, _id_generator->next())));
+  }
+  for (const json &room : j.at("walls")) {
+    _walls.emplace_back(
+        std::make_shared<Wall>(Wall::fromJson(room, _id_generator->next())));
+  }
+  for (const json &room : j.at("doors")) {
+    _doors.emplace_back(
+        std::make_shared<Door>(Door::fromJson(room, _id_generator->next())));
+  }
+  for (const json &room : j.at("furniture")) {
+    _furniture.emplace_back(std::make_shared<Furniture>(
+        Furniture::fromJson(room, _id_generator->next())));
+  }
 }
 
 std::shared_ptr<Room> Building::addRoom(const Vector2f &pos,

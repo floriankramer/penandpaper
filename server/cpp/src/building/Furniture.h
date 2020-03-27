@@ -28,6 +28,7 @@ public:
   Furniture(uint64_t id, Vector2f position, Vector2f size, float rotation);
 
   nlohmann::json toJson() const;
+  static Furniture fromJson(const nlohmann::json &j, uint64_t id);
 
   uint64_t id() const;
   Vector2f &position();

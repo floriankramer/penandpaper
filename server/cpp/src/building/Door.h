@@ -33,6 +33,7 @@ class Door {
   void setOpen(bool is_open);
 
   nlohmann::json toJson() const;
+  static Door fromJson(const nlohmann::json &j, uint64_t id);
 
   Vector2f &position();
   float &width();

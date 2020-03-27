@@ -106,7 +106,10 @@ export default class World extends Vue {
     eventBus.$on('/server/line/clear', () => { this.onServerClearLines() })
     eventBus.$on('/server/state', (data: ServerState) => { this.onServerState(data) })
     eventBus.$on('/server/is_gm', (data: boolean) => { this.onServerIsGm(data) })
-    eventBus.$on('/server/building/set', (data: B.Building) => { this.onServerSetBuilding(data) })
+
+    eventBus.$on('/server/building/load', (data: B.Building) => { this.onServerLoadBuilding(data) })
+    eventBus.$on('/server/building/clear', () => { this.onServerClearBuilding() })
+
     eventBus.$on('/server/building/toggle_door', (data: number[]) => { this.onServerToggleDoor(data) })
     eventBus.$on('/server/building/room/create', (data: B.Room) => { this.onServerCreateRoom(data) })
     eventBus.$on('/server/building/room/delete', (data: B.Room) => { this.onServerDeleteRoom(data) })
@@ -120,9 +123,6 @@ export default class World extends Vue {
     eventBus.$on('/server/building/furniture/create', (data: B.Furniture) => { this.onServerCreateFurniture(data) })
     eventBus.$on('/server/building/furniture/delete', (data: B.Furniture) => { this.onServerDeleteFurniture(data) })
     eventBus.$on('/server/building/furniture/modified', (data: B.Furniture) => { this.onServerModifyFurniture(data) })
-
-    eventBus.$on('/client/building/save', () => { this.onClientSaveBuilding() })
-    eventBus.$on('/client/building/load', (file: File) => { this.onClientLoadBuilding(file) })
 
     eventBus.$on('/tools/select_tool', (data: string) => { this.onToolSelected(data) })
   }
@@ -502,18 +502,7 @@ export default class World extends Vue {
     // }
 
     if (data.building !== null) {
-      data.building.rooms.forEach((r: B.Room) => {
-        this.roomActor.addRoom(r)
-      })
-      data.building.walls.forEach((w: B.Wall) => {
-        this.wallActor.addWall(w)
-      })
-      data.building.doors.forEach((d: B.Door) => {
-        this.doorActor.addDoor(d)
-      })
-      data.building.furniture.forEach((f: B.Furniture) => {
-        this.furnitureActor.addFurniture(f)
-      })
+      this.onServerLoadBuilding(data.building)
     }
 
     this.requestRedraw()
@@ -676,34 +665,28 @@ export default class World extends Vue {
     this.requestRedraw()
   }
 
-  onClientSaveBuilding () {
-    if (this.currentBuilding !== undefined) {
-      let data = new Blob([JSON.stringify(this.currentBuilding.toSerializable())], { type: 'application/json' })
-      let fileSaver = require('../lib/filesaver/FileSaver.min.js')
-      fileSaver.saveAs(data, 'Building.json')
-    }
-  }
-
-  onClientLoadBuilding (file: File) {
-    let reader: FileReader = new FileReader()
-    reader.onload = (raw: any) => {
-      console.log(reader.result)
-      if (typeof reader.result === 'string') {
-        let data = JSON.parse(reader.result as string)
-        let b = B.Building.fromSerializable(data)
-        eventBus.$emit('/client/building/set', b)
-      }
-    }
-    reader.readAsText(file)
-  }
-
-  onServerSetBuilding (b: B.Building | null) {
-    if (b === null) {
-      this.currentBuilding = undefined
-    } else {
-      this.currentBuilding = b
-    }
+  onServerClearBuilding () {
+    this.doorActor.clearDoors()
+    this.furnitureActor.clearFurniture()
+    this.roomActor.clearRooms()
+    this.wallActor.clearWalls()
     this.requestRedraw()
+  }
+
+  onServerLoadBuilding (building: B.Building) {
+    this.onServerClearBuilding()
+    building.rooms.forEach((r: B.Room) => {
+      this.roomActor.addRoom(r)
+    })
+    building.walls.forEach((w: B.Wall) => {
+      this.wallActor.addWall(w)
+    })
+    building.doors.forEach((d: B.Door) => {
+      this.doorActor.addDoor(d)
+    })
+    building.furniture.forEach((f: B.Furniture) => {
+      this.furnitureActor.addFurniture(f)
+    })
   }
 }
 </script>

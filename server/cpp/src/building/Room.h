@@ -31,6 +31,7 @@ public:
   Room(uint64_t id, const Vector2f &position, const Vector2f &size);
 
   nlohmann::json toJson() const;
+  static Room fromJson(const nlohmann::json &j, uint64_t id);
 
   bool contains(const Vector2f &pos) const;
 

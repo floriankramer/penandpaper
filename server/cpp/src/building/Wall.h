@@ -27,6 +27,7 @@ class Wall {
   Wall(uint64_t id, const Vector2f &start, const Vector2f &end);
 
   nlohmann::json toJson() const;
+  static Wall fromJson(const nlohmann::json &j, uint64_t id);
 
   uint64_t id() const;
 

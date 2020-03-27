@@ -29,6 +29,15 @@ nlohmann::json Wall::toJson() const {
   return j;
 }
 
+Wall Wall::fromJson(const nlohmann::json &j, uint64_t id) {
+  Vector2f start = Vector2f::fromJson(j["start"]);
+  Vector2f end = Vector2f::fromJson(j["end"]);
+  bool is_visible = j["is_visible"].get<bool>();
+  Wall r(id, start, end);
+  r._is_visible = is_visible;
+  return r;
+}
+
 uint64_t Wall::id() const { return _id; }
 
 Vector2f &Wall::start() { return _start; }

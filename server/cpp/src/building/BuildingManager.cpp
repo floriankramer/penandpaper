@@ -35,14 +35,6 @@ WebSocketServer::Response BuildingManager::onSetDoorOpen(const Packet &j) {
   return {"", WebSocketServer::ResponseType::SILENCE};
 }
 
-WebSocketServer::Response BuildingManager::onClearBuilding(const Packet &j) {
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
-    return j.makeMissingPermissionsResponse();
-  }
-  _building = Building(_id_generator);
-  return {"", WebSocketServer::ResponseType::FORWARD};
-}
-
 WebSocketServer::Response BuildingManager::onCreateRoom(const Packet &j) {
   using nlohmann::json;
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
@@ -260,6 +252,27 @@ WebSocketServer::Response BuildingManager::onDeleteFurniture(const Packet &j) {
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
+WebSocketServer::Response BuildingManager::onClearBuilding(const Packet &j) {
+  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
+    return j.makeMissingPermissionsResponse();
+  }
+  _building = Building(_id_generator);
+  return {"", WebSocketServer::ResponseType::FORWARD};
+}
+
+WebSocketServer::Response BuildingManager::onLoadBuilding(const Packet &j) {
+  using nlohmann::json;
+  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
+    return j.makeMissingPermissionsResponse();
+  }
+  _building = Building(_id_generator);
+  _building.fromJson(j.json().at("data"));
+  json r;
+  r["type"] = "LoadBuilding";
+  r["data"] = _building.toJson();
+  return {r.dump(), WebSocketServer::ResponseType::BROADCAST};
+}
+
 void BuildingManager::registerPackets(
     std::unordered_map<std::string,
                        std::function<WebSocketServer::Response(const Packet &)>>
@@ -271,6 +284,8 @@ void BuildingManager::registerPackets(
           {"SetDoorOpen", std::bind(&BuildingManager::onSetDoorOpen, this, _1)},
           {"ClearBuilding",
            std::bind(&BuildingManager::onClearBuilding, this, _1)},
+          {"LoadBuilding",
+           std::bind(&BuildingManager::onLoadBuilding, this, _1)},
           {"CreateRoom", std::bind(&BuildingManager::onCreateRoom, this, _1)},
           {"CreateWall", std::bind(&BuildingManager::onCreateWall, this, _1)},
           {"CreateDoor", std::bind(&BuildingManager::onCreateDoor, this, _1)},

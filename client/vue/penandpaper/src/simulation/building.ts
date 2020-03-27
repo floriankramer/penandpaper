@@ -245,7 +245,6 @@ export class Building {
   }
 
   static fromSerializable (data: any) : Building {
-    console.log(data)
     let b = new Building()
     b.id = data.id
     b.rooms = data.rooms.map((rdata: any) => Room.fromSerializable(rdata))

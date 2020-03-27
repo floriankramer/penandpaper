@@ -45,3 +45,15 @@ nlohmann::json Door::toJson() const {
   j["is_open"] = _is_open;
   return j;
 }
+
+Door Door::fromJson(const nlohmann::json &j, uint64_t id) {
+  Vector2f position = Vector2f::fromJson(j["position"]);
+  bool is_visible = j["is_visible"].get<bool>();
+  bool is_open = j["is_open"].get<bool>();
+  float rotation = j["rotation"].get<float>();
+  float width = j["width"].get<float>();
+  Door r(id, position, width, rotation);
+  r._is_visible = is_visible;
+  r._is_open = is_open;
+  return r;
+}
