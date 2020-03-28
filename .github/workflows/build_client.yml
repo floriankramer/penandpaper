@@ -16,6 +16,7 @@ jobs:
       run:  |
         cd client/vue/penandpaper/
         npm install
+        cp -r node_module_patches/* node_modules/
         npm run-script build
 
       
