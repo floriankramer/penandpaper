@@ -7,3 +7,6 @@
 [submodule "server/cpp/depend/json"]
 	path = server/cpp/depend/json
 	url = https://github.com/nlohmann/json.git
+[submodule "server/cpp/depend/msdfgen"]
+	path = server/cpp/depend/msdfgen
+	url = https://github.com/Chlumsky/msdfgen.git
