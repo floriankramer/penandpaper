@@ -25,12 +25,20 @@ import PacketDispatcher from './packetdispatcher'
 
 import BuildingServer from './buildingserver'
 
+export class Player {
+  name: string = ''
+  permissions: number = 0
+  uid: string = ''
+}
+
 // Used to communicate the simulation state of the server via the event bus
 export class ServerState {
   tokens: Sim.Token[] = []
   lines: Sim.Line[] = []
   building: B.Building | null = null
   isStateLoaded = false
+  tilesPath: string = ''
+  players: Player[] = []
 }
 
 export default class Server implements PacketDispatcher {
@@ -44,6 +52,10 @@ export default class Server implements PacketDispatcher {
     buildingServer: BuildingServer
 
     isStateLoaded = false
+
+    tilesPaths: string = ''
+
+    players: Player[] = []
 
     errorhandler?: () => void;
 
@@ -116,6 +128,12 @@ export default class Server implements PacketDispatcher {
         this.onServerTokenToggleFoe(data)
       } else if (type === 'ToggleDoor') {
         this.onServerToggleDoor(data)
+      } else if (type === 'SetTiles') {
+        this.onServerSetTiles(data)
+      } else if (type === 'ClearTiles') {
+        this.onServerClearTiles(data)
+      } else if (type === 'PlayerList') {
+        this.onServerPlayerList(data)
       } else if (this.buildingServer.onmessage(type, data)) {
         // the message was handled by the buildingServer
       }
@@ -148,6 +166,7 @@ export default class Server implements PacketDispatcher {
         this.lines.push(line)
       }
       this.buildingServer.onServerInit(data)
+      this.tilesPaths = data['tiles']
       // Broadcast our initialized state
       this.onStateRequest()
     }
@@ -307,6 +326,8 @@ export default class Server implements PacketDispatcher {
       state.lines = this.lines
       state.building = this.buildingServer.building
       state.isStateLoaded = this.isStateLoaded
+      state.tilesPath = this.tilesPaths
+      state.players = this.players
       eventBus.$emit('/server/state', state)
     }
 
@@ -336,6 +357,14 @@ export default class Server implements PacketDispatcher {
       this.store.commit('setUsername', data['name'])
       this.store.commit('setPermissions', permissions)
       eventBus.$emit('/server/is_gm', permissions > 0)
+    }
+
+    onServerSetTiles (data: any) {
+      eventBus.$emit('/server/tiles/set', data['path'])
+    }
+
+    onServerClearTiles (data: any) {
+      eventBus.$emit('/server/tiles/clear')
     }
 
     onerror (err:Event) {
@@ -401,6 +430,15 @@ export default class Server implements PacketDispatcher {
           this.send(JSON.stringify(packet))
         }
       }
+    }
+
+    onServerPlayerList (data: any[]) {
+      this.players.splice(0, this.players.length)
+      data.forEach(rawp => {
+        let p = rawp as Player
+        this.players.push(p)
+      })
+      eventBus.$emit('/server/players/list', this.players)
     }
 
     findTokenById (id: number) : Sim.Token | undefined {

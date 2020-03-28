@@ -35,7 +35,10 @@ const Simulation::Color Simulation::COLORS[Simulation::NUM_COLORS] = {
     {201, 201, 30}   // yellow
 };
 
-Simulation::Simulation() : _next_color(0), _building_manager(&_id_generator) {
+Simulation::Simulation()
+    : _next_color(0),
+      _building_manager(&_id_generator),
+      web_socket_server_(nullptr) {
   _rand_seed = time(NULL);
   using std::placeholders::_1;
   _msg_handlers = {
@@ -51,6 +54,10 @@ Simulation::Simulation() : _next_color(0), _building_manager(&_id_generator) {
       {"InitSession", std::bind(&Simulation::onInitSession, this, _1)},
       {"SetUsername", std::bind(&Simulation::onSetUsername, this, _1)}};
   _building_manager.registerPackets(&_msg_handlers);
+}
+
+void Simulation::setWebSocketServer(WebSocketServer *wss) {
+  web_socket_server_ = wss;
 }
 
 Token *Simulation::tokenById(uint64_t id) {
@@ -88,6 +95,8 @@ WebSocketServer::Response Simulation::onNewClient() {
     data["building"] = _building_manager.toJson();
 
     data["nextColor"] = _next_color;
+
+    data["tiles"] = tiles_path_;
     answer["data"] = data;
     answer_str = answer.dump();
   } catch (const std::exception &e) {
@@ -96,6 +105,25 @@ WebSocketServer::Response Simulation::onNewClient() {
   }
 
   return {answer_str, WebSocketServer::ResponseType::RETURN};
+}
+
+void Simulation::broadcastClients() {
+  using nlohmann::json;
+  if (web_socket_server_ == nullptr) {
+    return;
+  }
+  json r;
+  r["type"] = "PlayerList";
+  json data;
+  for (const Player &p : _players) {
+    json player;
+    player["name"] = p.name;
+    player["permissions"] = int(p.permissions);
+    player["uid"] = p.uid;
+    data.push_back(player);
+  }
+  r["data"] = data;
+  web_socket_server_->broadcast(r.dump());
 }
 
 WebSocketServer::Response Simulation::onMessage(const std::string &msg) {
@@ -231,6 +259,29 @@ WebSocketServer::Response Simulation::onChat(const Packet &j) {
         player->permissions = Permissions::GAMEMASTER;
       }
       resp.type = WebSocketServer::ResponseType::SILENCE;
+    } else if (cmd == "/settiles") {
+      if (!j.checkPermissions(Permissions::GAMEMASTER)) {
+        return j.makeMissingPermissionsResponse();
+      }
+      if (parts.size() == 2) {
+        const std::string &path = parts[1];
+        tiles_path_ = path;
+        json r;
+        r["type"] = "SetTiles";
+        r["data"]["path"] = path;
+        return {r.dump(), WebSocketServer::ResponseType::BROADCAST};
+      }
+      resp_json["data"]["message"] = "Expected exactly one argument: <path>";
+      resp.type = WebSocketServer::ResponseType::RETURN;
+    } else if (cmd == "/cleartiles") {
+      if (!j.checkPermissions(Permissions::GAMEMASTER)) {
+        return j.makeMissingPermissionsResponse();
+      }
+      tiles_path_ = "";
+      json r;
+      r["type"] = "ClearTiles";
+      r["data"] = {};
+      return {r.dump(), WebSocketServer::ResponseType::BROADCAST};
     } else {
       resp_json["data"]["message"] = "Unknown command '" + parts[0] + "'";
       resp.type = WebSocketServer::ResponseType::RETURN;
@@ -313,6 +364,8 @@ WebSocketServer::Response Simulation::onInitSession(const Packet &j) {
     LOG_INFO << "A player with uid " << uid << " and name " << player->name
              << " reconnected." << LOG_END;
   }
+  broadcastClients();
+
   // encode the player
   json response;
   response["type"] = "Session";
@@ -341,6 +394,7 @@ WebSocketServer::Response Simulation::onSetUsername(const Packet &j) {
   if (p) {
     p->name = newname;
   }
+  broadcastClients();
   return {"", WebSocketServer::ResponseType::SILENCE};
 }
 
@@ -388,6 +442,7 @@ std::string Simulation::cmdSetname(const std::string &who,
     if (p) {
       p->name = newname;
     }
+    broadcastClients();
     return who + " is now called " + newname;
   } else {
     return "'" + newname + " is an invalid new name for " + who;
@@ -401,6 +456,13 @@ std::string Simulation::cmdHelp(const std::string &who, const std::string &uid,
   s << "/roll <die 1> ... - Roll dice with a public result<br/>";
   s << "/rollp <die 1> ... - Roll dice with a private result<br/>";
   s << "/setname <newname> - Change your username.<br/>";
+
+  Player *p = getPlayer(uid);
+  if (p != nullptr && p->permissions == Permissions::GAMEMASTER) {
+    s << "<br/>GM Commands:<br/>";
+    s << "/settiles <path> - Loads a tile map.<br/>";
+    s << "/cleartiles <path> - Clears a tile map.<br/>";
+  }
 
   return s.str();
 }

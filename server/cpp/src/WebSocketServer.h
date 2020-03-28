@@ -19,6 +19,7 @@
 #include <functional>
 #include <string>
 #include <vector>
+#include <string>
 
 
 #define ASIO_STANDALONE
@@ -50,6 +51,8 @@ public:
 
 public:
    WebSocketServer(OnMsgHandler_t on_msg, OnConnectHandler_t on_connect);
+
+   void broadcast(const std::string &data);
 
 private:
    void run();

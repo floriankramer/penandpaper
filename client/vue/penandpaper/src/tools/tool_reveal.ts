@@ -22,6 +22,7 @@ import * as B from '../simulation/building'
 import Renderer from '../rendering/renderer'
 
 import RoomActor from '../rendering/roomactor'
+import RenderLayers from '../components/renderlayers'
 
 export default class ToolRoom extends Tool {
   isDrawing: boolean = false
@@ -98,7 +99,7 @@ export default class ToolRoom extends Tool {
   render (renderer: Renderer) {
     if (this.isDrawing && !this.isActorVisible) {
       this.isActorVisible = true
-      renderer.addActor(this.roomActor, 4)
+      renderer.addActor(this.roomActor, RenderLayers.TOOL)
     }
 
     if (!this.isDrawing && this.isActorVisible) {

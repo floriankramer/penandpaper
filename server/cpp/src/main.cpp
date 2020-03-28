@@ -27,6 +27,7 @@ int main(int argc, char **argv) {
   WebSocketServer wss(
       std::bind(&Simulation::onMessage, &sim, std::placeholders::_1),
       std::bind(&Simulation::onNewClient, &sim));
+  sim.setWebSocketServer(&wss);
   HttpServer server(do_keycheck);
   return 0;
 }

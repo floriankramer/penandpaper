@@ -41,6 +41,8 @@ class Simulation {
  public:
   Simulation();
 
+  void setWebSocketServer(WebSocketServer *wss);
+
   WebSocketServer::Response onNewClient();
   WebSocketServer::Response onMessage(const std::string &msg);
 
@@ -50,6 +52,8 @@ class Simulation {
   Player *getPlayer(const std::string &uid);
 
  private:
+  void broadcastClients();
+
   WebSocketServer::Response onCreateToken(const Packet &j);
   WebSocketServer::Response onMoveToken(const Packet &j);
   WebSocketServer::Response onDeleteToken(const Packet &j);
@@ -85,10 +89,14 @@ class Simulation {
 
   std::mutex _simulation_mutex;
 
+  std::string tiles_path_;
+
   static const int NUM_COLORS = 11;
   static const Color COLORS[NUM_COLORS];
 
   std::unordered_map<std::string, MemberMsgHandler_t> _msg_handlers;
+
+  WebSocketServer *web_socket_server_;
 
   BuildingManager _building_manager;
   IdGenerator _id_generator;

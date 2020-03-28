@@ -22,6 +22,7 @@ import * as B from '../simulation/building'
 import Renderer from '../rendering/renderer'
 
 import DoorActor from '../rendering/dooractor'
+import RenderLayers from '../components/renderlayers'
 
 export default class ToolDoor extends Tool {
   isDrawing: boolean = false
@@ -122,7 +123,7 @@ export default class ToolDoor extends Tool {
   render (renderer: Renderer) {
     if (this.isDrawing && !this.isActorVisible) {
       this.isActorVisible = true
-      renderer.addActor(this.doorActor, 4)
+      renderer.addActor(this.doorActor, RenderLayers.TOOL)
     }
 
     if (!this.isDrawing && this.isActorVisible) {

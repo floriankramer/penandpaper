@@ -23,6 +23,7 @@ import Renderer from '../rendering/renderer'
 
 import RoomActor from '../rendering/roomactor'
 import FontActor from '../rendering/fontactor'
+import RenderLayers from '../components/renderlayers'
 
 export default class ToolRoom extends Tool {
   isDrawing: boolean = false
@@ -107,13 +108,17 @@ export default class ToolRoom extends Tool {
   render (renderer: Renderer) {
     if (this.isDrawing && !this.isActorVisible) {
       this.isActorVisible = true
-      renderer.addActor(this.roomActor, 4)
-      renderer.addActor(this.fontActor, 4)
+      renderer.addActor(this.roomActor, RenderLayers.TOOL)
+      renderer.addActor(this.fontActor, RenderLayers.TOOL)
     }
 
-    let t = this.currentRoom.width().toFixed(2) + 'm x ' + this.currentRoom.height().toFixed(2) + 'm'
-    this.fontActor.setText(t)
-    this.fontActor.setPosition(this.currentRoom.position.x + this.currentRoom.size.x, this.currentRoom.position.y - this.currentRoom.size.y)
+    if (this.isActorVisible) {
+      let t = this.currentRoom.width().toFixed(2) + 'm x ' + this.currentRoom.height().toFixed(2) + 'm'
+      this.fontActor.setText(t)
+      this.fontActor.setPosition(this.currentRoom.position.x + this.currentRoom.size.x, this.currentRoom.position.y - this.currentRoom.size.y)
+      let scale = renderer.camera.screenToWorldSpaceDist(30)
+      this.fontActor.setScale(scale, scale)
+    }
 
     if (!this.isDrawing && this.isActorVisible) {
       this.isActorVisible = false

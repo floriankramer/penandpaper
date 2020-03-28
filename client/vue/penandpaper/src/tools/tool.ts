@@ -21,6 +21,7 @@ import eventbus from '../eventbus'
 import LineActor from '../rendering/lineactor'
 import FontActor from '../rendering/fontactor'
 import Renderer from '../rendering/renderer'
+import RenderLayers from '../components/renderlayers'
 
 export default class Tool {
   map: Map
@@ -143,8 +144,8 @@ export default class Tool {
   render (renderer: Renderer) {
     if (this.shouldDrawText && !this.isDrawingText) {
       this.isDrawingText = true
-      renderer.addActor(this.fontActor, 4)
-      renderer.addActor(this.lineActor, 4)
+      renderer.addActor(this.fontActor, RenderLayers.TOOL)
+      renderer.addActor(this.lineActor, RenderLayers.TOOL)
     }
 
     let t : Sim.Token | undefined = this.map.getSelection()

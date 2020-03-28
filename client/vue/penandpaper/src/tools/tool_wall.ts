@@ -23,6 +23,7 @@ import Renderer from '../rendering/renderer'
 
 import WallActor from '../rendering/wallactor'
 import FontActor from '../rendering/fontactor'
+import RenderLayers from '../components/renderlayers'
 
 export default class ToolWall extends Tool {
   isDrawing: boolean = false
@@ -108,8 +109,8 @@ export default class ToolWall extends Tool {
   render (renderer: Renderer) {
     if (this.isDrawing && !this.isActorVisible) {
       this.isActorVisible = true
-      renderer.addActor(this.wallActor, 4)
-      renderer.addActor(this.fontActor, 4)
+      renderer.addActor(this.wallActor, RenderLayers.TOOL)
+      renderer.addActor(this.fontActor, RenderLayers.TOOL)
     }
 
     let t = this.currentWall.length().toFixed(2) + 'm'

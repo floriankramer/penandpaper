@@ -21,6 +21,7 @@
     <Toolbar id="toolbar"></Toolbar>
     <Chat id="chat"></Chat>
     <Map id="map" class="content-area"/>
+    <PlayerList id="playerlist"/>
     <template v-if="noUsername">
       <Login v-bind:server="server"></Login>
     </template>
@@ -35,6 +36,7 @@ import Toolbar from './components/Toolbar.vue'
 import Map from './components/Map.vue'
 import CriticalError from './components/CriticalError.vue'
 import Server from './components/server'
+import PlayerList from './components/PlayerList.vue'
 import { MutationPayload } from 'vuex'
 
 import { DockManager } from 'dock-spawn-ts/lib/js/DockManager'
@@ -43,6 +45,7 @@ import { PanelType } from 'dock-spawn-ts/lib/js/enums/PanelContainerType'
 
 import 'dock-spawn-ts/lib/css/dock-manager.css'
 import 'dock-spawn-ts/lib/css/dock-manager-style.css'
+import { DockNode } from 'dock-spawn-ts/lib/js/DockNode'
 
 @Component({
   components: {
@@ -50,7 +53,8 @@ import 'dock-spawn-ts/lib/css/dock-manager-style.css'
     CriticalError,
     Chat,
     Toolbar,
-    Map
+    Map,
+    PlayerList
   }
 })
 export default class App extends Vue {
@@ -111,10 +115,22 @@ export default class App extends Vue {
       }
       // The Chat
       let chatDiv = document.getElementById('chat')
+      let chatNode : DockNode | null = null
       if (chatDiv) {
         let chatContainer = new PanelContainer(chatDiv, this.dockManager)
         chatContainer.setTitle('Chat')
-        this.dockManager.dockRight(documentNode, chatContainer, 0.2)
+        chatNode = this.dockManager.dockRight(documentNode, chatContainer, 0.2)
+      }
+      // The PlayerList
+      let playerListDiv = document.getElementById('playerlist')
+      if (playerListDiv) {
+        let playerListContainer = new PanelContainer(playerListDiv, this.dockManager)
+        playerListContainer.setTitle('playerList')
+        if (chatNode !== null) {
+          this.dockManager.dockUp(chatNode, playerListContainer, 0.2)
+        } else {
+          this.dockManager.dockRight(documentNode, playerListContainer, 0.2)
+        }
       }
       // The Toolbar
       let toolbarDiv = document.getElementById('toolbar')
@@ -213,6 +229,10 @@ button {
 
 .dockspan-tab-handle-close-button {
   display: none !important;
+}
+
+.panel-content {
+    background-color: rgb(41, 41, 41);
 }
 
 /** Image radio buttons: https://stackoverflow.com/questions/17541614/use-images-instead-of-radio-buttons*/

@@ -23,6 +23,7 @@ import Renderer from '../rendering/renderer'
 
 import FurnitureActor from '../rendering/furnitureactor'
 import FontActor from '../rendering/fontactor'
+import RenderLayers from '../components/renderlayers'
 
 export default class ToolFurniture extends Tool {
   isDrawing: boolean = false
@@ -152,8 +153,8 @@ export default class ToolFurniture extends Tool {
   render (renderer: Renderer) {
     if ((this.isDrawing || this.isCloning) && !this.isActorVisible) {
       this.isActorVisible = true
-      renderer.addActor(this.furnitureActor, 4)
-      renderer.addActor(this.fontActor, 4)
+      renderer.addActor(this.furnitureActor, RenderLayers.TOOL)
+      renderer.addActor(this.fontActor, RenderLayers.TOOL)
     }
 
     let t = this.currentFurniture.size.x.toFixed(2) + 'm x ' + this.currentFurniture.size.y.toFixed(2) + 'm'

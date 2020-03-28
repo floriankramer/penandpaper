@@ -47,6 +47,8 @@ import RoomActor from '../rendering/roomactor'
 import WallActor from '../rendering/wallactor'
 import FurnitureActor from '../rendering/furnitureactor'
 import DoorActor from '../rendering/dooractor'
+import RenderLayers from './renderlayers'
+import TileRenderer from '../rendering/tilerenderer'
 
 enum MouseAction {
   NONE,
@@ -71,6 +73,8 @@ export default class World extends Vue {
   wallActor: WallActor = new WallActor()
   furnitureActor: FurnitureActor = new FurnitureActor()
   doorActor: DoorActor = new DoorActor()
+
+  tileRenderer : TileRenderer = new TileRenderer()
 
   mouseAction: MouseAction = MouseAction.NONE
 
@@ -123,6 +127,9 @@ export default class World extends Vue {
     eventBus.$on('/server/building/furniture/create', (data: B.Furniture) => { this.onServerCreateFurniture(data) })
     eventBus.$on('/server/building/furniture/delete', (data: B.Furniture) => { this.onServerDeleteFurniture(data) })
     eventBus.$on('/server/building/furniture/modified', (data: B.Furniture) => { this.onServerModifyFurniture(data) })
+
+    eventBus.$on('/server/tiles/set', (path: string) => { this.tileRenderer.loadFrom(path) })
+    eventBus.$on('/server/tiles/clear', () => { this.tileRenderer.clear() })
 
     eventBus.$on('/tools/select_tool', (data: string) => { this.onToolSelected(data) })
   }
@@ -391,11 +398,14 @@ export default class World extends Vue {
   }
 
   initActors () {
-    this.renderer.addActor(this.gridActor, 0)
-    this.renderer.addActor(this.roomActor, 1)
-    this.renderer.addActor(this.doorActor, 1)
-    this.renderer.addActor(this.wallActor, 1)
-    this.renderer.addActor(this.furnitureActor, 1)
+    this.renderer.addActor(this.gridActor, RenderLayers.GRID)
+    this.renderer.addActor(this.roomActor, RenderLayers.BUILDING)
+    this.renderer.addActor(this.doorActor, RenderLayers.BUILDING)
+    this.renderer.addActor(this.wallActor, RenderLayers.BUILDING)
+    this.renderer.addActor(this.furnitureActor, RenderLayers.BUILDING)
+
+    this.tileRenderer.setRenderCallback(this.requestRedraw)
+    this.tileRenderer.init(this.renderer)
   }
 
   updateMovingTokens () {
@@ -403,18 +413,22 @@ export default class World extends Vue {
     let start: number = Date.now()
     let toRemove : Sim.Token[] = []
     this.movingTokens.forEach(t => {
+      let a = this.tokenActors.get(t.id)
+
       let dx = t.x - t.displayX
       let dy = t.y - t.displayY
       let l = Math.hypot(dx, dy)
       if (l < 1.1 * t.displaySpeed * delta) {
         t.displayX = t.x
         t.displayY = t.y
+        if (a) {
+          a.setRotation(t.rotation)
+        }
         toRemove.push(t)
       } else {
         t.displayX += delta * t.displaySpeed * dx / l
         t.displayY += delta * t.displaySpeed * dy / l
       }
-      let a = this.tokenActors.get(t.id)
       if (a) {
         a.setPosition(t.displayX, t.displayY)
       }
@@ -443,7 +457,7 @@ export default class World extends Vue {
   createDoodadLineActor (line: Sim.Line) {
     let l = new LineActor()
     l.setLine(line.start.x, line.start.y, line.stop.x, line.stop.y, 0.1)
-    this.renderer.addActor(l, 1)
+    this.renderer.addActor(l, RenderLayers.DOODADS)
     this.doodadLineActors.set(line.id, l)
   }
 
@@ -464,7 +478,7 @@ export default class World extends Vue {
     a.setRotation(t.rotation)
     a.setColor(t.color.r / 255, t.color.g / 255, t.color.b / 255)
     a.setIsFoe(t.isFoe)
-    this.renderer.addActor(a, 2)
+    this.renderer.addActor(a, RenderLayers.TOKENS)
     this.tokenActors.set(t.id, a)
   }
 
@@ -505,6 +519,10 @@ export default class World extends Vue {
       this.onServerLoadBuilding(data.building)
     }
 
+    if (data.tilesPath.length > 0) {
+      this.tileRenderer.loadFrom(data.tilesPath)
+    }
+
     this.requestRedraw()
   }
 
@@ -525,18 +543,20 @@ export default class World extends Vue {
     // We use the same tokens as the server
     let t = this.tokenActors.get(data.token.id)
     if (t) {
-      t.setRotation(data.rotation)
-    }
-
-    this.requestRedraw()
-    data.token.displaySpeed = Math.hypot(data.token.x - data.token.displayX, data.token.y - data.token.displayY)
-    if (data.token.displaySpeed > 0) {
-      if (this.movingTokens.indexOf(data.token) !== undefined) {
-        this.movingTokens.push(data.token)
-        if (this.movingTokens.length === 1) {
-          // Start the updates
-          this.updateMovingTokens()
+      this.requestRedraw()
+      data.token.displaySpeed = Math.hypot(data.token.x - data.token.displayX, data.token.y - data.token.displayY)
+      let a = Math.atan2(data.token.y - data.token.displayY, data.token.x - data.token.displayX)
+      t.setRotation(a)
+      if (data.token.displaySpeed > 0) {
+        if (this.movingTokens.indexOf(data.token) !== undefined) {
+          this.movingTokens.push(data.token)
+          if (this.movingTokens.length === 1) {
+            // Start the updates
+            this.updateMovingTokens()
+          }
         }
+      } else {
+        t.setRotation(data.rotation)
       }
     }
   }

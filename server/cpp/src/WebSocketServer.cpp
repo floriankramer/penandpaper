@@ -16,9 +16,9 @@
 
 #include "WebSocketServer.h"
 
+#include <chrono>
 #include <memory>
 #include <thread>
-#include <chrono>
 
 #include "Logger.h"
 
@@ -120,7 +120,7 @@ void WebSocketServer::handleResponse(const Response &response,
           _socket.send(other, response.text, websocketpp::frame::opcode::text);
         } catch (const websocketpp::exception &e) {
           LOG_WARN << "Unable to forward a message to one of the clients."
-                   << LOG_END;
+                   << e.what() << LOG_END;
         }
       }
     } break;
@@ -135,5 +135,16 @@ void WebSocketServer::handleResponse(const Response &response,
     case ResponseType::SILENCE:
       // Do nothing
       break;
+  }
+}
+
+void WebSocketServer::broadcast(const std::string &data) {
+  for (websocketpp::connection_hdl other : _connections) {
+    try {
+      _socket.send(other, data, websocketpp::frame::opcode::text);
+    } catch (const websocketpp::exception &e) {
+      LOG_WARN << "Unable to forward a message to one of the clients."
+               << e.what() << LOG_END;
+    }
   }
 }
