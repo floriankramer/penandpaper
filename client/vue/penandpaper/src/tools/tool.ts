@@ -103,7 +103,17 @@ export default class Tool {
       consumeEvent = true
       let swp = this.map.screenToWorldPos(new Sim.Point(this.mouseDownX, this.mouseDownY))
       let ewp = this.map.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
+
+      let d = Math.hypot(this.mouseDownX - event.offsetX, this.mouseDownY - event.offsetY)
       let a = Math.atan2(ewp.y - swp.y, ewp.x - swp.x)
+      if (d < 10) {
+        let token = this.map.getSelection()
+        if (token !== undefined) {
+          a = token.rotation
+        } else {
+          a = 0
+        }
+      }
       this.map.clientMoveSelectedTo(swp.x, swp.y, a)
     }
 
@@ -137,21 +147,27 @@ export default class Tool {
       renderer.addActor(this.lineActor, 4)
     }
 
-    if (this.map.hasSelection()) {
-      let t : Sim.Token | undefined = this.map.getSelection()
-      if (t) {
-        let mp : Sim.Point = this.map.getLastMousePos()
-        let wmp = renderer.camera.screenToWorldSpace(mp)
-        let d = wmp.distTo(new Sim.Point(t.x, t.y))
-
-        // Make the font 30 px high
-        let scale = renderer.camera.screenToWorldSpaceDist(30)
-        this.fontActor.setText(d.toFixed(2).toString() + 'm')
-        this.fontActor.setPosition(wmp.x, wmp.y)
-        this.fontActor.setScale(scale, scale)
-
+    let t : Sim.Token | undefined = this.map.getSelection()
+    if (t) {
+      let text = ''
+      let mp : Sim.Point = this.map.getLastMousePos()
+      let wmp = renderer.camera.screenToWorldSpace(mp)
+      if (this.isMovingToken) {
+        let mdwp = this.map.screenToWorldPos(new Sim.Point(this.mouseDownX, this.mouseDownY))
+        let a = Math.atan2(wmp.y - mdwp.y, wmp.x - mdwp.x)
+        a = a / Math.PI * 180
+        text = a.toFixed(2).toString()
+        this.lineActor.setLine(mdwp.x, mdwp.y, wmp.x, wmp.y, renderer.camera.screenToWorldSpaceDist(0.6))
+      } else {
+        let d = wmp.distTo(new Sim.Point(t.displayX, t.displayY))
+        text = d.toFixed(2).toString() + 'm'
         this.lineActor.setLine(t.displayX, t.displayY, wmp.x, wmp.y, renderer.camera.screenToWorldSpaceDist(0.6))
       }
+      // Make the font 30 px high
+      let scale = renderer.camera.screenToWorldSpaceDist(30)
+      this.fontActor.setText(text)
+      this.fontActor.setPosition(wmp.x, wmp.y)
+      this.fontActor.setScale(scale, scale)
     }
 
     if (!this.shouldDrawText && this.isDrawingText) {

@@ -530,11 +530,13 @@ export default class World extends Vue {
 
     this.requestRedraw()
     data.token.displaySpeed = Math.hypot(data.token.x - data.token.displayX, data.token.y - data.token.displayY)
-    if (this.movingTokens.indexOf(data.token) !== undefined) {
-      this.movingTokens.push(data.token)
-      if (this.movingTokens.length === 1) {
-        // Start the updates
-        this.updateMovingTokens()
+    if (data.token.displaySpeed > 0) {
+      if (this.movingTokens.indexOf(data.token) !== undefined) {
+        this.movingTokens.push(data.token)
+        if (this.movingTokens.length === 1) {
+          // Start the updates
+          this.updateMovingTokens()
+        }
       }
     }
   }
