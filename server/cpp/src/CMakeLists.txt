@@ -3,6 +3,7 @@ project(penandpaper)
 
 
 set(BUILD_ATLAS_MODULE OFF CACHE BOOL "Build the atlas module")
+set(BUILD_FONTRENDERER ON CACHE BOOL "Build the font renderer used to pregenerate sdf font.")
 
 #==============================================================================
 # threading
@@ -49,7 +50,10 @@ endif ()
 
 add_subdirectory(geometry)
 add_subdirectory(building)
-add_subdirectory(fontrenderer)
+
+if (BUILD_FONTRENDERER)
+  add_subdirectory(fontrenderer)
+endif ()
 
 add_executable(penandpaper-server main.cpp
   HttpServer.cpp HttpServer.h
