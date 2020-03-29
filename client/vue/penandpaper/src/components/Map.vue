@@ -400,7 +400,7 @@ export default class World extends Vue {
   initActors () {
     this.renderer.addActor(this.gridActor, RenderLayers.GRID)
     this.renderer.addActor(this.roomActor, RenderLayers.BUILDING)
-    this.renderer.addActor(this.doorActor, RenderLayers.BUILDING)
+    this.renderer.addActor(this.doorActor, RenderLayers.DOORS)
     this.renderer.addActor(this.wallActor, RenderLayers.BUILDING)
     this.renderer.addActor(this.furnitureActor, RenderLayers.BUILDING)
 
