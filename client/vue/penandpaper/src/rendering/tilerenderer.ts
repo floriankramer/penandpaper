@@ -9,6 +9,7 @@ export default class TileRenderer {
 
   width: number = 0
   height: number = 0
+  tilesize: number = 1
 
   renderCallback: null | (() => any) = null
 
@@ -29,6 +30,8 @@ export default class TileRenderer {
     $.get(jsonPath, (meta) => {
       this.width = meta['width']
       this.height = meta['height']
+      this.tilesize = meta['tilesize']
+
       console.log(meta)
       for (let y = 0; y < this.width; ++y) {
         for (let x = 0; x < this.height; ++x) {
@@ -37,8 +40,8 @@ export default class TileRenderer {
           a.setRenderCallback(this.renderCallback)
           a.setTexturePath(path + '/0/' + y.toFixed(0).toString() + '/' + x.toFixed(0).toString() + '.png')
           this.actors.push(a)
-          a.setScale(5.001 / 2, 5.001 / 2)
-          a.setPosition((x - this.width / 2.0) * 5, (y - this.height / 2.0) * 5)
+          a.setScale((this.tilesize + 0.001) / 2, (this.tilesize + 0.001) / 2)
+          a.setPosition((x - this.width / 2.0) * this.tilesize, (y - this.height / 2.0) * this.tilesize)
           if (this.renderer !== null) {
             this.renderer.addActor(a, RenderLayers.TILES)
           } else {

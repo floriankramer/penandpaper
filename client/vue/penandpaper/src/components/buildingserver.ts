@@ -131,9 +131,10 @@ export default class BuildingServer {
   onServerDeleteRoom (data: any) {
     let id: number = data.id
     if (this.building !== null) {
-      let r = this.building.rooms.find((r: B.Room) => r.id === id)
-      if (r !== undefined) {
-        eventBus.$emit('/server/building/room/delete', r)
+      let i = this.building.rooms.findIndex((r: B.Room) => r.id === id)
+      if (i !== -1) {
+        eventBus.$emit('/server/building/room/delete', this.building.rooms[i])
+        this.building.rooms.splice(i)
       }
     }
   }
@@ -188,9 +189,10 @@ export default class BuildingServer {
   onServerDeleteWall (data: any) {
     let id: number = data.id
     if (this.building !== null) {
-      let r = this.building.walls.find((r: B.Wall) => r.id === id)
-      if (r !== undefined) {
-        eventBus.$emit('/server/building/wall/delete', r)
+      let i = this.building.walls.findIndex((r: B.Wall) => r.id === id)
+      if (i !== -1) {
+        eventBus.$emit('/server/building/wall/delete', this.building.walls[i])
+        this.building.walls.splice(i)
       }
     }
   }
@@ -245,9 +247,10 @@ export default class BuildingServer {
   onServerDeleteDoor (data: any) {
     let id: number = data.id
     if (this.building !== null) {
-      let r = this.building.doors.find((r: B.Door) => r.id === id)
-      if (r !== undefined) {
-        eventBus.$emit('/server/building/door/delete', r)
+      let i = this.building.doors.findIndex((r: B.Door) => r.id === id)
+      if (i !== -1) {
+        eventBus.$emit('/server/building/door/delete', this.building.doors[i])
+        this.building.doors.splice(i)
       }
     }
   }
@@ -318,9 +321,10 @@ export default class BuildingServer {
   onServerDeleteFurniture (data: any) {
     let id: number = data.id
     if (this.building !== null) {
-      let r = this.building.furniture.find((r: B.Furniture) => r.id === id)
-      if (r !== undefined) {
-        eventBus.$emit('/server/building/furniture/delete', r)
+      let i = this.building.furniture.findIndex((r: B.Furniture) => r.id === id)
+      if (i !== -1) {
+        eventBus.$emit('/server/building/furniture/delete', this.building.furniture[i])
+        this.building.furniture.splice(i)
       }
     }
   }

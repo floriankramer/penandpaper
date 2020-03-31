@@ -405,9 +405,12 @@ std::string Simulation::cmdRollDice(const std::string &who,
     out << who << " tried to roll an empty hand of dice.";
   } else {
     out << who << " rolled ";
+    std::vector<int> die;
+    die.reserve(cmd.size() - 1);
     for (size_t i = 1; i < cmd.size(); i++) {
       try {
-        int faces = std::stoi(cmd[i]);
+        int faces = std::max(1, std::stoi(cmd[i]));
+        die.push_back(faces);
         int val = (rand_r(&_rand_seed) % faces) + 1;
         out << val << " ";
       } catch (const std::exception &e) {
@@ -415,9 +418,9 @@ std::string Simulation::cmdRollDice(const std::string &who,
       }
     }
     out << "with dice ";
-    for (size_t i = 1; i < cmd.size(); i++) {
-      out << cmd[i];
-      if (i + 1 < cmd.size()) {
+    for (size_t i = 0; i < die.size(); i++) {
+      out << die[i];
+      if (i + 1 < die.size()) {
         out << " ";
       }
     }

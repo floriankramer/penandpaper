@@ -18,7 +18,11 @@
 
 Furniture::Furniture(uint64_t id, Vector2f position, Vector2f size,
                      float rotation)
-    : _id(id), _position(position), _size(size), _is_visible(false) {}
+    : _id(id),
+      _position(position),
+      _size(size),
+      _rotation(rotation),
+      _is_visible(false) {}
 
 nlohmann::json Furniture::toJson() const {
   nlohmann::json j;
