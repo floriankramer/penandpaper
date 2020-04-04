@@ -16,8 +16,6 @@
 
 #include "HttpServer.h"
 
-#define CPPHTTPLIB_OPENSSL_SUPPORT
-#include <httplib.h>
 #include <linux/limits.h>
 #include <unistd.h>
 
@@ -29,11 +27,24 @@
 
 #include "Logger.h"
 
-HttpServer::HttpServer(bool do_keycheck) : _do_keycheck(do_keycheck) { run(); }
+HttpServer::HttpServer(bool do_keycheck)
+    : _do_keycheck(do_keycheck),
+      _server("./cert/certificate.pem", "./cert/key.pem") {}
+
+void HttpServer::registerRequestHandler(
+    const std::string &path, RequestType type,
+    std::shared_ptr<RequestHandler> handler) {
+  httplib::Server::Handler callback =
+      std::bind(&RequestHandler::onRequest, handler.get(),
+                std::placeholders::_1, std::placeholders::_2);
+  if (type == RequestType::GET) {
+    _server.Get(path.c_str(), callback);
+  } else {
+    _server.Post(path.c_str(), callback);
+  }
+}
 
 void HttpServer::run() {
-  httplib::SSLServer server("./cert/certificate.pem", "./cert/key.pem");
-
   std::string key = genKey();
   std::string basepath;
   {
@@ -53,8 +64,8 @@ void HttpServer::run() {
     LOG_INFO << "The key is: " << key << LOG_END;
   }
 
-  server.Get(".*", [this, &key, &basepath](const httplib::Request &req,
-                                           httplib::Response &resp) {
+  _server.Get(".*", [this, &key, &basepath](const httplib::Request &req,
+                                            httplib::Response &resp) {
     std::string realpath = req.path;
     if (realpath == "/") {
       realpath = "/index.html";
@@ -105,7 +116,7 @@ void HttpServer::run() {
   while (true) {
     try {
       LOG_INFO << "Stating the http server on 8082..." << LOG_END;
-      server.listen("0.0.0.0", 8082);
+      _server.listen("0.0.0.0", 8082);
       std::this_thread::sleep_for(std::chrono::seconds(15));
     } catch (const std::exception &e) {
       LOG_ERROR << "Unable to listen on 0.0.0.0:8082 : " << e.what() << LOG_END;

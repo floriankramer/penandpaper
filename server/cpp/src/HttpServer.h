@@ -16,16 +16,32 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
+#define CPPHTTPLIB_OPENSSL_SUPPORT
+#include <httplib.h>
 
 class HttpServer {
-public:
-  HttpServer(bool do_keycheck=true);
+ public:
+  enum class RequestType { GET, POST };
+  class RequestHandler {
+   public:
+    virtual void onRequest(const httplib::Request &req,
+                           httplib::Response &resp) = 0;
+  };
 
-private:
+  HttpServer(bool do_keycheck = true);
+
+  void registerRequestHandler(const std::string &path, RequestType type,
+                              std::shared_ptr<RequestHandler> handler);
+
   void run();
-  std::string genKey();
-  std::string guessMimeType(const std::string &path);
+  static std::string guessMimeType(const std::string &path);
 
+ private:
+  std::string genKey();
+
+  std::vector<std::shared_ptr<RequestHandler>> _request_handlers;
+  httplib::SSLServer _server;
   bool _do_keycheck;
 };

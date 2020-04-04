@@ -22,6 +22,7 @@
     <Chat id="chat"></Chat>
     <Map id="map" class="content-area"/>
     <PlayerList id="playerlist"/>
+    <Wiki id="wiki"/>
     <template v-if="noUsername">
       <Login v-bind:server="server"></Login>
     </template>
@@ -37,6 +38,7 @@ import Map from './components/Map.vue'
 import CriticalError from './components/CriticalError.vue'
 import Server from './components/server'
 import PlayerList from './components/PlayerList.vue'
+import Wiki from './components/Wiki.vue'
 import { MutationPayload } from 'vuex'
 
 import { DockManager } from 'dock-spawn-ts/lib/js/DockManager'
@@ -54,7 +56,8 @@ import { DockNode } from 'dock-spawn-ts/lib/js/DockNode'
     Chat,
     Toolbar,
     Map,
-    PlayerList
+    PlayerList,
+    Wiki
   }
 })
 export default class App extends Vue {
@@ -70,6 +73,7 @@ export default class App extends Vue {
   dockManagerDiv : HTMLElement | null = null
 
   toolbarPanel: PanelContainer | null = null
+  wikiPanel: PanelContainer | null = null
 
   mounted () {
     console.log('The app has been mounted')
@@ -85,12 +89,22 @@ export default class App extends Vue {
       }
       if (mutation.type === 'setPermissions') {
         app.isGamemaster = state.permissions > 0
-        if (this.toolbarPanel !== null && this.dockManager !== undefined) {
-          if (this.isGamemaster) {
-            let documentNode = this.dockManager.context.model.documentManagerNode
-            this.dockManager.dockUp(documentNode, this.toolbarPanel, 0.15)
-          } else {
-            this.toolbarPanel.close()
+        if (this.dockManager !== undefined) {
+          if (this.toolbarPanel !== null) {
+            if (this.isGamemaster) {
+              let documentNode = this.dockManager.context.model.documentManagerNode
+              this.dockManager.dockUp(documentNode, this.toolbarPanel, 0.15)
+            } else {
+              this.toolbarPanel.close()
+            }
+          }
+          if (this.wikiPanel !== null) {
+            if (this.isGamemaster) {
+              let documentNode = this.dockManager.context.model.documentManagerNode
+              this.dockManager.dockFill(documentNode, this.wikiPanel)
+            } else {
+              this.wikiPanel.close()
+            }
           }
         }
       }
@@ -140,6 +154,15 @@ export default class App extends Vue {
         this.dockManager.dockUp(documentNode, this.toolbarPanel, 0.15)
         if (!this.isGamemaster) {
           this.toolbarPanel.close()
+        }
+      }
+
+      let wikiDiv = document.getElementById('wiki')
+      if (wikiDiv !== null) {
+        this.wikiPanel = new PanelContainer(wikiDiv, this.dockManager)
+        this.wikiPanel.setTitle('Wiki')
+        if (this.isGamemaster) {
+          this.dockManager.dockFill(documentNode, this.wikiPanel)
         }
       }
 

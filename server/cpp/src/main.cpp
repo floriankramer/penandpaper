@@ -16,18 +16,26 @@
 
 #include <functional>
 
+#include "Database.h"
 #include "HttpServer.h"
 #include "Simulation.h"
 #include "WebSocketServer.h"
+#include "Wiki.h"
 
 int main(int argc, char **argv) {
   bool do_keycheck = !(argc == 2 && strcmp(argv[1], "--no-key") == 0);
 
+  Database db("./database.sqlite3");
+  std::shared_ptr<Wiki> wiki = std::make_shared<Wiki>(&db);
   Simulation sim;
   WebSocketServer wss(
       std::bind(&Simulation::onMessage, &sim, std::placeholders::_1),
       std::bind(&Simulation::onNewClient, &sim));
   sim.setWebSocketServer(&wss);
+
   HttpServer server(do_keycheck);
+  server.registerRequestHandler("/wiki/.*", HttpServer::RequestType::GET, wiki);
+  server.registerRequestHandler("/wiki/.*", HttpServer::RequestType::POST, wiki);
+  server.run();
   return 0;
 }
