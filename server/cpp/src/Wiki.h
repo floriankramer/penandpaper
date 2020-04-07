@@ -12,6 +12,7 @@ class Wiki : public HttpServer::RequestHandler {
   virtual void onRequest(const httplib::Request &req, httplib::Response &resp);
 
  private:
+  void handleList(httplib::Response &resp);
   void handleGet(const std::string &id, httplib::Response &resp);
   void handleSave(const std::string &id, const httplib::Request &req, httplib::Response &resp);
   void handleDelete(const std::string &id, const httplib::Request &req, httplib::Response &resp);

@@ -13,6 +13,10 @@ std::string dbDataTypeName(DbDataType t);
 class DbVariant {
  public:
   DbVariant();
+  DbVariant(int64_t integer);
+  DbVariant(double real);
+  DbVariant(const std::string &text);
+  DbVariant(const std::vector<uint8_t> &blob);
   virtual ~DbVariant();
 
   DbVariant(const DbVariant &other);
@@ -34,8 +38,31 @@ class DbColumn {
   DbDataType type;
 };
 
+class DbColumnUpdate {
+ public:
+  std::string name;
+  DbVariant data;
+};
+
+class DbCondition {
+public:
+  enum class Type {
+    EQ,
+    GT,
+    LT
+  };
+
+  DbCondition(const std::string &column, Type type, const DbVariant &value);
+  std::string column;
+  Type type;
+  DbVariant value;
+
+  std::string str() const;
+};
+
 class DbCursor {
  public:
+  DbCursor();
   DbCursor(sqlite3_stmt *stmt, sqlite3 *db);
   virtual ~DbCursor();
 
@@ -56,10 +83,13 @@ class Table {
   void setColumns(const std::vector<DbColumn> &columns);
 
   void insert(const std::vector<DbVariant> &data);
-  void erase(const std::string &where);
+  void erase(const DbCondition &where);
   DbCursor query(const std::string &where = std::string());
+  void update(const std::vector<DbColumnUpdate> &updates, const DbCondition &where);
 
  private:
+  int bindValue(sqlite3_stmt *stmt, int index, const DbVariant &value);
+
   std::string _name;
   std::vector<DbColumn> _columns;
   sqlite3 *_db;

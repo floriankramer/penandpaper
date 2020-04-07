@@ -17,27 +17,35 @@
 <template>
   <div class="wiki-container">
     <div class="wiki-sidebar">
-      <button>new</button>
-      <button>edit</button>
-      <button>delete</button>
-      <button>home</button>
+      <div class="wiki-controls">
+        <button v-on:click="newPage">new</button>
+        <button v-on:click="editPage">edit</button>
+        <button v-on:click="deletePage">delete</button>
+        <button v-on:click="loadPage('home')">home</button>
+      </div>
+      <div class="wiki-index">
+        <h3>Pages</h3>
+        <p v-for="t in titles" v-bind:key="t" v-on:click="loadPage(t)">
+          {{t}}
+        </p>
+      </div>
     </div>
     <div class="wiki-center">
       <div id="wiki-content" v-if="showContent">
-        The page '' does not exist yet.
+        {{content}}
       </div>
       <div id="wiki-edit" v-if="showEdit">
         <form>
           <div class="with-tooltip">
             <label for="title">id: </label>
-            <input name="title" v-bind:value="title"/>
+            <input name="title" v-model="title"/>
             <span class="tooltip">The unique identifier of this article.</span>
           </div>
           <div>
-            <textarea name="content" rows="36" cols="80" v-bind:value="content"/>
+            <textarea name="content" rows="36" cols="80" v-model="content"/>
           </div>
           <div>
-            <input type="submit" value="save"/>
+            <input type="submit" value="save" v-on:click.prevent="savePage"/>
           </div>
         </form>
       </div>
@@ -48,14 +56,71 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator'
 import Server from './server'
+import $ from 'jquery'
 
 @Component
 export default class Wiki extends Vue {
-  showContent: boolean = false
-  showEdit: boolean = true
+  showContent: boolean = true
+  showEdit: boolean = false
+
+  titles: string[] = []
 
   title: string = 'home'
   content: string = 'Lorem Ipsum...'
+
+  newPage () {
+    this.showContent = false
+    this.showEdit = true
+    this.title = 'id'
+    this.content = ''
+  }
+
+  editPage () {
+    this.showContent = false
+    this.showEdit = true
+  }
+
+  deletePage () {
+    $.get('/wiki/delete/' + this.title, () => {
+      this.loadIndex()
+    }).fail(() => {
+      alert('Deleting the article failed.')
+    })
+  }
+
+  savePage () {
+    $.post('/wiki/save/' + this.title, this.content, (body) => {
+      this.loadIndex()
+      this.showContent = true
+      this.showEdit = false
+    }).fail(() => {
+      alert('Saving failed.')
+    })
+  }
+
+  loadPage (title: string) {
+    this.showContent = true
+    this.showEdit = false
+    this.title = title
+    $.get('/wiki/get/' + title, (body) => {
+      this.content = body
+    }).fail(() => {
+      this.content = 'Unable to load the specified page'
+    })
+  }
+
+  mounted () {
+    this.loadIndex()
+  }
+
+  loadIndex () {
+    $.get('/wiki/list', (body) => {
+      let titles = JSON.parse(body)
+      if (Array.isArray(titles)) {
+        this.titles = titles
+      }
+    })
+  }
 }
 </script>
 

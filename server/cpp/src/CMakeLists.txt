@@ -63,13 +63,17 @@ add_executable(penandpaper-server main.cpp
   Token.cpp Token.h
   Doodad.cpp Doodad.h
   Serializeable.h
-  Util.h
+  Util.cpp Util.h
   Packet.cpp Packet.h
   Permissions.h
   Player.h
   IdGenerator.cpp IdGenerator.h
   Wiki.cpp Wiki.h
   Database.cpp Database.h)
+
+
+add_executable(base64 base64_main.cpp
+  Util.cpp Util.h)
 
 target_link_libraries(penandpaper-server building geometry sqlite3 OpenSSL::SSL ${CMAKE_THREAD_LIBS_INIT})
 

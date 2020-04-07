@@ -23,8 +23,15 @@ std::string dbDataTypeName(DbDataType t) {
 // =============================================================================
 // DbVariant
 // =============================================================================
+DbVariant::DbVariant() : type(DbDataType::NULL_T), integer(0) {}
 
-DbVariant::DbVariant() : type(DbDataType::INTEGER), integer(0) {}
+DbVariant::DbVariant(int64_t integer)
+    : type(DbDataType::INTEGER), integer(integer) {}
+DbVariant::DbVariant(double real) : type(DbDataType::REAL), real(real) {}
+DbVariant::DbVariant(const std::string &text)
+    : type(DbDataType::TEXT), text(text) {}
+DbVariant::DbVariant(const std::vector<uint8_t> &blob)
+    : type(DbDataType::BLOB), blob(blob) {}
 
 DbVariant::~DbVariant() {
   if (type == DbDataType::BLOB) {
@@ -37,19 +44,19 @@ DbVariant::~DbVariant() {
 DbVariant::DbVariant(const DbVariant &other) : type(other.type) {
   switch (type) {
     case DbDataType::BLOB:
-      blob = other.blob;
+      new (this) DbVariant(other.blob);
       break;
     case DbDataType::REAL:
-      real = other.real;
+      new (this) DbVariant(other.real);
       break;
     case DbDataType::TEXT:
-      text = other.text;
+      new (this) DbVariant(other.text);
       break;
     case DbDataType::NULL_T:
-      integer = 0;
+      new (this) DbVariant();
       break;
     case DbDataType::INTEGER:
-      integer = other.integer;
+      new (this) DbVariant(other.integer);
       break;
   }
 }
@@ -64,6 +71,8 @@ DbVariant &DbVariant::operator=(const DbVariant &other) {
 // DbCursor
 // =============================================================================
 
+DbCursor::DbCursor() : _db(NULL), _stmt(NULL), _done(true) {}
+
 DbCursor::DbCursor(sqlite3_stmt *stmt, sqlite3 *db)
     : _stmt(stmt), _db(db), _done(false) {
   // load the first row
@@ -74,46 +83,66 @@ DbCursor::~DbCursor() { sqlite3_finalize(_stmt); }
 
 void DbCursor::next() {
   int r = sqlite3_step(_stmt);
-  if (r == SQLITE_DONE) {
+  if (r != SQLITE_ROW) {
     _done = true;
-  } else if (r != SQLITE_OK) {
+  }
+  if (r != SQLITE_OK && r != SQLITE_ROW && r != SQLITE_DONE) {
     LOG_ERROR << "Unable to step a db cursor: " << sqlite3_errstr(r) << LOG_END;
+    _done = true;
   }
 }
 bool DbCursor::done() const { return _done; }
 
 DbVariant DbCursor::col(int index) {
-  DbVariant v;
   sqlite3_value *val = sqlite3_column_value(_stmt, index);
   int type = sqlite3_value_type(val);
   switch (type) {
     case SQLITE_INTEGER:
-      v.type = DbDataType::INTEGER;
-      v.integer = sqlite3_value_int(val);
-      break;
+      return int64_t(sqlite3_value_int(val));
     case SQLITE_NULL:
-      v.type = DbDataType::NULL_T;
-      v.integer = 0;
-      break;
+      return DbVariant();
     case SQLITE_FLOAT:
-      v.type = DbDataType::REAL;
-      v.real = sqlite3_value_double(val);
-      break;
+      return sqlite3_value_double(val);
     case SQLITE_TEXT: {
-      v.type = DbDataType::TEXT;
       int size = sqlite3_value_bytes(val);
-      v.text = std::string(
-          reinterpret_cast<const char *>(sqlite3_value_text(val), size));
-    } break;
+      return std::string(
+          reinterpret_cast<const char *>(sqlite3_value_text(val)), size);
+    }
     case SQLITE_BLOB: {
-      v.type = DbDataType::BLOB;
       int size = sqlite3_value_bytes(val);
       const uint8_t *data =
           reinterpret_cast<const uint8_t *>(sqlite3_value_blob(val));
-      v.blob = std::vector<uint8_t>(data, data + size);
-    } break;
+      return std::vector<uint8_t>(data, data + size);
+    }
+    default:
+      return DbVariant();
   }
-  return v;
+}
+
+// =============================================================================
+// DbCondition
+// =============================================================================
+
+DbCondition::DbCondition(const std::string &column, Type type,
+                         const DbVariant &value)
+    : column(column), type(type), value(value) {}
+
+std::string DbCondition::str() const {
+  std::ostringstream ssql;
+  ssql << column;
+  switch (type) {
+    case DbCondition::Type::EQ:
+      ssql << " = ";
+      break;
+    case DbCondition::Type::GT:
+      ssql << " > ";
+      break;
+    case DbCondition::Type::LT:
+      ssql << " < ";
+      break;
+  }
+  ssql << "?1";
+  return ssql.str();
 }
 
 // =============================================================================
@@ -132,7 +161,7 @@ void Table::insert(const std::vector<DbVariant> &data) {
   std::stringstream ssql;
   ssql << "INSERT INTO " << _name << " VALUES (";
   for (size_t i = 0; i < data.size(); ++i) {
-    ssql << "?";
+    ssql << "?" << i + 1;
     if (i + 1 < data.size()) {
       ssql << ", ";
     }
@@ -144,62 +173,69 @@ void Table::insert(const std::vector<DbVariant> &data) {
   int r = sqlite3_prepare_v2(_db, sql.c_str(), sql.size(), &stmt, NULL);
   if (r != SQLITE_OK) {
     LOG_ERROR << "Unable to prepare an sqlite statement for insertion into "
-              << _name << ": " << sql << LOG_END;
+              << _name << ": " << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
     return;
   }
   // Bind the values
   for (size_t i = 0; i < data.size(); ++i) {
-    const DbVariant &v = data[i];
-    switch (v.type) {
-      case DbDataType::BLOB:
-        // TODO: transient is safe but expensive as it copies the data
-        r = sqlite3_bind_blob(stmt, i, v.blob.data(), v.blob.size(),
-                              SQLITE_TRANSIENT);
-        break;
-      case DbDataType::REAL:
-        r = sqlite3_bind_double(stmt, i, v.real);
-        break;
-      case DbDataType::TEXT:
-        r = sqlite3_bind_text(stmt, i, v.text.c_str(), v.text.size(),
-                              SQLITE_TRANSIENT);
-        break;
-      case DbDataType::NULL_T:
-        r = sqlite3_bind_null(stmt, i);
-        break;
-      case DbDataType::INTEGER:
-        r = sqlite3_bind_int64(stmt, i, v.integer);
-        break;
-    }
+    r = bindValue(stmt, i + 1, data[i]);
     if (r != SQLITE_OK) {
       LOG_ERROR << "Unable to bind data slot " << i << " for insertion into "
-                << _name << ": " << sql << LOG_END;
+                << _name << ": " << sql << "\n"
+                << sqlite3_errmsg(_db) << LOG_END;
       return;
     }
   }
   r = sqlite3_step(stmt);
-  if (r != SQLITE_OK) {
-    LOG_ERROR << "Unable to insert into " << _name << ": " << sql << LOG_END;
+  if (r != SQLITE_OK && r != SQLITE_DONE) {
+    LOG_ERROR << "Unable to insert into " << _name << ": " << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
     return;
   }
   r = sqlite3_finalize(stmt);
   if (r != SQLITE_OK) {
     LOG_ERROR << "Unable to finalize the statement for insertion into " << _name
-              << ": " << sql << LOG_END;
+              << ": " << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
     return;
   }
 }
 
-void Table::erase(const std::string &where) {
+void Table::erase(const DbCondition &where) {
   std::stringstream ssql;
-  ssql << "DELETE FROM " << _name << " WHERE " << where << ";";
+  ssql << "DELETE FROM " << _name << " WHERE " << where.str() << ";";
 
   std::string sql = ssql.str();
-  char *error = NULL;
-  sqlite3_exec(_db, sql.c_str(), NULL, NULL, &error);
-  if (error != NULL) {
-    LOG_ERROR << "Error while deleting from: " << _name << ": " << sql << " :"
-              << error << LOG_END;
-    sqlite3_free(error);
+  sqlite3_stmt *stmt;
+  int r = sqlite3_prepare_v2(_db, sql.c_str(), sql.size(), &stmt, NULL);
+  if (r != SQLITE_OK) {
+    LOG_ERROR << "Unable to prepare an sqlite statement for insertion into "
+              << _name << ": " << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
+    return;
+  }
+  // Bind the values
+  r = bindValue(stmt, 1, where.value);
+  if (r != SQLITE_OK) {
+    LOG_ERROR << "Unable to bind data slot " << 0 << " for erasing from "
+              << _name << ": " << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
+    return;
+  }
+
+  r = sqlite3_step(stmt);
+  if (r != SQLITE_OK && r != SQLITE_DONE) {
+    LOG_ERROR << "Unable to update " << _name << ": " << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
+    return;
+  }
+  r = sqlite3_finalize(stmt);
+  if (r != SQLITE_OK) {
+    LOG_ERROR << "Unable to finalize the statement for updating " << _name
+              << ": " << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
+    return;
   }
 }
 
@@ -216,9 +252,93 @@ DbCursor Table::query(const std::string &where) {
   int r = sqlite3_prepare_v2(_db, sql.c_str(), sql.size(), &stmt, NULL);
   if (r != SQLITE_OK) {
     LOG_ERROR << "Unable to prepare an sqlite statement for query from "
-              << _name << ": " << sql << LOG_END;
+              << _name << ": " << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
+    return DbCursor();
   }
   return DbCursor(stmt, _db);
+}
+
+void Table::update(const std::vector<DbColumnUpdate> &updates,
+                   const DbCondition &where) {
+  std::stringstream ssql;
+  ssql << "UPDATE " << _name << " SET ";
+  for (size_t i = 0; i < updates.size(); ++i) {
+    const DbColumnUpdate &c = updates[i];
+    ssql << c.name << " = ?" << i + 2;
+    if (i + 1 < updates.size()) {
+      ssql << ", ";
+    }
+  }
+  ssql << " WHERE " << where.str() << ";";
+
+  std::string sql = ssql.str();
+  sqlite3_stmt *stmt;
+  int r = sqlite3_prepare_v2(_db, sql.c_str(), sql.size(), &stmt, NULL);
+  if (r != SQLITE_OK) {
+    LOG_ERROR << "Unable to prepare an sqlite statement for insertion into "
+              << _name << ": " << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
+    return;
+  }
+  // Bind the values
+  for (size_t i = 0; i < updates.size(); ++i) {
+    r = bindValue(stmt, i + 2, updates[i].data);
+    if (r != SQLITE_OK) {
+      LOG_ERROR << "Unable to bind a value to slot " << i << ": " << sql << "\n"
+                << sqlite3_errmsg(_db) << LOG_END;
+      return;
+    }
+  }
+  // bind the where value
+  r = bindValue(stmt, 1, where.value);
+  if (r != SQLITE_OK) {
+    LOG_ERROR << "Unable to bind a value to slot " << updates.size() << ": "
+              << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
+    return;
+  }
+
+  r = sqlite3_step(stmt);
+  if (r != SQLITE_OK && r != SQLITE_DONE) {
+    LOG_ERROR << "Unable to update " << _name << ": " << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
+    return;
+  }
+  r = sqlite3_finalize(stmt);
+  if (r != SQLITE_OK) {
+    LOG_ERROR << "Unable to finalize the statement for updating " << _name
+              << ": " << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
+    return;
+  }
+}
+
+int Table::bindValue(sqlite3_stmt *stmt, int index, const DbVariant &value) {
+  int r = 0;
+  switch (value.type) {
+    case DbDataType::BLOB:
+      // TODO: transient is safe but expensive as it copies the data
+      r = sqlite3_bind_blob(stmt, index, value.blob.data(), value.blob.size(),
+                            SQLITE_TRANSIENT);
+      break;
+    case DbDataType::REAL:
+      r = sqlite3_bind_double(stmt, index, value.real);
+      break;
+    case DbDataType::TEXT:
+      r = sqlite3_bind_text(stmt, index, value.text.c_str(), value.text.size(),
+                            SQLITE_TRANSIENT);
+      break;
+    case DbDataType::NULL_T:
+      r = sqlite3_bind_null(stmt, index);
+      break;
+    case DbDataType::INTEGER:
+      r = sqlite3_bind_int64(stmt, index, value.integer);
+      break;
+    default:
+      r = SQLITE_ERROR;
+  }
+  return r;
 }
 
 // =============================================================================
