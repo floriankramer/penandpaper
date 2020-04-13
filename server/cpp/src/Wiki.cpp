@@ -1,8 +1,10 @@
 #include "Wiki.h"
 
+#include <cstdlib>
 #include <nlohmann/json.hpp>
 
 #include "Logger.h"
+#include "Markdown.h"
 #include "Util.h"
 
 Wiki::Wiki(Database *db)
@@ -29,6 +31,8 @@ void Wiki::onRequest(const httplib::Request &req, httplib::Response &resp) {
     handleList(resp);
   } else if (action == "get") {
     handleGet(parts[2], resp);
+  } else if (action == "raw") {
+    handleRaw(parts[2], resp);
   } else if (action == "save") {
     handleSave(parts[2], req, resp);
   } else if (action == "delete") {
@@ -54,6 +58,35 @@ void Wiki::handleList(httplib::Response &resp) {
 
 void Wiki::handleGet(const std::string &id, httplib::Response &resp) {
   if (_known_ids.find(id) != _known_ids.end()) {
+    if (_markdown_cache.find(id) != _markdown_cache.end()) {
+      resp.status = 200;
+      resp.body = _markdown_cache[id];
+    } else {
+      DbCursor c = _pages_table.query("`id` = '" + id + "'");
+      std::string raw = c.col(1).text;
+      Markdown m(raw);
+      try {
+        std::string parsed = m.process();
+        if (_markdown_cache.size() > MAX_MARKDOWN_CACHE_SIZE) {
+          unsigned int seed = time(NULL);
+          _markdown_cache.erase(_markdown_cache.begin());
+        }
+        _markdown_cache[id] = parsed;
+        resp.status = 200;
+        resp.body = parsed;
+      } catch (const std::exception &e) {
+        resp.status = 200;
+        resp.body = "Unable to parse the input markdown<br/>" + raw;
+      }
+    }
+  } else {
+    resp.status = 404;
+    resp.body = "No such wiki entry";
+  }
+}
+
+void Wiki::handleRaw(const std::string &id, httplib::Response &resp) {
+  if (_known_ids.find(id) != _known_ids.end()) {
     DbCursor c = _pages_table.query("`id` = '" + id + "'");
     resp.status = 200;
     resp.body = c.col(1).text;
@@ -68,6 +101,11 @@ void Wiki::handleSave(const std::string &id, const httplib::Request &req,
   if (_known_ids.find(id) != _known_ids.end()) {
     _pages_table.update({{"content", req.body}},
                         DbCondition("id", DbCondition::Type::EQ, id));
+    // Invalidate the markdown cache
+    auto mit = _markdown_cache.find(id);
+    if (mit != _markdown_cache.end()) {
+      _markdown_cache.erase(mit);
+    }
   } else {
     _known_ids.insert(id);
     _pages_table.insert({id, req.body});

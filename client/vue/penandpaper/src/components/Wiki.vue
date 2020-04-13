@@ -31,8 +31,7 @@
       </div>
     </div>
     <div class="wiki-center">
-      <div id="wiki-content" v-if="showContent">
-        {{content}}
+      <div id="wiki-content" v-if="showContent" v-html="content">
       </div>
       <div id="wiki-edit" v-if="showEdit">
         <form>
@@ -42,7 +41,7 @@
             <span class="tooltip">The unique identifier of this article.</span>
           </div>
           <div>
-            <textarea name="content" rows="36" cols="80" v-model="content"/>
+            <textarea name="content" rows="36" cols="80" v-model="rawContent"/>
           </div>
           <div>
             <input type="submit" value="save" v-on:click.prevent="savePage"/>
@@ -67,17 +66,23 @@ export default class Wiki extends Vue {
 
   title: string = 'home'
   content: string = 'Lorem Ipsum...'
+  rawContent: string = ''
 
   newPage () {
     this.showContent = false
     this.showEdit = true
     this.title = 'id'
-    this.content = ''
+    this.rawContent = ''
   }
 
   editPage () {
     this.showContent = false
     this.showEdit = true
+    $.get('/wiki/raw/' + this.title, (body) => {
+      this.rawContent = body
+    }).fail(() => {
+      this.rawContent = 'Unable to load the specified page'
+    })
   }
 
   deletePage () {
@@ -89,10 +94,9 @@ export default class Wiki extends Vue {
   }
 
   savePage () {
-    $.post('/wiki/save/' + this.title, this.content, (body) => {
+    $.post('/wiki/save/' + this.title, this.rawContent, (body) => {
       this.loadIndex()
-      this.showContent = true
-      this.showEdit = false
+      this.loadPage(this.title)
     }).fail(() => {
       alert('Saving failed.')
     })

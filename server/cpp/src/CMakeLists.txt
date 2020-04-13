@@ -69,11 +69,15 @@ add_executable(penandpaper-server main.cpp
   Player.h
   IdGenerator.cpp IdGenerator.h
   Wiki.cpp Wiki.h
-  Database.cpp Database.h)
+  Database.cpp Database.h
+  Markdown.cpp Markdown.h)
 
 
 add_executable(base64 base64_main.cpp
   Util.cpp Util.h)
+
+add_executable(markdown markdown_main.cpp
+  Markdown.cpp Markdown.h)
 
 target_link_libraries(penandpaper-server building geometry sqlite3 OpenSSL::SSL ${CMAKE_THREAD_LIBS_INIT})
 
