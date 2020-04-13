@@ -21,6 +21,8 @@
 #define CPPHTTPLIB_OPENSSL_SUPPORT
 #include <httplib.h>
 
+#include "Authenticator.h"
+
 class HttpServer {
  public:
   enum class RequestType { GET, POST };
@@ -30,7 +32,8 @@ class HttpServer {
                            httplib::Response &resp) = 0;
   };
 
-  HttpServer(bool do_keycheck = true);
+  HttpServer(std::shared_ptr<Authenticator> authenticator,
+             bool do_keycheck = true);
 
   void registerRequestHandler(const std::string &path, RequestType type,
                               std::shared_ptr<RequestHandler> handler);
@@ -39,9 +42,10 @@ class HttpServer {
   static std::string guessMimeType(const std::string &path);
 
  private:
-  std::string genKey();
-
   std::vector<std::shared_ptr<RequestHandler>> _request_handlers;
+  std::shared_ptr<Authenticator> _authenticator;
   httplib::SSLServer _server;
   bool _do_keycheck;
+
+  static const std::string AUTH_PAGE;
 };

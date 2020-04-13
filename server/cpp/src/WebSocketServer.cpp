@@ -22,9 +22,10 @@
 
 #include "Logger.h"
 
-WebSocketServer::WebSocketServer(OnMsgHandler_t on_msg,
+WebSocketServer::WebSocketServer(std::shared_ptr<Authenticator> authenticator,
+                                 OnMsgHandler_t on_msg,
                                  OnConnectHandler_t on_connect)
-    : _on_msg(on_msg), _on_connect(on_connect) {
+    : _authenticator(authenticator), _on_msg(on_msg), _on_connect(on_connect) {
   std::thread t(&WebSocketServer::run, this);
   t.detach();
 }
@@ -37,7 +38,15 @@ void WebSocketServer::run() {
 
       _socket.set_open_handler([this](websocketpp::connection_hdl conn_hdl) {
         try {
+          // Authenticate the new user
+          std::string cookies =
+              _socket.get_con_from_hdl(conn_hdl)->get_request_header("Cookie");
+          if (!_authenticator->authenticateFromCookies(cookies)) {
+            _socket.get_con_from_hdl(conn_hdl)->close(1000, "Not Authenticated.");
+            return;
+          }
           _connections.push_back(conn_hdl);
+          // TODO use the cookies to authenticate or reject the client
           Response resp = _on_connect();
           handleResponse(resp, conn_hdl);
         } catch (const std::exception &e) {

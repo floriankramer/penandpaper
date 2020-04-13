@@ -70,7 +70,9 @@ add_executable(penandpaper-server main.cpp
   IdGenerator.cpp IdGenerator.h
   Wiki.cpp Wiki.h
   Database.cpp Database.h
-  Markdown.cpp Markdown.h)
+  Markdown.cpp Markdown.h
+  Authenticator.cpp Authenticator.h
+  Random.cpp Random.h)
 
 
 add_executable(base64 base64_main.cpp

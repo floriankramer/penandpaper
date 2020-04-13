@@ -26,9 +26,12 @@
 #include <thread>
 
 #include "Logger.h"
+#include "Random.h"
 
-HttpServer::HttpServer(bool do_keycheck)
-    : _do_keycheck(do_keycheck),
+HttpServer::HttpServer(std::shared_ptr<Authenticator> authenticator,
+                       bool do_keycheck)
+    : _authenticator(authenticator),
+      _do_keycheck(do_keycheck),
       _server("./cert/certificate.pem", "./cert/key.pem") {}
 
 void HttpServer::registerRequestHandler(
@@ -45,7 +48,7 @@ void HttpServer::registerRequestHandler(
 }
 
 void HttpServer::run() {
-  std::string key = genKey();
+  std::string key = Random::secureRandomString(32);
   std::string basepath;
   {
     char buffer[PATH_MAX];
@@ -66,18 +69,54 @@ void HttpServer::run() {
 
   _server.Get(".*", [this, &key, &basepath](const httplib::Request &req,
                                             httplib::Response &resp) {
+    std::string cookies = req.get_header_value("Cookie");
+    if (_do_keycheck && req.path != "/auth") {
+      if (!_authenticator->authenticateFromCookies(cookies)) {
+        resp.status = 404;
+        resp.body = "Page not found";
+        return;
+      }
+    }
     std::string realpath = req.path;
     if (realpath == "/") {
       realpath = "/index.html";
     }
-    if (realpath == "/index.html") {
-      if (_do_keycheck &&
-          (!req.has_param("key") || req.get_param_value("key") != key)) {
-        LOG_INFO << "A client failed the ip check." << std::endl;
-        resp.body = "Invalid or missing key";
-        resp.status = 200;
-        return;
+    // The auth page is not served from the filesystem
+    if (realpath == "/auth") {
+      if (!_do_keycheck || _authenticator->authenticateFromCookies(cookies)) {
+        resp.status = 307;
+        resp.set_header("Location", "/");
+        resp.body = "Authentication is disabled.";
+      } else {
+        if (req.has_param("cookie_consent") &&
+            req.get_param_value("cookie_consent") == "yes") {
+          if (req.has_param("key") && req.get_param_value("key") == key) {
+            std::string token = _authenticator->addAuthenticated("unknown");
+            resp.status = 307;
+            resp.set_header("Location", "/");
+            resp.set_header("Set-Cookie",
+                            _authenticator->createSetCookieHeader(token));
+            resp.body = "Authentication successfull";
+          } else {
+            resp.status = 401;
+            resp.body = "Missing or invalid key";
+          }
+        } else {
+          // assemble the auth link
+          std::vector<char> page;
+          page.resize(AUTH_PAGE.size() - 2 + key.size() + 1, ' ');
+          if (req.has_param("key")) {
+            // copy the current key into the template
+            sprintf(page.data(), AUTH_PAGE.data(), key.data());
+          } else {
+            sprintf(page.data(), AUTH_PAGE.data(), "not_provided");
+          }
+          resp.status = 200;
+          resp.body = page.data();
+          resp.set_header("Content-Type", "text/html");
+        }
       }
+      return;
     }
     {
       realpath = basepath + realpath;
@@ -115,7 +154,7 @@ void HttpServer::run() {
 
   while (true) {
     try {
-      LOG_INFO << "Stating the http server on 8082..." << LOG_END;
+      LOG_INFO << "Starting the http server on 8082..." << LOG_END;
       _server.listen("0.0.0.0", 8082);
       std::this_thread::sleep_for(std::chrono::seconds(15));
     } catch (const std::exception &e) {
@@ -123,15 +162,6 @@ void HttpServer::run() {
       std::this_thread::sleep_for(std::chrono::seconds(15));
     }
   }
-}
-
-std::string HttpServer::genKey() {
-  unsigned int seed = time(NULL);
-  std::string key(32, ' ');
-  for (size_t i = 0; i < 32; i++) {
-    key[i] = 'A' + rand_r(&seed) % 25;
-  }
-  return key;
 }
 
 std::string HttpServer::guessMimeType(const std::string &path) {
@@ -159,3 +189,38 @@ std::string HttpServer::guessMimeType(const std::string &path) {
     return "application/octet-stream";
   }
 }
+
+const std::string HttpServer::AUTH_PAGE = R"(
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Authenticate</title>
+    <style>
+body {
+  color: white;
+  background-color: #292929;
+}
+
+#center {
+  margin: auto;
+  text-align: center;
+  width: 25%;
+  top: 50%;
+  left: 50%;
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+    </style>
+  </head>
+  <body>
+    <div id="center">
+      <p>
+        This site uses cookies. By pressing accept you accept that a cookie called `auth` will be set for the duration of 1 year.
+      </p>
+      <a href="?cookie_consent=yes&key=%s">Accept</a>
+  </div>
+  </body>
+</html>
+
+)";

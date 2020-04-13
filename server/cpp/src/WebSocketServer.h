@@ -19,24 +19,24 @@
 #include <functional>
 #include <string>
 #include <vector>
-#include <string>
-
 
 #define ASIO_STANDALONE
+#include <memory>
 #include <websocketpp/config/asio.hpp>
 #include <websocketpp/server.hpp>
 
-class WebSocketServer {
+#include "Authenticator.h"
 
+class WebSocketServer {
   typedef websocketpp::config::asio_tls ServerConfig;
   typedef websocketpp::server<websocketpp::config::asio_tls> Server;
   typedef std::shared_ptr<asio::ssl::context> ssl_ctx_pt;
 
-public:
+ public:
   enum class ResponseType {
-    BROADCAST, // send new data to all
-    FORWARD, // send the received message to all
-    RETURN, // send to sender
+    BROADCAST,  // send new data to all
+    FORWARD,    // send the received message to all
+    RETURN,     // send to sender
     SILENCE
   };
 
@@ -45,25 +45,26 @@ public:
     ResponseType type;
   };
 
-  typedef std::function<Response(const std::string&)> OnMsgHandler_t;
+  typedef std::function<Response(const std::string &)> OnMsgHandler_t;
   typedef std::function<Response()> OnConnectHandler_t;
 
+ public:
+  WebSocketServer(std::shared_ptr<Authenticator> authenticator,
+                  OnMsgHandler_t on_msg, OnConnectHandler_t on_connect);
 
-public:
-   WebSocketServer(OnMsgHandler_t on_msg, OnConnectHandler_t on_connect);
+  void broadcast(const std::string &data);
 
-   void broadcast(const std::string &data);
+ private:
+  void run();
 
-private:
-   void run();
+  void handleResponse(const Response &response,
+                      websocketpp::connection_hdl &initiator);
 
-   void handleResponse(const Response &response, websocketpp::connection_hdl &initiator);
+  std::shared_ptr<Authenticator> _authenticator;
+  std::vector<websocketpp::connection_hdl> _connections;
 
-   std::vector<websocketpp::connection_hdl> _connections;
+  Server _socket;
 
-   Server _socket;
-
-   OnMsgHandler_t _on_msg;
-   OnConnectHandler_t _on_connect;
-
+  OnMsgHandler_t _on_msg;
+  OnConnectHandler_t _on_connect;
 };

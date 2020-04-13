@@ -15,7 +15,9 @@
  */
 
 #include <functional>
+#include <memory>
 
+#include "Authenticator.h"
 #include "Database.h"
 #include "HttpServer.h"
 #include "Simulation.h"
@@ -25,17 +27,22 @@
 int main(int argc, char **argv) {
   bool do_keycheck = !(argc == 2 && strcmp(argv[1], "--no-key") == 0);
 
+  std::shared_ptr<Authenticator> authenticator =
+      std::make_shared<Authenticator>();
+
   Database db("./database.sqlite3");
   std::shared_ptr<Wiki> wiki = std::make_shared<Wiki>(&db);
   Simulation sim;
   WebSocketServer wss(
+      authenticator,
       std::bind(&Simulation::onMessage, &sim, std::placeholders::_1),
       std::bind(&Simulation::onNewClient, &sim));
   sim.setWebSocketServer(&wss);
 
-  HttpServer server(do_keycheck);
+  HttpServer server(authenticator, do_keycheck);
   server.registerRequestHandler("/wiki/.*", HttpServer::RequestType::GET, wiki);
-  server.registerRequestHandler("/wiki/.*", HttpServer::RequestType::POST, wiki);
+  server.registerRequestHandler("/wiki/.*", HttpServer::RequestType::POST,
+                                wiki);
   server.run();
   return 0;
 }

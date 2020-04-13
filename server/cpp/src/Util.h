@@ -51,5 +51,9 @@ inline std::vector<std::string> splitString(const std::string &s, char delimiter
 }
 
 std::vector<char> base64Encode(const void *data, size_t length);
+// encode three bytes in four characters
+void base64Encode3(const void *src, char *dest);
 std::vector<char> base64Decode(const char *data, size_t length);
+// decode 4 characters to three byts
+void base64Decode3(const char *src, void *dest);
 }  // namespace util
