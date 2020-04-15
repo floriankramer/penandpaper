@@ -13,7 +13,11 @@ int main(int argc, char **argv) {
     inp.write(buffer, num_read);
   }
   std::string inp_str = inp.str();
-  Markdown m(inp_str);
-  std::cout << m.process();
+  try {
+    Markdown m(inp_str);
+    std::cout << m.process();
+  } catch (const std::exception &e) {
+    std::cerr << "Unable to parse the markdown: " << e.what() << std::endl;
+  }
   return 0;
 }

@@ -1,14 +1,22 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <memory>
 
 class Markdown {
-  enum class TokenType { WORD, ORDER_MARK, LINE_BREAK, EMPTY_LINE, WHITESPACE };
+  enum class TokenType {
+    WORD,
+    ORDER_MARK,
+    LIST_MARK,
+    LINE_BREAK,
+    FORCE_LINE_BREAK,
+    EMPTY_LINE,
+    WHITESPACE
+  };
 
   class Token {
    public:
@@ -17,7 +25,7 @@ class Markdown {
   };
 
   class TokenMatcher {
-  public:
+   public:
     TokenMatcher(TokenType type);
     virtual void step(char c) = 0;
     bool matches();
@@ -44,10 +52,17 @@ class Markdown {
     virtual void step(char c) override;
   };
 
-  // Matches at least two spaces and a newline
-  class LineBreakMatcher : public TokenMatcher {
+  // Matches any string of numbers terminated with a dot
+  class ListMarkMatcher : public TokenMatcher {
    public:
-    LineBreakMatcher();
+    ListMarkMatcher();
+    virtual void step(char c) override;
+  };
+
+  // Matches at least two spaces and a newline
+  class ForceLineBreakMatcher : public TokenMatcher {
+   public:
+    ForceLineBreakMatcher();
     virtual void step(char c) override;
   };
 
@@ -66,13 +81,25 @@ class Markdown {
     virtual void step(char c) override;
   };
 
+  // Matches \n
+  class LineBreakMatcher : public TokenMatcher {
+   public:
+    LineBreakMatcher();
+    virtual void step(char c) override;
+  };
 
+  // The lexer tranforms the input into a list of tokens
   class Lexer {
    public:
     Lexer(const std::string &input);
 
+    // The current token
     Token &current();
+
+    // Accept any token and return it
     Token any();
+
+    // If the current token matches the given one advance the current position
     bool accept(const Token &token);
     bool accept(const TokenType &type);
     bool accept(const std::string &text);
@@ -80,21 +107,32 @@ class Markdown {
     // returns true if the next token is of type type
     bool peek(const TokenType &type);
 
+    // If the current token does not match the given one throw an exception
     void expect(const Token &token);
     void expect(const TokenType &type);
     void expect(const std::string &text);
 
+    // Returns true if the current position is at the end of the token list
     bool isDone() const;
+
+    // Add the current position to the top of the position stack, storing
+    // a copy of it.
+    void push();
+
+    // Pop the top of the position stack and return to the position that we
+    // were at the last time push was called.
+    void pop();
+
+    size_t pos();
 
    private:
     void readNext();
+    void tokenize();
 
     std::vector<std::unique_ptr<TokenMatcher>> _token_matchers;
-
+    std::vector<Token> _tokens;
     const std::string &_input;
-    size_t _pos;
-
-    Token _current_token;
+    std::vector<size_t> _positions;
   };
 
  public:
@@ -104,6 +142,17 @@ class Markdown {
   std::string process();
 
  private:
+  void parseLine(std::ostream &out);
+
+  bool parseBlock(std::ostream &out);
+  bool parseUnorderedList(std::ostream &out);
+  bool parseOrderedList(std::ostream &out);
+  bool parseList(std::ostream &out, TokenType list_mark,
+                 const std::string &list_tag, const std::string &item_tag);
+
   std::ostringstream _out;
   Lexer _lexer;
+
+  // tracks wether we are inside of a set of <p> tags
+  bool _in_paragraph;
 };

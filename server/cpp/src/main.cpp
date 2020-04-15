@@ -38,6 +38,9 @@ int main(int argc, char **argv) {
       std::bind(&Simulation::onMessage, &sim, std::placeholders::_1),
       std::bind(&Simulation::onNewClient, &sim));
   sim.setWebSocketServer(&wss);
+  if (!do_keycheck) {
+    wss.disableKeyCheck();
+  }
 
   HttpServer server(authenticator, do_keycheck);
   server.registerRequestHandler("/wiki/.*", HttpServer::RequestType::GET, wiki);
