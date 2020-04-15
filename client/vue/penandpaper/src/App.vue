@@ -106,6 +106,10 @@ export default class App extends Vue {
               this.wikiPanel.close()
             }
           }
+
+          // Trigger a round of resizes by firing the dock library's custom resize event
+          let dockSpawnResizedEvent = new CustomEvent('DockSpawnResizedEvent', { composed: true, bubbles: true })
+          document.dispatchEvent(dockSpawnResizedEvent)
         }
       }
     })
@@ -120,6 +124,17 @@ export default class App extends Vue {
 
       // dock the elements
       let documentNode = this.dockManager.context.model.documentManagerNode
+
+      // The wiki
+      let wikiDiv = document.getElementById('wiki')
+      if (wikiDiv !== null) {
+        this.wikiPanel = new PanelContainer(wikiDiv, this.dockManager)
+        this.wikiPanel.setTitle('Wiki')
+        if (this.isGamemaster) {
+          this.dockManager.dockFill(documentNode, this.wikiPanel)
+        }
+      }
+
       // The map
       let mapDiv = document.getElementById('map')
       if (mapDiv) {
@@ -127,6 +142,7 @@ export default class App extends Vue {
         mapContainer.setTitle('Map')
         this.dockManager.dockFill(documentNode, mapContainer)
       }
+
       // The Chat
       let chatDiv = document.getElementById('chat')
       let chatNode : DockNode | null = null
@@ -154,15 +170,6 @@ export default class App extends Vue {
         this.dockManager.dockUp(documentNode, this.toolbarPanel, 0.15)
         if (!this.isGamemaster) {
           this.toolbarPanel.close()
-        }
-      }
-
-      let wikiDiv = document.getElementById('wiki')
-      if (wikiDiv !== null) {
-        this.wikiPanel = new PanelContainer(wikiDiv, this.dockManager)
-        this.wikiPanel.setTitle('Wiki')
-        if (this.isGamemaster) {
-          this.dockManager.dockFill(documentNode, this.wikiPanel)
         }
       }
 

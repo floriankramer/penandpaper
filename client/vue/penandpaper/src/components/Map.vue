@@ -15,7 +15,7 @@
 -->
 
 <template>
-  <div>
+  <div id="map">
     <canvas v-on:mousedown="onMouseDown" v-on:mouseup="onMouseUp"
             v-on:mousemove="onMouseMove" v-on:wheel="onMouseWheel"
             v-on:contextmenu.prevent v-on:keydown="onKeyDown"
@@ -97,6 +97,8 @@ export default class World extends Vue {
 
   // True if we already received the server state
   hasState: boolean = false
+
+  mutationObserver : MutationObserver | null = null
 
   constructor () {
     super()
@@ -380,6 +382,19 @@ export default class World extends Vue {
     document.addEventListener('DockSpawnResizedEvent', () => {
       this.onResize()
     })
+    // Observe changes to the style triggered by the tabbed ui
+    this.mutationObserver = new MutationObserver((mutations) => {
+      mutations.forEach((mutationRecord) => {
+        this.onResize()
+      })
+    })
+    let mapContainer = document.getElementById('map')
+    if (mapContainer !== null) {
+      this.mutationObserver.observe(mapContainer, { attributes: true, attributeFilter: ['style'] })
+    } else {
+      console.log('Unable to find the map div')
+    }
+
     this.requestRedraw()
   }
 
