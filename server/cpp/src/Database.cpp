@@ -123,27 +123,104 @@ DbVariant DbCursor::col(int index) {
 // DbCondition
 // =============================================================================
 
+DbCondition::DbCondition() : column(), type(DbCondition::Type::ALL), value() {}
 DbCondition::DbCondition(const std::string &column, Type type,
                          const DbVariant &value)
     : column(column), type(type), value(value) {}
 
-std::string DbCondition::str() const {
-  std::ostringstream ssql;
-  ssql << column;
-  switch (type) {
-    case DbCondition::Type::EQ:
-      ssql << " = ";
-      break;
-    case DbCondition::Type::GT:
-      ssql << " > ";
-      break;
-    case DbCondition::Type::LT:
-      ssql << " < ";
-      break;
-  }
-  ssql << "?1";
-  return ssql.str();
+DbCondition DbCondition::operator&&(const DbCondition &other) {
+  DbCondition merged;
+  merged.type = DbCondition::Type::AND;
+  merged.children.push_back(*this);
+  merged.children.push_back(other);
+  return merged;
 }
+
+DbCondition DbCondition::operator||(const DbCondition &other) {
+  DbCondition merged;
+  merged.type = DbCondition::Type::OR;
+  merged.children.push_back(*this);
+  merged.children.push_back(other);
+  return merged;
+}
+
+DbCondition DbCondition::operator!() {
+  DbCondition merged;
+  merged.type = DbCondition::Type::NOT;
+  merged.children.push_back(*this);
+  return merged;
+}
+
+DbSqlBuilder &operator<<(DbSqlBuilder &builder, const DbCondition &c) {
+  if (c.type == DbCondition::Type::ALL) {
+    return builder;
+  }
+  if (c.type == DbCondition::Type::AND) {
+    builder << "(";
+    for (size_t i = 0; i < c.children.size(); ++i) {
+      builder << c.children[i];
+      if (i + 1 < c.children.size()) {
+        builder << " AND ";
+      }
+    }
+    builder << ")";
+  } else if (c.type == DbCondition::Type::OR) {
+    builder << "(";
+    for (size_t i = 0; i < c.children.size(); ++i) {
+      builder << c.children[i];
+      if (i + 1 < c.children.size()) {
+        builder << " OR ";
+      }
+    }
+    builder << ")";
+  } else if (c.type == DbCondition::Type::NOT) {
+    builder << "(NOT " << c.children[0] << ")";
+  } else {
+    builder << c.column;
+    switch (c.type) {
+      case DbCondition::Type::EQ:
+        builder << " = ";
+        break;
+      case DbCondition::Type::GT:
+        builder << " > ";
+        break;
+      case DbCondition::Type::LT:
+        builder << " < ";
+        break;
+      case DbCondition::Type::GE:
+        builder << " >= ";
+        break;
+      case DbCondition::Type::LE:
+        builder << " <= ";
+        break;
+    }
+    builder << c.value;
+  }
+  return builder;
+}
+
+// =============================================================================
+// Table
+// =============================================================================
+
+DbSqlBuilder &DbSqlBuilder::operator<<(const std::string &s) {
+  _str << s;
+  return *this;
+}
+DbSqlBuilder &DbSqlBuilder::operator<<(const DbVariant &v) {
+  _str << "?" << _data.size() + 1;
+  _data.push_back(v);
+  return *this;
+}
+
+DbSqlBuilder &DbSqlBuilder::operator<<(const DbColumnUpdate &v) {
+  *this << v.name << " = " << v.data;
+  return *this;
+}
+
+std::string DbSqlBuilder::str() const { return _str.str(); }
+
+const std::vector<DbVariant> &DbSqlBuilder::data() const { return _data; }
 
 // =============================================================================
 // Table
@@ -158,10 +235,10 @@ void Table::setColumns(const std::vector<DbColumn> &columns) {
 }
 
 void Table::insert(const std::vector<DbVariant> &data) {
-  std::stringstream ssql;
+  DbSqlBuilder ssql;
   ssql << "INSERT INTO " << _name << " VALUES (";
   for (size_t i = 0; i < data.size(); ++i) {
-    ssql << "?" << i + 1;
+    ssql << data[i];
     if (i + 1 < data.size()) {
       ssql << ", ";
     }
@@ -177,16 +254,15 @@ void Table::insert(const std::vector<DbVariant> &data) {
               << sqlite3_errmsg(_db) << LOG_END;
     return;
   }
-  // Bind the values
-  for (size_t i = 0; i < data.size(); ++i) {
-    r = bindValue(stmt, i + 1, data[i]);
-    if (r != SQLITE_OK) {
-      LOG_ERROR << "Unable to bind data slot " << i << " for insertion into "
-                << _name << ": " << sql << "\n"
-                << sqlite3_errmsg(_db) << LOG_END;
-      return;
-    }
+
+  r = bindValues(stmt, ssql);
+  if (r != SQLITE_OK) {
+    LOG_ERROR << "Unable to bind values for insertion into " << _name << ": "
+              << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
+    return;
   }
+
   r = sqlite3_step(stmt);
   if (r != SQLITE_OK && r != SQLITE_DONE) {
     LOG_ERROR << "Unable to insert into " << _name << ": " << sql << "\n"
@@ -203,8 +279,8 @@ void Table::insert(const std::vector<DbVariant> &data) {
 }
 
 void Table::erase(const DbCondition &where) {
-  std::stringstream ssql;
-  ssql << "DELETE FROM " << _name << " WHERE " << where.str() << ";";
+  DbSqlBuilder ssql;
+  ssql << "DELETE FROM " << _name << " WHERE " << where << ";";
 
   std::string sql = ssql.str();
   sqlite3_stmt *stmt;
@@ -216,84 +292,9 @@ void Table::erase(const DbCondition &where) {
     return;
   }
   // Bind the values
-  r = bindValue(stmt, 1, where.value);
+  r = bindValues(stmt, ssql);
   if (r != SQLITE_OK) {
-    LOG_ERROR << "Unable to bind data slot " << 0 << " for erasing from "
-              << _name << ": " << sql << "\n"
-              << sqlite3_errmsg(_db) << LOG_END;
-    return;
-  }
-
-  r = sqlite3_step(stmt);
-  if (r != SQLITE_OK && r != SQLITE_DONE) {
-    LOG_ERROR << "Unable to update " << _name << ": " << sql << "\n"
-              << sqlite3_errmsg(_db) << LOG_END;
-    return;
-  }
-  r = sqlite3_finalize(stmt);
-  if (r != SQLITE_OK) {
-    LOG_ERROR << "Unable to finalize the statement for updating " << _name
-              << ": " << sql << "\n"
-              << sqlite3_errmsg(_db) << LOG_END;
-    return;
-  }
-}
-
-DbCursor Table::query(const std::string &where) {
-  std::stringstream ssql;
-  ssql << "SELECT * FROM " << _name;
-  if (where.size() > 0) {
-    ssql << " WHERE " << where;
-  }
-  ssql << ";";
-
-  std::string sql = ssql.str();
-  sqlite3_stmt *stmt;
-  int r = sqlite3_prepare_v2(_db, sql.c_str(), sql.size(), &stmt, NULL);
-  if (r != SQLITE_OK) {
-    LOG_ERROR << "Unable to prepare an sqlite statement for query from "
-              << _name << ": " << sql << "\n"
-              << sqlite3_errmsg(_db) << LOG_END;
-    return DbCursor();
-  }
-  return DbCursor(stmt, _db);
-}
-
-void Table::update(const std::vector<DbColumnUpdate> &updates,
-                   const DbCondition &where) {
-  std::stringstream ssql;
-  ssql << "UPDATE " << _name << " SET ";
-  for (size_t i = 0; i < updates.size(); ++i) {
-    const DbColumnUpdate &c = updates[i];
-    ssql << c.name << " = ?" << i + 2;
-    if (i + 1 < updates.size()) {
-      ssql << ", ";
-    }
-  }
-  ssql << " WHERE " << where.str() << ";";
-
-  std::string sql = ssql.str();
-  sqlite3_stmt *stmt;
-  int r = sqlite3_prepare_v2(_db, sql.c_str(), sql.size(), &stmt, NULL);
-  if (r != SQLITE_OK) {
-    LOG_ERROR << "Unable to prepare an sqlite statement for insertion into "
-              << _name << ": " << sql << "\n"
-              << sqlite3_errmsg(_db) << LOG_END;
-    return;
-  }
-  // Bind the values
-  for (size_t i = 0; i < updates.size(); ++i) {
-    r = bindValue(stmt, i + 2, updates[i].data);
-    if (r != SQLITE_OK) {
-      LOG_ERROR << "Unable to bind a value to slot " << i << ": " << sql << "\n"
-                << sqlite3_errmsg(_db) << LOG_END;
-      return;
-    }
-  }
-  // bind the where value
-  r = bindValue(stmt, 1, where.value);
-  if (r != SQLITE_OK) {
-    LOG_ERROR << "Unable to bind a value to slot " << updates.size() << ": "
+    LOG_ERROR << "Unable to bind values for insertion into " << _name << ": "
               << sql << "\n"
               << sqlite3_errmsg(_db) << LOG_END;
     return;
@@ -312,6 +313,91 @@ void Table::update(const std::vector<DbColumnUpdate> &updates,
               << sqlite3_errmsg(_db) << LOG_END;
     return;
   }
+}
+
+DbCursor Table::query(const DbCondition &where) {
+  DbSqlBuilder ssql;
+  ssql << "SELECT * FROM " << _name;
+  if (where.type != DbCondition::Type::ALL) {
+    ssql << " WHERE " << where;
+  }
+  ssql << ";";
+
+  std::string sql = ssql.str();
+
+  sqlite3_stmt *stmt;
+  int r = sqlite3_prepare_v2(_db, sql.c_str(), sql.size(), &stmt, NULL);
+  if (r != SQLITE_OK) {
+    LOG_ERROR << "Unable to prepare an sqlite statement for insertion into "
+              << _name << ": " << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
+    return DbCursor();
+  }
+  // Bind the values
+  r = bindValues(stmt, ssql);
+  if (r != SQLITE_OK) {
+    LOG_ERROR << "Unable to bind values for insertion into " << _name << ": "
+              << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
+    return DbCursor();
+  }
+  return DbCursor(stmt, _db);
+}
+
+void Table::update(const std::vector<DbColumnUpdate> &updates,
+                   const DbCondition &where) {
+  DbSqlBuilder ssql;
+  ssql << "UPDATE " << _name << " SET ";
+  for (size_t i = 0; i < updates.size(); ++i) {
+    const DbColumnUpdate &c = updates[i];
+    ssql << c;
+    if (i + 1 < updates.size()) {
+      ssql << ", ";
+    }
+  }
+  ssql << " WHERE " << where << ";";
+
+  std::string sql = ssql.str();
+  sqlite3_stmt *stmt;
+  int r = sqlite3_prepare_v2(_db, sql.c_str(), sql.size(), &stmt, NULL);
+  if (r != SQLITE_OK) {
+    LOG_ERROR << "Unable to prepare an sqlite statement for insertion into "
+              << _name << ": " << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
+    return;
+  }
+  // Bind the values
+  r = bindValues(stmt, ssql);
+  if (r != SQLITE_OK) {
+    LOG_ERROR << "Unable to bind values for insertion into " << _name << ": "
+              << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
+    return;
+  }
+
+  r = sqlite3_step(stmt);
+  if (r != SQLITE_OK && r != SQLITE_DONE) {
+    LOG_ERROR << "Unable to update " << _name << ": " << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
+    return;
+  }
+  r = sqlite3_finalize(stmt);
+  if (r != SQLITE_OK) {
+    LOG_ERROR << "Unable to finalize the statement for updating " << _name
+              << ": " << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
+    return;
+  }
+}
+
+int Table::bindValues(sqlite3_stmt *stmt, const DbSqlBuilder &builder) {
+  for (size_t i = 0; i < builder.data().size(); ++i) {
+    int r = bindValue(stmt, i + 1, builder.data()[i]);
+    if (r != 0) {
+      return r;
+    }
+  }
+  return 0;
 }
 
 int Table::bindValue(sqlite3_stmt *stmt, int index, const DbVariant &value) {

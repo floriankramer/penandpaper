@@ -9,8 +9,9 @@
 
 Wiki::Wiki(Database *db)
     : _db(db),
-      _pages_table(_db->createTable(
-          "wiki", {{"id", DbDataType::TEXT}, {"content", DbDataType::TEXT}})) {
+      _pages_table(_db->createTable("wiki", {{"id", DbDataType::TEXT},
+                                             {"attribute", DbDataType::TEXT},
+                                             {"value", DbDataType::TEXT}})) {
   DbCursor c = _pages_table.query();
   while (!c.done()) {
     _known_ids.insert(c.col(0).text);
@@ -62,8 +63,9 @@ void Wiki::handleGet(const std::string &id, httplib::Response &resp) {
       resp.status = 200;
       resp.body = _markdown_cache[id];
     } else {
-      DbCursor c = _pages_table.query("`id` = '" + id + "'");
-      std::string raw = c.col(1).text;
+      DbCursor c =
+          _pages_table.query(DbCondition("id", DbCondition::Type::EQ, id));
+      std::string raw = c.col(2).text;
       Markdown m(raw);
       try {
         std::string parsed = m.process();
@@ -87,9 +89,10 @@ void Wiki::handleGet(const std::string &id, httplib::Response &resp) {
 
 void Wiki::handleRaw(const std::string &id, httplib::Response &resp) {
   if (_known_ids.find(id) != _known_ids.end()) {
-    DbCursor c = _pages_table.query("`id` = '" + id + "'");
+    DbCursor c =
+        _pages_table.query(DbCondition("id", DbCondition::Type::EQ, id));
     resp.status = 200;
-    resp.body = c.col(1).text;
+    resp.body = c.col(2).text;
   } else {
     resp.status = 404;
     resp.body = "No such wiki entry";
@@ -99,8 +102,11 @@ void Wiki::handleRaw(const std::string &id, httplib::Response &resp) {
 void Wiki::handleSave(const std::string &id, const httplib::Request &req,
                       httplib::Response &resp) {
   if (_known_ids.find(id) != _known_ids.end()) {
-    _pages_table.update({{"content", req.body}},
-                        DbCondition("id", DbCondition::Type::EQ, id));
+    // TODO: Create a merged DbCondition that only targets the text attribute
+    _pages_table.update(
+        {{"content", req.body}},
+        DbCondition("id", DbCondition::Type::EQ, id) &&
+            DbCondition("attr", DbCondition::Type::EQ, std::string("text")));
     // Invalidate the markdown cache
     auto mit = _markdown_cache.find(id);
     if (mit != _markdown_cache.end()) {
@@ -108,7 +114,7 @@ void Wiki::handleSave(const std::string &id, const httplib::Request &req,
     }
   } else {
     _known_ids.insert(id);
-    _pages_table.insert({id, req.body});
+    _pages_table.insert({id, std::string("text"), req.body});
   }
   resp.status = 200;
   resp.body = "Save succesfull";
