@@ -129,4 +129,52 @@ std::vector<char> base64Decode(const char *data, size_t length) {
   }
   return decoded;
 }
+
+std::vector<std::string> splitStringWs(const std::string &s) {
+  std::vector<std::string> res;
+  size_t pos = 0;
+  // skip leading whitespace
+  while (pos < s.size() && std::isspace(s[pos])) {
+    pos++;
+  }
+  while (pos < s.size()) {
+    size_t start = pos;
+    // seek to the end of the non whitespace
+    while (pos < s.size() && !std::isspace(s[pos])) {
+      pos++;
+    }
+    res.push_back(s.substr(start, pos - start));
+    // skip the next bit of whitespace
+    while (pos < s.size() && std::isspace(s[pos])) {
+      pos++;
+    }
+  }
+  return res;
+}
+
+std::string firstWords(const std::string &s, size_t num_words) {
+  size_t pos = 0;
+  size_t word_count = 0;
+  // skip leading whitespace
+  while (pos < s.size() && std::isspace(s[pos])) {
+    pos++;
+  }
+  while (pos < s.size()) {
+    size_t start = pos;
+    // seek to the end of the non whitespace
+    while (pos < s.size() && !std::isspace(s[pos])) {
+      pos++;
+    }
+    word_count++;
+    if (word_count >= num_words) {
+      break;
+    }
+    // skip the next bit of whitespace
+    while (pos < s.size() && std::isspace(s[pos])) {
+      pos++;
+    }
+  }
+  return s.substr(0, pos);
+}
+
 }  // namespace util

@@ -15,13 +15,15 @@ Wiki::Wiki(Database *db)
   DbCursor c = _pages_table.query();
   while (!c.done()) {
     _known_ids.insert(c.col(0).text);
+    _ids_search_index.add(c.col(0).text, c.col(0).text);
     c.next();
   }
 }
 
 void Wiki::onRequest(const httplib::Request &req, httplib::Response &resp) {
   std::vector<std::string> parts = util::splitString(req.path, '/');
-  if (parts.size() != 3 && !(parts.size() == 2 && parts[1] == "list")) {
+  if (parts.size() != 3 &&
+      !(parts.size() == 2 && (parts[1] == "list" || parts[1] == "complete"))) {
     LOG_ERROR << "Invalid wiki request at path " << req.path << LOG_END;
     resp.status = 400;
     resp.body = "Invalid wiki request.";
@@ -30,6 +32,8 @@ void Wiki::onRequest(const httplib::Request &req, httplib::Response &resp) {
   std::string action = parts[1];
   if (action == "list") {
     handleList(resp);
+  } else if (action == "complete") {
+    handleCompleteEntity(req, resp);
   } else if (action == "get") {
     handleGet(parts[2], resp);
   } else if (action == "raw") {
@@ -44,6 +48,82 @@ void Wiki::onRequest(const httplib::Request &req, httplib::Response &resp) {
     resp.status = 400;
     resp.body = "Invalid wiki request.";
     return;
+  }
+}
+
+void Wiki::handleCompleteEntity(const httplib::Request &req,
+                                httplib::Response &resp) {
+  using nlohmann::json;
+  struct Completion {
+    QGramIndex::Match match;
+    size_t num_words_used;
+    std::string replaces;
+
+    bool operator<(const Completion &other) { return match < other.match; }
+  };
+  try {
+    json jreq = json::parse(req.body);
+    std::string context = jreq.at("context");
+    std::vector<std::string> parts = util::splitStringWs(context);
+    std::vector<Completion> results;
+    for (size_t i = 1; i <= parts.size(); ++i) {
+      std::string word;
+      // use the i last words
+      for (size_t j = 0; j < i; ++j) {
+        std::string next = parts[parts.size() - 1 - j];
+        if (j > 0) {
+          next += " ";
+        }
+        word = next + word;
+      }
+      std::vector<QGramIndex::Match> subres = _ids_search_index.query(word);
+      if (subres.empty()) {
+        // This avoid a string such as 'Midgard z' matching Midgard. As z
+        // is not contained in Midgard the match is rather strange.
+        // For multi word matches this still works. E.g
+        // `Albert Ein` is going to match `Albert Einstein` as `Ein` matches
+        // `Albert Einstein`
+        break;
+      }
+      for (const QGramIndex::Match &m : subres) {
+        // Ignore matches with a very low score.
+        if (m.score > 0.2) {
+          results.push_back({m, i, word});
+        }
+      }
+    }
+    std::sort(results.begin(), results.end(),
+              [](const Completion &c1, const Completion &c2) {
+                return c1.match.score > c2.match.score;
+              });
+
+    json j = std::vector<json>();
+    for (size_t i = 0; i < results.size(); ++i) {
+      json completion;
+      // replace the last offset characters
+      // TODO: Alternatively it might be easier to send back a replacement
+      // for the entirety of the context, due to the way codemirror does
+      // autocompletion
+      completion["offset"] = results[i].match.value.size();
+      // Extract the part of the context that this replacement doesn't use
+      std::string prefix =
+          util::firstWords(context, parts.size() - results[i].num_words_used);
+      // append the replacement to the unused part of the context
+      completion["value"] = prefix + " [" + results[i].match.value + "]";
+      completion["name"] = results[i].match.value;
+      completion["replaces"] =
+          results[i].replaces + " " + std::to_string(results[i].match.score);
+      j.push_back(completion);
+    }
+
+    resp.status = 200;
+    resp.set_header("Content-Type", "application/json");
+    resp.body = j.dump();
+  } catch (const std::exception &e) {
+    LOG_WARN << "Wiki: Error while handling a completion request: " << e.what()
+             << LOG_END;
+    resp.status = 400;
+    resp.body = "Malformed completion request.";
   }
 }
 
@@ -102,11 +182,10 @@ void Wiki::handleRaw(const std::string &id, httplib::Response &resp) {
 void Wiki::handleSave(const std::string &id, const httplib::Request &req,
                       httplib::Response &resp) {
   if (_known_ids.find(id) != _known_ids.end()) {
-    // TODO: Create a merged DbCondition that only targets the text attribute
-    _pages_table.update(
-        {{"content", req.body}},
-        DbCondition("id", DbCondition::Type::EQ, id) &&
-            DbCondition("attr", DbCondition::Type::EQ, std::string("text")));
+    _pages_table.update({{"value", req.body}},
+                        DbCondition("id", DbCondition::Type::EQ, id) &&
+                            DbCondition("attribute", DbCondition::Type::EQ,
+                                        std::string("text")));
     // Invalidate the markdown cache
     auto mit = _markdown_cache.find(id);
     if (mit != _markdown_cache.end()) {
@@ -114,6 +193,7 @@ void Wiki::handleSave(const std::string &id, const httplib::Request &req,
     }
   } else {
     _known_ids.insert(id);
+    _ids_search_index.add(id, id);
     _pages_table.insert({id, std::string("text"), req.body});
   }
   resp.status = 200;
@@ -124,6 +204,7 @@ void Wiki::handleDelete(const std::string &id, const httplib::Request &req,
                         httplib::Response &resp) {
   _pages_table.erase(DbCondition("id", DbCondition::Type::EQ, id));
   _known_ids.erase(id);
+  _ids_search_index.remove(id);
   resp.status = 200;
   resp.body = "Save succesfull";
 }

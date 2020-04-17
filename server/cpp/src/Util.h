@@ -50,6 +50,13 @@ inline std::vector<std::string> splitString(const std::string &s, char delimiter
   return parts;
 }
 
+std::vector<std::string> splitStringWs(const std::string &s);
+
+/**
+ * @return The string up to the num_words +1 occurence of a block of whitespace
+ */
+std::string firstWords(const std::string &s, size_t num_words);
+
 std::vector<char> base64Encode(const void *data, size_t length);
 // encode three bytes in four characters
 void base64Encode3(const void *src, char *dest);
