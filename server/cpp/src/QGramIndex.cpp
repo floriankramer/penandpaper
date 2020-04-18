@@ -11,12 +11,9 @@ QGramIndex::~QGramIndex() {}
 std::vector<QGramIndex::Match> QGramIndex::query(const std::string &word) {
   std::vector<std::string> grams = split(word);
   std::vector<std::vector<uint64_t> *> occurences;
-  // LOG_DEBUG << "Query for " << word << LOG_END;
   for (const std::string &s : grams) {
-    // LOG_DEBUG << "Gram: " << s << LOG_END;
     auto it = _gram_map.find(s);
     if (it != _gram_map.end()) {
-      // LOG_DEBUG << "Found the gram in the gram map" << LOG_END;
       occurences.push_back(&it->second);
     }
   }
@@ -68,18 +65,16 @@ std::vector<QGramIndex::NumericMatch> QGramIndex::zipper(
   size_t pos_l = 0;
   size_t pos_r = 0;
   while (pos_l < matches.size() && pos_r < list->size()) {
-    while (pos_l < matches.size() &&
-           matches[pos_l].value < matches[pos_r].value) {
+    while (pos_l < matches.size() && matches[pos_l].value < (*list)[pos_r]) {
       res.push_back(matches[pos_l]);
       pos_l++;
     }
-    while (pos_r < list->size() &&
-           matches[pos_l].value > matches[pos_r].value) {
+    while (pos_r < list->size() && matches[pos_l].value > (*list)[pos_r]) {
       res.push_back({(*list)[pos_r], 1});
       pos_r++;
     }
     while (pos_l < matches.size() && pos_r < list->size() &&
-           matches[pos_l].value == matches[pos_r].value) {
+           matches[pos_l].value == (*list)[pos_r]) {
       // Values are unique in both lists, so simply writing one results
       // to the output suffices
       res.push_back({matches[pos_l].value, matches[pos_l].score + 1});
@@ -93,24 +88,19 @@ std::vector<QGramIndex::NumericMatch> QGramIndex::zipper(
 void QGramIndex::add(const std::string &alias, const ValueType &value) {
   std::vector<std::string> grams = split(alias);
 
-  // LOG_DEBUG << "Adding " << value << " to the index" << LOG_END;
-
   size_t id;
   auto vit = _reverse_vocab.find(value);
   if (vit == _reverse_vocab.end()) {
     id = _vocabulary.size();
-    // LOG_DEBUG << "Assigned id " << id << " to the value" << LOG_END;
     _vocabulary.push_back(value);
     // TODO: It might make a lot more sense to not differentaite between alias
     // and value but instead do the alias mapping later on.
     _vocab_num_qgrams.push_back(grams.size());
   } else {
     id = vit->second;
-    // LOG_DEBUG << "Found id " << id << " for the value " << LOG_END;
   }
 
   for (const std::string &gram : grams) {
-    // LOG_DEBUG << "gram: " << gram << LOG_END;
     std::vector<size_t> &v = _gram_map[gram];
     // Dont map a gram twice to the same value. When matching inputs
     // we will still match both grams in the input with the single occurrence
@@ -124,7 +114,6 @@ void QGramIndex::add(const std::string &alias, const ValueType &value) {
 }
 
 void QGramIndex::remove(const ValueType &value) {
-  // LOG_DEBUG << "Removing " << value << " from the index" << LOG_END;
   std::vector<std::string> to_erase;
   std::vector<std::string> grams = split(value);
 

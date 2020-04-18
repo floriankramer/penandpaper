@@ -31,7 +31,7 @@
       </div>
     </div>
     <div class="wiki-center">
-      <div id="wiki-content" v-show="showContent" v-html="content">
+      <div id="wiki-content" v-on:click.prevent="interceptLink" v-show="showContent" v-html="content">
       </div>
       <div id="wiki-edit" v-show="showEdit">
         <form>
@@ -141,15 +141,30 @@ export default class Wiki extends Vue {
     })
   }
 
-  loadPage (title: string) {
+  loadPage (id: string) {
     this.showContent = true
     this.showEdit = false
-    this.title = title
-    $.get('/wiki/get/' + title, (body) => {
+    this.title = id
+    $.get('/wiki/get/' + id, (body) => {
       this.content = body
     }).fail(() => {
       this.content = 'Unable to load the specified page'
     })
+  }
+
+  interceptLink (event: Event) {
+    let target = event.target || event.srcElement
+
+    if (target !== null) {
+      var el = target as HTMLElement
+      if (el.tagName === 'A') {
+        // intercept the link
+        let target = el.getAttribute('href')
+        if (target !== null) {
+          this.loadPage(target)
+        }
+      }
+    }
   }
 
   async autocompleteContent (cm: CodeMirror.Editor, callback: (hints: CodeMirror.Hints) => any) {

@@ -265,6 +265,11 @@ button {
     background-color: rgb(41, 41, 41);
 }
 
+a {
+  color: rgb(128, 255, 64);
+  text-decoration: none;
+}
+
 /** Image radio buttons: https://stackoverflow.com/questions/17541614/use-images-instead-of-radio-buttons*/
 /* HIDE RADIO */
 [type=radio] {

@@ -87,7 +87,7 @@ void Wiki::handleCompleteEntity(const httplib::Request &req,
       }
       for (const QGramIndex::Match &m : subres) {
         // Ignore matches with a very low score.
-        if (m.score > 0.2) {
+        if (m.score > 0.3) {
           results.push_back({m, i, word});
         }
       }
@@ -109,7 +109,8 @@ void Wiki::handleCompleteEntity(const httplib::Request &req,
       std::string prefix =
           util::firstWords(context, parts.size() - results[i].num_words_used);
       // append the replacement to the unused part of the context
-      completion["value"] = prefix + " [" + results[i].match.value + "]";
+      completion["value"] = prefix + " [" + results[i].match.value + "](" +
+                            results[i].match.value + ")";
       completion["name"] = results[i].match.value;
       completion["replaces"] =
           results[i].replaces + " " + std::to_string(results[i].match.score);

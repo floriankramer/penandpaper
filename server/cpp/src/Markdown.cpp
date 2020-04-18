@@ -275,6 +275,11 @@ bool Markdown::Lexer::peek(const TokenType &type) {
   return false;
 }
 
+bool Markdown::Lexer::peekLineEnd() {
+  return peek(TokenType::EMPTY_LINE) || peek(TokenType::LINE_BREAK) ||
+         peek(TokenType::FORCE_LINE_BREAK);
+}
+
 void Markdown::Lexer::expect(const Token &token) {
   if (current().type != token.type || current().value != token.value) {
     throw std::runtime_error("Expected '" + token.value + "' but got '" +
@@ -362,10 +367,7 @@ void Markdown::Lexer::tokenize() {
     t.type = match->type();
     t.value = _input.substr(start, pos - start);
     _tokens.push_back(t);
-    LOG_DEBUG << "Done matching. Got a token of size " << (pos - start) << " : "
-              << t.value << LOG_END;
   }
-  LOG_DEBUG << "Done tokenizing" << LOG_END;
 }
 
 // =============================================================================
@@ -496,16 +498,112 @@ bool Markdown::parseList(std::ostream &out, TokenType list_mark,
 
 void Markdown::parseLine(std::ostream &out) {
   while (!_lexer.isDone()) {
-    if (_lexer.peek(TokenType::FORCE_LINE_BREAK)) {
-      return;
-    } else if (_lexer.peek(TokenType::EMPTY_LINE)) {
-      return;
-    } else if (_lexer.peek(TokenType::LINE_BREAK)) {
+    if (_lexer.peekLineEnd()) {
       return;
     } else if (_lexer.accept(TokenType::WHITESPACE)) {
       out << " ";
     } else {
+      if (parseLink(out)) {
+        continue;
+      }
       out << _lexer.any().value;
     }
   }
+}
+
+bool Markdown::parseLink(std::ostream &out) {
+  _lexer.push();
+  const std::string *current = &_lexer.current().value;
+  size_t pos = 0;
+  // Look for an opening brace
+  bool escaped = false;
+  bool is_attribute_link = false;
+  while (pos < current->size() && (escaped || (*current)[pos] != '[')) {
+    pos++;
+  }
+  if (pos >= current->size()) {
+    _lexer.pop();
+    return false;
+  }
+  // The position of the name opening brace [
+  ssize_t name_start = pos;
+  std::string pre_link = current->substr(0, name_start);
+  std::ostringstream link_name;
+
+  // Look for the name closing brace. That could be several tokens down the line
+  size_t name_end = std::string::npos;
+  while (!_lexer.isDone() && !_lexer.peekLineEnd()) {
+    while (pos < current->size() && (escaped || (*current)[pos] != ']')) {
+      if ((*current)[pos] == ':') {
+        is_attribute_link = true;
+      }
+      pos++;
+    }
+    if (pos < current->size()) {
+      // We found it
+      name_end = pos;
+      break;
+    } else {
+      // We reached the end of the token
+      link_name << current->substr(name_start + 1);
+      // proceed with the next token
+      _lexer.any();
+      current = &_lexer.current().value;
+      pos = 0;
+      name_start = -1;
+    }
+  }
+  if (name_end == std::string::npos) {
+    _lexer.pop();
+    return false;
+  }
+  link_name << current->substr(name_start + 1, name_end - name_start - 1);
+  if (is_attribute_link) {
+    // An attribute link doesn't use the second pair of braces
+    out << pre_link << " [attribute " << link_name.str() << " not found] "
+        << current->substr(name_end + 1);
+    // We processed the current token, advance
+    _lexer.any();
+    return true;
+  }
+
+  // Look for the opening brace of the link target
+  size_t target_start = std::string::npos;
+  pos++;
+  if (pos < current->size() && (*current)[pos] == '(') {
+    target_start = pos;
+  } else {
+    // There may only be a single block of whitespace before the opening brace.
+    // We must also not be done after accepting the whitespace
+    if (!_lexer.accept(TokenType::WHITESPACE) || _lexer.isDone()) {
+      _lexer.pop();
+      return false;
+    }
+    current = &_lexer.current().value;
+    pos = 0;
+    if ((*current)[pos] != '(') {
+      _lexer.pop();
+      return false;
+    }
+    target_start = pos;
+  }
+
+  // Look for the closing brace of the link target. It must be in the same token
+  while (pos < current->size() && (*current)[pos] != ')') {
+    pos++;
+  }
+
+  if (pos >= current->size()) {
+    _lexer.pop();
+    return false;
+  }
+
+  std::string link_target =
+      current->substr(target_start + 1, pos - target_start - 1);
+
+  out << pre_link << "<a href=\"" << link_target << "\">" << link_name.str()
+      << "</a>";
+  _lexer.any();
+
+  return true;
 }

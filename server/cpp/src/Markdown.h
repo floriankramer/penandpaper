@@ -107,6 +107,11 @@ class Markdown {
     // returns true if the next token is of type type
     bool peek(const TokenType &type);
 
+    /**
+     * @return true if the next token is one of the paragraph ending tokens
+     */
+    bool peekLineEnd();
+
     // If the current token does not match the given one throw an exception
     void expect(const Token &token);
     void expect(const TokenType &type);
@@ -143,6 +148,7 @@ class Markdown {
 
  private:
   void parseLine(std::ostream &out);
+  bool parseLink(std::ostream &out);
 
   bool parseBlock(std::ostream &out);
   bool parseUnorderedList(std::ostream &out);
