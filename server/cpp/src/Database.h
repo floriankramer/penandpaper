@@ -7,7 +7,7 @@
 #include <vector>
 #include <sstream>
 
-enum class DbDataType { NULL_T, INTEGER, REAL, TEXT, BLOB };
+enum class DbDataType { NULL_T, INTEGER, REAL, TEXT, BLOB, AUTO_INCREMENT };
 
 std::string dbDataTypeName(DbDataType t);
 
@@ -76,6 +76,8 @@ public:
   friend DbSqlBuilder &operator<<(DbSqlBuilder &builder, const DbCondition &c);
 };
 
+using DBCT = DbCondition::Type;
+
 class DbSqlBuilder {
 public:
   DbSqlBuilder &operator<<(const std::string &s);
@@ -100,6 +102,8 @@ class DbCursor {
   bool done() const;
   DbVariant col(int index);
 
+  void reset();
+
  private:
   sqlite3 *_db;
   sqlite3_stmt *_stmt;
@@ -112,6 +116,7 @@ class Table {
   virtual ~Table();
   void setColumns(const std::vector<DbColumn> &columns);
 
+  void insert(const std::vector<DbColumnUpdate> &data);
   void insert(const std::vector<DbVariant> &data);
   void erase(const DbCondition &where);
   DbCursor query(const DbCondition &where = DbCondition());

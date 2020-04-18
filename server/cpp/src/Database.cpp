@@ -16,6 +16,8 @@ std::string dbDataTypeName(DbDataType t) {
       return "INTEGER";
     case DbDataType::TEXT:
       return "TEXT";
+    case DbDataType::AUTO_INCREMENT:
+      return "NTEGER PRIMARY KEY";
   }
   return "";
 }
@@ -117,6 +119,16 @@ DbVariant DbCursor::col(int index) {
     default:
       return DbVariant();
   }
+}
+
+void DbCursor::reset() {
+  int r = sqlite3_reset(_stmt);
+  if (r != SQLITE_OK) {
+    _done = true;
+    return;
+  }
+  _done = false;
+  next();
 }
 
 // =============================================================================
@@ -232,6 +244,57 @@ Table::~Table() {}
 
 void Table::setColumns(const std::vector<DbColumn> &columns) {
   _columns = columns;
+}
+
+void Table::insert(const std::vector<DbColumnUpdate> &data) {
+  DbSqlBuilder ssql;
+  ssql << "INSERT INTO " << _name << " (";
+  for (size_t i = 0; i < data.size(); ++i) {
+    ssql << data[i].name;
+    if (i + 1 < data.size()) {
+      ssql << ", ";
+    }
+  }
+  ssql << ") VALUES (";
+  for (size_t i = 0; i < data.size(); ++i) {
+    ssql << data[i].data;
+    if (i + 1 < data.size()) {
+      ssql << ", ";
+    }
+  }
+  ssql << ");";
+
+  std::string sql = ssql.str();
+  sqlite3_stmt *stmt;
+  int r = sqlite3_prepare_v2(_db, sql.c_str(), sql.size(), &stmt, NULL);
+  if (r != SQLITE_OK) {
+    LOG_ERROR << "Unable to prepare an sqlite statement for insertion into "
+              << _name << ": " << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
+    return;
+  }
+
+  r = bindValues(stmt, ssql);
+  if (r != SQLITE_OK) {
+    LOG_ERROR << "Unable to bind values for insertion into " << _name << ": "
+              << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
+    return;
+  }
+
+  r = sqlite3_step(stmt);
+  if (r != SQLITE_OK && r != SQLITE_DONE) {
+    LOG_ERROR << "Unable to insert into " << _name << ": " << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
+    return;
+  }
+  r = sqlite3_finalize(stmt);
+  if (r != SQLITE_OK) {
+    LOG_ERROR << "Unable to finalize the statement for insertion into " << _name
+              << ": " << sql << "\n"
+              << sqlite3_errmsg(_db) << LOG_END;
+    return;
+  }
 }
 
 void Table::insert(const std::vector<DbVariant> &data) {
@@ -454,7 +517,8 @@ Table Database::createTable(const std::string &name,
   char *error = NULL;
   sqlite3_exec(_db, sql.c_str(), NULL, NULL, &error);
   if (error != NULL) {
-    LOG_ERROR << "Error while creating a table: " << error << LOG_END;
+    LOG_ERROR << "Error while creating a table: " << sql << " : " << error
+              << LOG_END;
     sqlite3_free(error);
   }
   Table table(name, _db);

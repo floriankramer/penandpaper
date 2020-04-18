@@ -245,7 +245,8 @@ Markdown::Token Markdown::Lexer::any() {
 }
 
 bool Markdown::Lexer::accept(const Token &token) {
-  if (current().type == token.type && current().value == token.value) {
+  if (!isDone() && current().type == token.type &&
+      current().value == token.value) {
     readNext();
     return true;
   }
@@ -253,7 +254,7 @@ bool Markdown::Lexer::accept(const Token &token) {
 }
 
 bool Markdown::Lexer::accept(const TokenType &type) {
-  if (current().type == type) {
+  if (!isDone() && current().type == type) {
     readNext();
     return true;
   }
@@ -261,7 +262,7 @@ bool Markdown::Lexer::accept(const TokenType &type) {
 }
 
 bool Markdown::Lexer::accept(const std::string &text) {
-  if (current().value == text) {
+  if (!isDone() && current().value == text) {
     readNext();
     return true;
   }
@@ -269,7 +270,7 @@ bool Markdown::Lexer::accept(const std::string &text) {
 }
 
 bool Markdown::Lexer::peek(const TokenType &type) {
-  if (current().type == type) {
+  if (!isDone() && current().type == type) {
     return true;
   }
   return false;
@@ -281,14 +282,15 @@ bool Markdown::Lexer::peekLineEnd() {
 }
 
 void Markdown::Lexer::expect(const Token &token) {
-  if (current().type != token.type || current().value != token.value) {
+  if (isDone() || current().type != token.type ||
+      current().value != token.value) {
     throw std::runtime_error("Expected '" + token.value + "' but got '" +
                              current().value + "'");
   }
   readNext();
 }
 void Markdown::Lexer::expect(const TokenType &type) {
-  if (current().type != type) {
+  if (isDone() || current().type != type) {
     throw std::runtime_error("Expected a token of type " +
                              std::to_string(int(type)) + " but got type " +
                              std::to_string(int(current().type)));
@@ -296,7 +298,7 @@ void Markdown::Lexer::expect(const TokenType &type) {
   readNext();
 }
 void Markdown::Lexer::expect(const std::string &text) {
-  if (current().value != text) {
+  if (isDone() || current().value != text) {
     throw std::runtime_error("Expected '" + text + "' but got '" +
                              current().value + "'");
   }
@@ -395,6 +397,9 @@ std::string Markdown::process() {
       _in_paragraph = true;
     }
     parseLine(_out);
+    if (_lexer.isDone()) {
+      break;
+    }
     // If this is true check if the paragraph continues or is interrupted by
     // a block (list, table, etc.)
     bool check_for_block = false;

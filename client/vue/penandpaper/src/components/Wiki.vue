@@ -109,6 +109,9 @@ export default class Wiki extends Vue {
     this.showEdit = true
     this.title = 'id'
     this.rawContent = ''
+    if (this.cmEditor != null) {
+      this.cmEditor.setValue(this.rawContent)
+    }
   }
 
   editPage () {
