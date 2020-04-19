@@ -17,18 +17,7 @@
 <template>
   <div class="wiki-container">
     <div class="wiki-sidebar">
-      <div class="wiki-controls">
-        <button v-on:click="newPage">new</button>
-        <button v-on:click="editPage">edit</button>
-        <button v-on:click="deletePage">delete</button>
-        <button v-on:click="loadPage('home')">home</button>
-      </div>
-      <div class="wiki-index">
-        <h3>Pages</h3>
-        <p v-for="t in titles" v-bind:key="t" v-on:click="loadPage(t)">
-          {{t}}
-        </p>
-      </div>
+      <TreeView v-bind:tree="indexTree" v-on:show="loadPage" v-on:new="newPage" v-on:edit="editPage" v-on:delete="deletePage"/>
     </div>
     <div class="wiki-center">
       <div id="wiki-content" v-on:click.prevent="interceptLink" v-show="showContent" v-html="content">
@@ -69,7 +58,8 @@
 import { Component, Prop, Vue, Watch } from 'vue-property-decorator'
 import Server from './server'
 import $ from 'jquery'
-import getCaretCoordinates from 'textarea-caret'
+
+import TreeView, { TreeItem } from './TreeView.vue'
 
 import CodeMirror, { showHint } from 'codemirror'
 import 'codemirror/addon/hint/show-hint.js'
@@ -84,12 +74,33 @@ import 'codemirror/theme/mbo.css'
 import 'codemirror/theme/lesser-dark.css'
 import 'codemirror/theme/darcula.css'
 
-@Component
+class IndexTreeItem {
+  html: string = ''
+  children: IndexTreeItem[] = []
+}
+
+class Attribute {
+  value: string = ''
+  isInteresting: boolean = false
+  isInheritable: boolean = false
+  isDate: boolean = false
+
+  constructor (value: string, isInteresting: boolean, isInheritable: boolean, isDate: boolean) {
+    this.value = value
+    this.isInteresting = isInteresting
+    this.isInheritable = isInheritable
+    this.isDate = isDate
+  }
+}
+
+@Component({
+  components: {
+    TreeView
+  }
+})
 export default class Wiki extends Vue {
   showContent: boolean = false
   showEdit: boolean = true
-
-  titles: string[] = []
 
   title: string = 'home'
   content: string = 'Lorem Ipsum...'
@@ -104,17 +115,25 @@ export default class Wiki extends Vue {
   structured: string = ''
   structuredElem: HTMLTextAreaElement | null = null
 
-  newPage () {
+  indexTree: IndexTreeItem = new IndexTreeItem()
+
+  newPage (parent: string) {
     this.showContent = false
     this.showEdit = true
     this.title = 'id'
     this.rawContent = ''
+    if (parent.length > 0) {
+      this.structured = 'parent    ' + parent
+    } else {
+      this.structured = 'parent    root'
+    }
     if (this.cmEditor != null) {
       this.cmEditor.setValue(this.rawContent)
     }
   }
 
-  editPage () {
+  editPage (id: string) {
+    this.title = id
     this.showContent = false
     this.showEdit = true
     $.get('/wiki/raw/' + this.title, (body) => {
@@ -127,8 +146,8 @@ export default class Wiki extends Vue {
     })
   }
 
-  deletePage () {
-    $.get('/wiki/delete/' + this.title, () => {
+  deletePage (id: string) {
+    $.get('/wiki/delete/' + id, () => {
       this.loadIndex()
     }).fail(() => {
       alert('Deleting the article failed.')
@@ -136,12 +155,27 @@ export default class Wiki extends Vue {
   }
 
   savePage () {
-    $.post('/wiki/save/' + this.title, this.rawContent, (body) => {
+    let req = this.parseAttributes()
+    req['text'] = new Attribute(this.rawContent, false, false, false)
+    $.post('/wiki/save/' + this.title, JSON.stringify(req), (body) => {
       this.loadIndex()
       this.loadPage(this.title)
     }).fail(() => {
       alert('Saving failed.')
     })
+  }
+
+  parseAttributes () : any {
+    let attr: any = {}
+    let lines = this.structured.split('\n')
+    lines.forEach((line) => {
+      let parts = line.split(new RegExp('\\s+'))
+      if (parts.length !== 2) {
+        console.log('Malformed attribute definition ' + line)
+      }
+      attr[parts[0]] = new Attribute(parts[1], false, false, false)
+    })
+    return attr
   }
 
   loadPage (id: string) {
@@ -325,10 +359,64 @@ export default class Wiki extends Vue {
 
   loadIndex () {
     $.get('/wiki/list', (body) => {
-      let titles = JSON.parse(body)
-      if (Array.isArray(titles)) {
-        this.titles = titles
+      interface ServerIndexItem {
+        name: string
+        id: string
+        children: ServerIndexItem[]
       }
+
+      class DfsLevel {
+        childIndex: number = 0
+        item: ServerIndexItem
+        idxItem: IndexTreeItem
+
+        constructor (item: ServerIndexItem, idxItem: IndexTreeItem) {
+          this.item = item
+          this.idxItem = idxItem
+        }
+      }
+
+      let titles = JSON.parse(body)
+      if (titles === null) {
+        this.indexTree = new IndexTreeItem()
+        return
+      }
+
+      let idxItems = titles as ServerIndexItem
+      let nIdxTree = new IndexTreeItem()
+      nIdxTree.html = idxItems.name
+      nIdxTree.html += '<span style="width: 25px; display: inline-block"></span>'
+      nIdxTree.html += '<span data-event="new" data-payload="">' + '+' + '</span>'
+      // Dfs on the tree
+      let stack : DfsLevel[] = [new DfsLevel(idxItems, nIdxTree)]
+      while (stack.length > 0) {
+        let l = stack[stack.length - 1]
+        if (l.childIndex >= l.item.children.length) {
+          // we are done with this node
+          if (stack.length === 1) {
+            // we are done with the root node
+            break
+          }
+          stack.pop()
+        } else {
+          // the node has more children, add the next child to the stack
+          let child = l.item.children[l.childIndex]
+          l.childIndex++
+          let idx = new IndexTreeItem()
+          idx.html = '<span data-event="show" data-payload="' + child.id + '">' + child.name + '</span>'
+          idx.html += '<span style="width: 25px; display: inline-block"></span>'
+          idx.html += '<span data-event="new" data-payload="' + child.id + '">' + '+' + '</span>'
+          idx.html += '<span style="width: 7px; display: inline-block"></span>'
+          idx.html += '<span data-event="edit" data-payload="' + child.id + '">' + 'e' + '</span>'
+          idx.html += '<span style="width: 7px; display: inline-block"></span>'
+          idx.html += '<span data-event="delete" data-payload="' + child.id + '">' + '-' + '</span>'
+          l.idxItem.children.push(idx)
+          let cl = new DfsLevel(child, idx)
+          stack.push(cl)
+        }
+      }
+      console.log('updating the index tree')
+      this.indexTree = nIdxTree
     })
   }
 }
@@ -338,13 +426,14 @@ export default class Wiki extends Vue {
 <style scoped>
 div .wiki-sidebar {
   position: absolute;
-  width: 100px;
+  width: 300px;
   top: 0px;
   bottom: 0px;
   left: 0px;
   padding-left: 5px;
   padding-right: 5px;
   border-right: 3px solid black;
+  overflow: auto;
 }
 
 div .wiki-sidebar button {
@@ -355,7 +444,7 @@ div .wiki-sidebar button {
 div .wiki-center {
   overflow-y: auto;
   position: absolute;
-  left: 110px;
+  left: 310px;
   top: 0px;
   bottom: 0px;
   right: 0px;

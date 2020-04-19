@@ -11,7 +11,12 @@ const std::string Wiki::IDX_COL = "numid";
 const std::string Wiki::ID_COL = "id";
 const std::string Wiki::PREDICATE_COL = "predicate";
 const std::string Wiki::VALUE_COL = "value";
+const std::string Wiki::FLAG_COL = "flags";
 const std::string Wiki::TEXT_ATTR = "text";
+
+const int Wiki::ATTR_INTERESTING = 1;
+const int Wiki::ATTR_INHERITABLE = 2;
+const int Wiki::ATTR_DATE = 4;
 
 Wiki::Wiki(Database *db)
     : _db(db),
@@ -19,7 +24,8 @@ Wiki::Wiki(Database *db)
           _db->createTable("wiki", {{IDX_COL, DbDataType::AUTO_INCREMENT},
                                     {ID_COL, DbDataType::TEXT},
                                     {PREDICATE_COL, DbDataType::TEXT},
-                                    {VALUE_COL, DbDataType::TEXT}})),
+                                    {VALUE_COL, DbDataType::TEXT},
+                                    {FLAG_COL, DbDataType::INTEGER}})),
       _root(&_pages_table) {
   // Build the entry tree
   DbCursor c = _pages_table.query();
@@ -186,11 +192,12 @@ void Wiki::handleList(httplib::Response &resp) {
     json j;
   };
 
-  json entries;
-
   // do a dfs on the entry tree
   std::vector<DfsLevel> dfs_stack;
   dfs_stack.push_back({&_root, 0, json()});
+  dfs_stack.back().j["name"] = "root";
+  dfs_stack.back().j["id"] = nullptr;
+  dfs_stack.back().j["children"] = json::array();
 
   while (!dfs_stack.empty()) {
     DfsLevel &l = dfs_stack.back();
@@ -200,7 +207,7 @@ void Wiki::handleList(httplib::Response &resp) {
         // we are done with the root node
         break;
       }
-      DfsLevel parent = dfs_stack[dfs_stack.size() - 2];
+      DfsLevel &parent = dfs_stack[dfs_stack.size() - 2];
       parent.j["children"].push_back(l.j);
       dfs_stack.pop_back();
     } else {
@@ -212,6 +219,7 @@ void Wiki::handleList(httplib::Response &resp) {
       json j;
       j["name"] = child->name();
       j["id"] = child->id();
+      j["children"] = json::array();
       dfs_stack.push_back({child, 0, j});
     }
   }
@@ -279,23 +287,35 @@ void Wiki::handleRaw(const std::string &id, httplib::Response &resp) {
 
 void Wiki::handleSave(const std::string &id, const httplib::Request &req,
                       httplib::Response &resp) {
-  auto it = _entry_map.find(id);
-  if (it != _entry_map.end()) {
-    LOG_DEBUG << "Upated the " << TEXT_ATTR << " attribute on " << id
-              << LOG_END;
-    it->second->setAttribute(TEXT_ATTR, req.body);
-  } else {
-    LOG_DEBUG << "Created a new entry with id " << id << LOG_END;
-    Entry *e = _root.addChild(id);
-    e->addAttribute(TEXT_ATTR, req.body);
-    _entry_map[id] = e;
+  using nlohmann::json;
+  try {
+    json jreq = json::parse(req.body);
+    // TODO: pass the entire set of attributes to the entry.
+    std::string text = jreq.at("text").at("value").get<std::string>();
+
+    auto it = _entry_map.find(id);
+    if (it != _entry_map.end()) {
+      LOG_DEBUG << "Upated the " << TEXT_ATTR << " attribute on " << id
+                << LOG_END;
+      it->second->setAttribute(TEXT_ATTR, text);
+    } else {
+      LOG_DEBUG << "Created a new entry with id " << id << LOG_END;
+      Entry *e = _root.addChild(id);
+      e->addAttribute(TEXT_ATTR, text);
+      _entry_map[id] = e;
+    }
+    auto mit = _markdown_cache.find(id + ":" + TEXT_ATTR);
+    if (mit != _markdown_cache.end()) {
+      _markdown_cache.erase(mit);
+    }
+    resp.status = 200;
+    resp.body = "Save succesfull";
+    return;
+  } catch (const std::exception &e) {
+    LOG_WARN << "Unable to process a save request: " << e.what() << LOG_END;
   }
-  auto mit = _markdown_cache.find(id + ":" + TEXT_ATTR);
-  if (mit != _markdown_cache.end()) {
-    _markdown_cache.erase(mit);
-  }
-  resp.status = 200;
-  resp.body = "Save succesfull";
+  resp.status = 400;
+  resp.body = "Invalid request";
 }
 
 void Wiki::handleDelete(const std::string &id, const httplib::Request &req,
@@ -307,6 +327,7 @@ void Wiki::handleDelete(const std::string &id, const httplib::Request &req,
     _ids_search_index.remove(id);
     resp.status = 200;
     resp.body = "Deletion succesfull";
+    return;
   }
   resp.status = 400;
   resp.body = "Unable to delete the entry.";
