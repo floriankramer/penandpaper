@@ -53,7 +53,6 @@ void WebSocketServer::run() {
             return;
           }
           _connections.push_back(conn_hdl);
-          // TODO use the cookies to authenticate or reject the client
           Response resp = _on_connect();
           handleResponse(resp, conn_hdl);
         } catch (const std::exception &e) {

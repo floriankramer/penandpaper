@@ -25,8 +25,8 @@
       <div id="wiki-edit" v-show="showEdit">
         <form>
           <div class="with-tooltip">
-            <label for="title">id: </label>
-            <input name="title" v-model="title"/>
+            <label for="id">id: </label>
+            <input name="id" v-model="id" pattern="[a-ZA-Z_-]"/>
             <span class="tooltip">The unique identifier of this article.</span>
           </div>
           <div>
@@ -99,11 +99,11 @@ class Attribute {
   }
 })
 export default class Wiki extends Vue {
-  showContent: boolean = false
-  showEdit: boolean = true
+  showContent: boolean = true
+  showEdit: boolean = false
 
-  title: string = 'home'
-  content: string = 'Lorem Ipsum...'
+  id: string = ''
+  content: string = ''
   rawContent: string = ''
   rawContentElem: HTMLTextAreaElement | null = null
   showContentComplete: boolean = false
@@ -120,7 +120,7 @@ export default class Wiki extends Vue {
   newPage (parent: string) {
     this.showContent = false
     this.showEdit = true
-    this.title = 'id'
+    this.id = ''
     this.rawContent = ''
     if (parent.length > 0) {
       this.structured = 'parent    ' + parent
@@ -133,10 +133,10 @@ export default class Wiki extends Vue {
   }
 
   editPage (id: string) {
-    this.title = id
+    this.id = id
     this.showContent = false
     this.showEdit = true
-    $.get('/wiki/raw/' + this.title, (body) => {
+    $.get('/wiki/raw/' + this.id, (body) => {
       this.rawContent = body
       if (this.cmEditor !== null) {
         this.cmEditor.setValue(this.rawContent)
@@ -157,9 +157,9 @@ export default class Wiki extends Vue {
   savePage () {
     let req = this.parseAttributes()
     req['text'] = new Attribute(this.rawContent, false, false, false)
-    $.post('/wiki/save/' + this.title, JSON.stringify(req), (body) => {
+    $.post('/wiki/save/' + this.id, JSON.stringify(req), (body) => {
       this.loadIndex()
-      this.loadPage(this.title)
+      this.loadPage(this.id)
     }).fail(() => {
       alert('Saving failed.')
     })
@@ -170,8 +170,9 @@ export default class Wiki extends Vue {
     let lines = this.structured.split('\n')
     lines.forEach((line) => {
       let parts = line.split(new RegExp('\\s+'))
-      if (parts.length !== 2) {
+      if (parts.length !== 2 || line.length < 3) {
         console.log('Malformed attribute definition ' + line)
+        return
       }
       attr[parts[0]] = new Attribute(parts[1], false, false, false)
     })
@@ -181,7 +182,7 @@ export default class Wiki extends Vue {
   loadPage (id: string) {
     this.showContent = true
     this.showEdit = false
-    this.title = id
+    this.id = id
     $.get('/wiki/get/' + id, (body) => {
       this.content = body
     }).fail(() => {
@@ -376,13 +377,13 @@ export default class Wiki extends Vue {
         }
       }
 
-      let titles = JSON.parse(body)
-      if (titles === null) {
+      let ids = JSON.parse(body)
+      if (ids === null) {
         this.indexTree = new IndexTreeItem()
         return
       }
 
-      let idxItems = titles as ServerIndexItem
+      let idxItems = ids as ServerIndexItem
       let nIdxTree = new IndexTreeItem()
       nIdxTree.html = idxItems.name
       nIdxTree.html += '<span style="width: 25px; display: inline-block"></span>'

@@ -1,3 +1,18 @@
+/**
+ * Copyright 2020 Florian Kramer
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "Wiki.h"
 
 #include <cstdlib>
@@ -42,9 +57,11 @@ Wiki::Wiki(Database *db)
   // Then build the tree and assign all attributes
   c.reset();
   while (!c.done()) {
+    int64_t idx = c.col(0).integer;
     std::string id = c.col(1).text;
     std::string predicate = c.col(2).text;
     std::string value = c.col(3).text;
+    int64_t flags = c.col(4).integer;
     auto it = _entry_map.find(id);
     if (it != _entry_map.end()) {
       if (predicate == "parent") {
@@ -56,7 +73,11 @@ Wiki::Wiki(Database *db)
                     << value << LOG_END;
         }
       } else {
-        it->second->loadAttribute(predicate, value);
+        IndexedAttributeData d;
+        d.idx = idx;
+        d.data.value = value;
+        d.data.flags = flags;
+        it->second->loadAttribute(predicate, d);
       }
     } else {
       LOG_ERROR << "Wiki table modified during wiki loading." << LOG_END;
@@ -239,10 +260,10 @@ void Wiki::handleGet(const std::string &id, httplib::Response &resp) {
     } else {
       LOG_DEBUG << "Loading the text and applying markdown" << LOG_END;
       std::string raw;
-      const std::vector<std::string> *attr =
+      const std::vector<IndexedAttributeData> *attr =
           it->second->getAttribute(TEXT_ATTR);
       if (attr != nullptr && !attr->empty()) {
-        raw = attr->at(0);
+        raw = attr->at(0).data.value;
         LOG_DEBUG << "Found the " << TEXT_ATTR << " attribute: '" << raw << "'"
                   << LOG_END;
       } else {
@@ -273,9 +294,10 @@ void Wiki::handleRaw(const std::string &id, httplib::Response &resp) {
   auto it = _entry_map.find(id);
   if (it != _entry_map.end()) {
     std::string raw;
-    const std::vector<std::string> *attr = it->second->getAttribute(TEXT_ATTR);
+    const std::vector<IndexedAttributeData> *attr =
+        it->second->getAttribute(TEXT_ATTR);
     if (attr != nullptr && !attr->empty()) {
-      std::string raw = attr->at(0);
+      std::string raw = attr->at(0).data.value;
     }
     resp.status = 200;
     resp.body = raw;
@@ -288,20 +310,50 @@ void Wiki::handleRaw(const std::string &id, httplib::Response &resp) {
 void Wiki::handleSave(const std::string &id, const httplib::Request &req,
                       httplib::Response &resp) {
   using nlohmann::json;
+  if (id == "root") {
+    resp.status = 400;
+    resp.body = "`root` is not an allowed id.";
+    return;
+  }
   try {
     json jreq = json::parse(req.body);
-    // TODO: pass the entire set of attributes to the entry.
-    std::string text = jreq.at("text").at("value").get<std::string>();
+    LOG_DEBUG << "Got json for save: " << jreq << LOG_END;
+    std::vector<Attribute> attributes;
+    std::string new_parent_id = "root";
+    for (const auto &attr : jreq.items()) {
+      Attribute a;
+      a.predicate = attr.key();
+      a.data.flags = 0;
+      a.data.flags |=
+          attr.value().at("isInteresting").get<bool>() ? ATTR_INTERESTING : 0;
+      a.data.flags |=
+          attr.value().at("isInheritable").get<bool>() ? ATTR_INHERITABLE : 0;
+      a.data.flags |= attr.value().at("isDate").get<bool>() ? ATTR_DATE : 0;
+      a.data.value = attr.value().at("value").get<std::string>();
+      LOG_DEBUG << "Got attribute " << a.predicate << " " << a.data.value
+                << LOG_END;
+      if (a.predicate == "parent") {
+        new_parent_id = a.data.value;
+      }
+      attributes.push_back(a);
+    }
+    Entry *parent = &_root;
+    if (new_parent_id != "root") {
+      parent = _entry_map[new_parent_id];
+    }
 
     auto it = _entry_map.find(id);
     if (it != _entry_map.end()) {
       LOG_DEBUG << "Upated the " << TEXT_ATTR << " attribute on " << id
                 << LOG_END;
-      it->second->setAttribute(TEXT_ATTR, text);
+      it->second->setAttributes(attributes);
+      if (parent != it->second->parent()) {
+        it->second->reparent(parent);
+      }
     } else {
       LOG_DEBUG << "Created a new entry with id " << id << LOG_END;
-      Entry *e = _root.addChild(id);
-      e->addAttribute(TEXT_ATTR, text);
+      Entry *e = parent->addChild(id);
+      e->setAttributes(attributes);
       _entry_map[id] = e;
     }
     auto mit = _markdown_cache.find(id + ":" + TEXT_ATTR);
@@ -374,7 +426,7 @@ Wiki::Entry *Wiki::Entry::parent() { return _parent; }
 
 const std::string &Wiki::Entry::name() const {
   if (hasAttribute("name")) {
-    return (*getAttribute("name"))[0];
+    return (*getAttribute("name"))[0].data.value;
   }
   return _id;
 }
@@ -385,7 +437,7 @@ const std::vector<Wiki::Entry *> &Wiki::Entry::children() const {
   return _children;
 }
 
-const std::vector<std::string> *Wiki::Entry::getAttribute(
+const std::vector<Wiki::IndexedAttributeData> *Wiki::Entry::getAttribute(
     const std::string &predicate) const {
   auto it = _attributes.find(predicate);
   if (it != _attributes.end()) {
@@ -395,17 +447,19 @@ const std::vector<std::string> *Wiki::Entry::getAttribute(
 }
 
 void Wiki::Entry::loadAttribute(const std::string &predicate,
-                                const std::string &value) {
+                                const IndexedAttributeData &value) {
   auto it = _attributes.find(predicate);
   if (it == _attributes.end()) {
     _attributes.insert(
-        std::pair<std::string, std::vector<std::string>>(predicate, {value}));
+        std::pair<std::string, std::vector<IndexedAttributeData>>(predicate,
+                                                                  {value}));
   } else {
+    // This only compares the value, none of the other properties
     if (std::find(it->second.begin(), it->second.end(), value) !=
         it->second.end()) {
       // The attribute already exists. This is not necessarily an error
       LOG_WARN << "Duplicate attribute " << _id << " - " << predicate << " - "
-               << value << " while loading." << LOG_END;
+               << value.data.value << " while loading." << LOG_END;
       return;
     } else {
       it->second.push_back(value);
@@ -414,68 +468,112 @@ void Wiki::Entry::loadAttribute(const std::string &predicate,
 }
 
 void Wiki::Entry::addAttribute(const std::string &predicate,
-                               const std::string &value) {
+                               const AttributeData &value) {
   auto it = _attributes.find(predicate);
+  IndexedAttributeData d;
+  d.data = value;
   if (it == _attributes.end()) {
-    _attributes.insert(
-        std::pair<std::string, std::vector<std::string>>(predicate, {value}));
-    writeAttribute(predicate, value);
+    int64_t idx = writeAttribute(predicate, value);
+    d.idx = idx;
+    _attributes[predicate].push_back(d);
   } else {
-    if (std::find(it->second.begin(), it->second.end(), value) !=
+    if (std::find(it->second.begin(), it->second.end(), d) !=
         it->second.end()) {
       // The attribute already exists. This is not necessarily an error
       return;
     } else {
-      it->second.push_back(value);
+      int64_t idx = writeAttribute(predicate, value);
+      d.idx = idx;
+      it->second.push_back(d);
       // Write the attribute to the persistent storage.
-      writeAttribute(predicate, value);
     }
   }
 }
 
-void Wiki::Entry::setAttribute(const std::string &predicate,
-                               const std::string &old_value,
-                               const std::string &new_value) {
-  auto it = _attributes.find(predicate);
-  if (it != _attributes.end()) {
-    auto vit = std::find(it->second.begin(), it->second.end(), old_value);
-    if (vit != it->second.end()) {
-      *vit = new_value;
-      DbCondition c =
-          DbCondition(ID_COL, DbCondition::Type::EQ, _id) &&
-          DbCondition(PREDICATE_COL, DbCondition::Type::EQ, predicate) &&
-          DbCondition(VALUE_COL, DbCondition::Type::EQ, old_value);
-      _storage->update({{VALUE_COL, new_value}}, c);
-    }
+void Wiki::Entry::setAttributes(const std::vector<Attribute> &attributes) {
+  // For now simply rewrite all our existing entries with new ones and delete
+  // any that are to many.
+  size_t num_attributes = 0;
+  for (auto it : _attributes) {
+    num_attributes += it.second.size();
   }
-}
-
-void Wiki::Entry::setAttribute(const std::string &predicate,
-                               const std::string &new_value) {
-  auto it = _attributes.find(predicate);
-  if (it != _attributes.end()) {
-    if (it->second.size() > 1) {
-      // Attributes must differ in at least one field
-      removeAttribute(predicate);
-      addAttribute(predicate, new_value);
-    } else if (it->second.size() == 1) {
-      for (size_t i = 0; i < it->second.size(); ++i) {
-        it->second[i] = new_value;
+  size_t to_overwrite = std::min(num_attributes, attributes.size());
+  LOG_DEBUG << "Whill overwrite " << to_overwrite << " of the current "
+            << num_attributes << " to store the new " << attributes.size()
+            << " attributes " << LOG_END;
+  // out position in the attributes vector
+  size_t new_pos = 0;
+  std::vector<std::string> erased_predicates;
+  for (auto it : _attributes) {
+    for (auto vit = it.second.begin(); vit != it.second.end(); ++vit) {
+      if (new_pos < attributes.size()) {
+        // update
+        const Attribute &a = attributes[new_pos];
+        LOG_DEBUG << "Overwriting attribute " << it.first << " "
+                  << vit->data.value << LOG_END;
+        // update the database
+        _storage->update({{PREDICATE_COL, a.predicate},
+                          {VALUE_COL, a.data.value},
+                          {FLAG_COL, a.data.flags}},
+                         DbCondition(IDX_COL, DBCT::EQ, vit->idx));
+        // update out cached version
+        vit->data = a.data;
+        new_pos++;
+      } else {
+        // delete
+        // Delete the remainder in the database
+        for (auto dit = vit; dit != it.second.end(); ++dit) {
+          LOG_DEBUG << "Deleting attribute " << it.first << " "
+                    << vit->data.value << LOG_END;
+          _storage->erase(DbCondition(IDX_COL, DBCT::EQ, dit->idx));
+        }
+        // delete the remainder in the cache
+        it.second.erase(vit, it.second.end());
+        break;
       }
-      DbCondition c =
-          DbCondition(ID_COL, DbCondition::Type::EQ, _id) &&
-          DbCondition(PREDICATE_COL, DbCondition::Type::EQ, predicate);
-      _storage->update({{VALUE_COL, new_value}}, c);
-    } else {
-      addAttribute(predicate, new_value);
     }
+    if (it.second.empty()) {
+      erased_predicates.push_back(it.first);
+    }
+  }
+  for (size_t i = new_pos; i < attributes.size(); ++i) {
+    LOG_DEBUG << "Adding a new attribute " << attributes[i].predicate << " "
+              << attributes[i].data.value << LOG_END;
+    // create
+    addAttribute(attributes[i].predicate, attributes[i].data);
+  }
+
+  // Delete all empty predicates from the cache
+  for (const std::string &predicate : erased_predicates) {
+    LOG_DEBUG << "The predicate " << predicate << " has no valuse, deleting it"
+              << LOG_END;
+    _attributes.erase(predicate);
   }
 }
 
-void Wiki::Entry::writeAttribute(const std::string &predicate,
-                                 const std::string &value) {
-  _storage->insert(
-      {{ID_COL, _id}, {PREDICATE_COL, predicate}, {VALUE_COL, value}});
+int64_t Wiki::Entry::writeAttribute(const std::string &predicate,
+                                    const AttributeData &value) {
+  _storage->insert({{ID_COL, _id},
+                    {PREDICATE_COL, predicate},
+                    {VALUE_COL, value.value},
+                    {FLAG_COL, value.flags}});
+  DbCursor c =
+      _storage->query(DbCondition(ID_COL, DBCT::EQ, _id) &&
+                      DbCondition(PREDICATE_COL, DBCT::EQ, predicate) &&
+                      DbCondition(VALUE_COL, DBCT::EQ, value.value));
+  if (c.done()) {
+    return -1;
+  }
+  return c.col(0).integer;
+}
+
+void Wiki::Entry::updateAttribute(int64_t idx, const std::string &new_predicate,
+                                  const AttributeData &new_value) {
+  _storage->update({{ID_COL, _id},
+                    {PREDICATE_COL, new_predicate},
+                    {VALUE_COL, new_value.value},
+                    {FLAG_COL, new_value.flags}},
+                   DbCondition(IDX_COL, DBCT::EQ, idx));
 }
 
 void Wiki::Entry::removeAttribute(const std::string &predicate) {
@@ -490,11 +588,17 @@ void Wiki::Entry::removeAttribute(const std::string &predicate,
                                   const std::string &value) {
   auto it = _attributes.find(predicate);
   if (it != _attributes.end()) {
-    it->second.erase(std::remove(it->second.begin(), it->second.end(), value),
-                     it->second.end());
-    _storage->erase(DbCondition(ID_COL, DBCT::EQ, _id) &&
-                    DbCondition(PREDICATE_COL, DBCT::EQ, predicate) &&
-                    DbCondition(VALUE_COL, DBCT::EQ, value));
+    IndexedAttributeData d;
+    d.data.value = value;
+    // Figure out which entries to remove.
+    auto sit = std::remove(it->second.begin(), it->second.end(), d);
+    auto vit = sit;
+    // erase the entries from the database
+    while (vit != it->second.end()) {
+      _storage->erase(DbCondition(IDX_COL, DBCT::EQ, vit->idx));
+      ++vit;
+    }
+    it->second.erase(sit, it->second.end());
   }
 }
 
@@ -505,8 +609,10 @@ bool Wiki::Entry::hasAttribute(const std::string &predicate) const {
 bool Wiki::Entry::hasAttribute(const std::string &predicate,
                                const std::string &value) const {
   auto it = _attributes.find(predicate);
+  IndexedAttributeData d;
+  d.data.value = value;
   if (it != _attributes.end()) {
-    return std::find(it->second.begin(), it->second.end(), value) !=
+    return std::find(it->second.begin(), it->second.end(), d) !=
            it->second.end();
   }
   return false;

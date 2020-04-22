@@ -1,3 +1,18 @@
+/**
+ * Copyright 2020 Florian Kramer
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
 #include <unordered_map>
@@ -23,7 +38,23 @@ class Wiki : public HttpServer::RequestHandler {
 
   struct AttributeData {
     std::string value;
-    int flags;
+    int64_t flags;
+
+    bool operator==(const AttributeData &other) const {
+      return other.value == value;
+    }
+  };
+
+  /**
+   * @brief Includes an index used for quicker sql queries
+   */
+  struct IndexedAttributeData {
+    int64_t idx;
+    AttributeData data;
+
+    bool operator==(const IndexedAttributeData &other) const {
+      return other.data == data;
+    }
   };
 
   struct Attribute {
@@ -39,31 +70,22 @@ class Wiki : public HttpServer::RequestHandler {
 
     Entry *addChild(std::string child_id);
 
-    const std::vector<AttributeData> *getAttribute(
+    const std::vector<IndexedAttributeData> *getAttribute(
         const std::string &predicate) const;
 
     /**
      * @brief Sets the attribute but does not write it to the persistent
      * storage. Meant to be used during loading.
      */
-    void loadAttribute(const std::string &predicate, const AttributeData &value);
+    void loadAttribute(const std::string &predicate,
+                       const IndexedAttributeData &value);
 
     void addAttribute(const std::string &predicate, const AttributeData &value);
-    void setAttribute(const std::string &predicate,
-                      const std::string &old_value,
-                      const AttributeData &new_value);
 
     /**
       @brief Replaces the entire set of attributes with the given one
      **/
     void setAttributes(const std::vector<Attribute> &attributes);
-
-    /**
-     * @brief Sets all instances of this attr with the given predicate to the
-     * new value
-     */
-    void setAttribute(const std::string &predicate,
-                      const AttributeData &new_value);
 
     void removeAttribute(const std::string &predicate);
     void removeAttribute(const std::string &predicate,
@@ -82,14 +104,18 @@ class Wiki : public HttpServer::RequestHandler {
     const std::vector<Entry *> &children() const;
 
    private:
-    void writeAttribute(const std::string &predicate, const AttributeData &value);
+    int64_t writeAttribute(const std::string &predicate,
+                           const AttributeData &value);
+    void updateAttribute(int64_t idx, const std::string &new_predicate,
+                            const AttributeData &new_value);
 
     std::string _id;
 
     Entry *_parent;
     std::vector<Entry *> _children;
 
-    std::unordered_map<std::string, std::vector<AttributeData>> _attributes;
+    std::unordered_map<std::string, std::vector<IndexedAttributeData>>
+        _attributes;
 
     Table *_storage;
   };

@@ -22,12 +22,12 @@
 #include <vector>
 
 #include "Doodad.h"
+#include "IdGenerator.h"
 #include "Packet.h"
 #include "Player.h"
 #include "Token.h"
 #include "WebSocketServer.h"
 #include "building/BuildingManager.h"
-#include "IdGenerator.h"
 
 class Simulation {
   using MemberMsgHandler_t =
@@ -73,6 +73,8 @@ class Simulation {
                           const std::vector<std::string> &cmd);
   std::string cmdSetname(const std::string &who, const std::string &uid,
                          const std::vector<std::string> &cmd);
+  std::string cmdSetAttributes(const std::string &who, const std::string &uid,
+                               const std::vector<std::string> &cmd);
   std::string cmdHelp(const std::string &who, const std::string &uid,
                       const std::vector<std::string> &cmd);
 
