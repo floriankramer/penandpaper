@@ -231,18 +231,49 @@ void Markdown::LineBreakMatcher::step(char c) {
   }
 }
 
+Markdown::HeadingHashesMatcher::HeadingHashesMatcher()
+    : TokenMatcher(TokenType::HEADING_HASHES) {}
+void Markdown::HeadingHashesMatcher::step(char c) {
+  // States:
+  // -1  failure
+  //  0 accepts a hash
+  //  1 accepts a hash
+  //  2 accepts a hash
+  //  3 accepts a hash
+  //  4 accepts a hash
+  //  5 accepts a hash
+  if (_state < 6 && _state > -1) {
+    if (c == '#') {
+      _matches = true;
+      _state++;
+    } else {
+      _state = -1;
+      _matches = false;
+    }
+  } else {
+    _state = -1;
+    _matches = false;
+  }
+}
+
 // =============================================================================
 // Lexer
 // =============================================================================
 
 Markdown::Lexer::Lexer(const std::string &input)
     : _input(input), _positions({0}) {
+  // The matchers are added in order of increasing priority
+  // The whitespace tokens
   _token_matchers.emplace_back(std::make_unique<Markdown::LineBreakMatcher>());
   _token_matchers.emplace_back(std::make_unique<Markdown::WhitespaceMatcher>());
-  _token_matchers.emplace_back(std::make_unique<Markdown::EmptyLineMatcher>());
   _token_matchers.emplace_back(
       std::make_unique<Markdown::ForceLineBreakMatcher>());
+  _token_matchers.emplace_back(std::make_unique<Markdown::EmptyLineMatcher>());
+
+  // The none whitespace tokens
   _token_matchers.emplace_back(std::make_unique<Markdown::WordMatcher>());
+  _token_matchers.emplace_back(
+      std::make_unique<Markdown::HeadingHashesMatcher>());
   _token_matchers.emplace_back(std::make_unique<Markdown::OrderMarkMatcher>());
   _token_matchers.emplace_back(std::make_unique<Markdown::ListMarkMatcher>());
   // tokenize the input
@@ -294,6 +325,11 @@ bool Markdown::Lexer::peek(const TokenType &type) {
 bool Markdown::Lexer::peekLineEnd() {
   return peek(TokenType::EMPTY_LINE) || peek(TokenType::LINE_BREAK) ||
          peek(TokenType::FORCE_LINE_BREAK);
+}
+
+bool Markdown::Lexer::acceptLineEnd() {
+  return accept(TokenType::EMPTY_LINE) || accept(TokenType::LINE_BREAK) ||
+         accept(TokenType::FORCE_LINE_BREAK);
 }
 
 void Markdown::Lexer::expect(const Token &token) {
@@ -355,8 +391,6 @@ void Markdown::Lexer::tokenize() {
         match = t.get();
       }
     }
-    // LOG_DEBUG << num_matching << " matchers match the first token" <<
-    // LOG_END;
 
     // feed characters into the token matchers
     while (num_matching > 0 && pos < _input.size()) {
@@ -402,11 +436,25 @@ std::string Markdown::process() {
   // Parse all blocks at the beginning
   while (parseBlock(_out))
     ;
-
-  _out << "<p>";
-  _in_paragraph = true;
   while (!_lexer.isDone()) {
     size_t pos = _lexer.pos();
+    if (_lexer.peek(TokenType::HEADING_HASHES)) {
+      std::ostringstream s;
+      if (parseHashesHeading(s)) {
+        if (_in_paragraph) {
+          _out << "</p>";
+          _in_paragraph = false;
+        }
+        _out << s.str();
+        if (pos == _lexer.pos()) {
+          std::ostringstream s;
+          s << "The parser was unable to find any matching construct at token "
+            << pos << " " << _lexer.current().value;
+          throw std::runtime_error(s.str());
+        }
+        continue;
+      }
+    }
     if (!_in_paragraph) {
       _out << "<p>";
       _in_paragraph = true;
@@ -428,7 +476,6 @@ std::string Markdown::process() {
       _out << "<br/>";
       check_for_block = true;
     } else if (_lexer.accept(TokenType::LINE_BREAK)) {
-      // TODO: This doesn't allow for closing the paragraph
       _out << " ";
       check_for_block = true;
     }
@@ -496,10 +543,13 @@ bool Markdown::parseList(std::ostream &out, TokenType list_mark,
     parseLine(out);
     if (_lexer.accept(TokenType::EMPTY_LINE)) {
       break;
+    } else {
+      // Insert a whitespace
+      out << " ";
     }
     // Consume the token ending the line.
     _lexer.any();
-    // Check if the next line is indented by nor more than three spaces
+    // Check if the next line is indented by no more than three spaces
     if (_lexer.peek(TokenType::WHITESPACE)) {
       std::string val = _lexer.current().value;
       // A list may be prefixed with at most three whitespace
@@ -529,6 +579,31 @@ void Markdown::parseLine(std::ostream &out) {
       out << _lexer.any().value;
     }
   }
+}
+
+bool Markdown::parseHashesHeading(std::ostream &out) {
+  _lexer.push();
+  if (!_lexer.peek(TokenType::HEADING_HASHES)) {
+    _lexer.pop();
+    return false;
+  }
+  Token hashes = _lexer.any();
+  int heading_level = hashes.value.size();
+  out << "<h" << heading_level << ">";
+  while (!_lexer.isDone()) {
+    if (_lexer.accept(hashes) || _lexer.acceptLineEnd()) {
+      // the heading is done
+      out << "</h" << heading_level << ">";
+      return true;
+    }
+    if (_lexer.accept(TokenType::WHITESPACE)) {
+      out << ' ';
+    } else {
+      out << _lexer.any().value;
+    }
+  }
+  out << "</h" << heading_level << ">";
+  return true;
 }
 
 bool Markdown::parseLink(std::ostream &out) {

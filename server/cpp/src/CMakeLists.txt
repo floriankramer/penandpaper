@@ -84,3 +84,4 @@ add_executable(markdown markdown_main.cpp
 
 target_link_libraries(penandpaper-server building geometry sqlite3 OpenSSL::SSL ${CMAKE_THREAD_LIBS_INIT})
 
+install(TARGETS penandpaper-server DESTINATION bin/)

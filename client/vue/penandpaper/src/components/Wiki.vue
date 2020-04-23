@@ -26,7 +26,7 @@
         <form>
           <div class="with-tooltip">
             <label for="id">id: </label>
-            <input name="id" v-model="id" pattern="[a-ZA-Z_-]"/>
+            <input name="id" v-model="id" pattern="[a-zA-Z0-9_-]*"/>
             <span class="tooltip">The unique identifier of this article.</span>
           </div>
           <div>
@@ -34,7 +34,6 @@
           </div>
           <div>
             <textarea id="wiki-raw-content" name="content" rows="36" cols="80"/>
-            <div class="wiki-content-complete" v-bind:style="contentCompleteStyle" v-show="showContentComplete"/>
             <select id="wiki-theme" v-model="cmTheme">
               <option disabled value="">Please select one</option>
               <option value="railscasts">railscasts</option>
@@ -64,6 +63,7 @@ import TreeView, { TreeItem } from './TreeView.vue'
 import CodeMirror, { showHint } from 'codemirror'
 import 'codemirror/addon/hint/show-hint.js'
 import 'codemirror/addon/hint/show-hint.css'
+import 'codemirror/mode/markdown/markdown.js'
 
 import 'codemirror/lib/codemirror.css'
 
@@ -73,6 +73,7 @@ import 'codemirror/theme/panda-syntax.css'
 import 'codemirror/theme/mbo.css'
 import 'codemirror/theme/lesser-dark.css'
 import 'codemirror/theme/darcula.css'
+import { DockNode } from 'dock-spawn-ts/lib/js/DockNode'
 
 class IndexTreeItem {
   html: string = ''
@@ -80,12 +81,14 @@ class IndexTreeItem {
 }
 
 class Attribute {
+  predicate: string = ''
   value: string = ''
   isInteresting: boolean = false
   isInheritable: boolean = false
   isDate: boolean = false
 
-  constructor (value: string, isInteresting: boolean, isInheritable: boolean, isDate: boolean) {
+  constructor (predicate: string, value: string, isInteresting: boolean, isInheritable: boolean, isDate: boolean) {
+    this.predicate = predicate
     this.value = value
     this.isInteresting = isInteresting
     this.isInheritable = isInheritable
@@ -106,8 +109,6 @@ export default class Wiki extends Vue {
   content: string = ''
   rawContent: string = ''
   rawContentElem: HTMLTextAreaElement | null = null
-  showContentComplete: boolean = false
-  contentCompleteStyle: any = { left: '0px', top: '0px' }
   cmTheme: string = 'panda-syntax'
 
   cmEditor: CodeMirror.EditorFromTextArea | null = null
@@ -137,26 +138,43 @@ export default class Wiki extends Vue {
     this.showContent = false
     this.showEdit = true
     $.get('/wiki/raw/' + this.id, (body) => {
-      this.rawContent = body
-      if (this.cmEditor !== null) {
-        this.cmEditor.setValue(this.rawContent)
-      }
+      this.initCodeMirror()
+      let jdata = JSON.parse(body)
+      let structured = ''
+      jdata.forEach((attr: any) => {
+        if (attr.predicate === 'text') {
+          this.rawContent = attr.value
+          if (this.cmEditor !== null) {
+            this.cmEditor.setValue(attr.value)
+          } else {
+            console.log('The cm editor is null on wiki/raw response')
+          }
+        } else {
+          structured += attr.predicate + '    ' + attr.value + '\n'
+        }
+      })
+      this.structured = structured
     }).fail(() => {
       this.rawContent = 'Unable to load the specified page'
     })
   }
 
   deletePage (id: string) {
-    $.get('/wiki/delete/' + id, () => {
-      this.loadIndex()
-    }).fail(() => {
-      alert('Deleting the article failed.')
-    })
+    if (confirm('Do you really want to delete ' + id + ' and all of its children?')) {
+      $.get('/wiki/delete/' + id, () => {
+        this.loadIndex()
+      }).fail(() => {
+        alert('Deleting the article failed.')
+      })
+    }
   }
 
   savePage () {
     let req = this.parseAttributes()
-    req['text'] = new Attribute(this.rawContent, false, false, false)
+    if (this.cmEditor !== null) {
+      this.rawContent = this.cmEditor.getValue()
+    }
+    req.push(new Attribute('text', this.rawContent, false, false, false))
     $.post('/wiki/save/' + this.id, JSON.stringify(req), (body) => {
       this.loadIndex()
       this.loadPage(this.id)
@@ -165,8 +183,8 @@ export default class Wiki extends Vue {
     })
   }
 
-  parseAttributes () : any {
-    let attr: any = {}
+  parseAttributes () : Attribute[] {
+    let attr: Attribute[] = []
     let lines = this.structured.split('\n')
     lines.forEach((line) => {
       let parts = line.split(new RegExp('\\s+'))
@@ -174,7 +192,7 @@ export default class Wiki extends Vue {
         console.log('Malformed attribute definition ' + line)
         return
       }
-      attr[parts[0]] = new Attribute(parts[1], false, false, false)
+      attr.push(new Attribute(parts[0], parts[1], false, false, false))
     })
     return attr
   }
@@ -260,29 +278,35 @@ export default class Wiki extends Vue {
 
   mounted () {
     this.loadIndex()
+  }
+
+  initCodeMirror () {
     if (this.rawContentElem === null) {
       this.rawContentElem = document.getElementById('wiki-raw-content') as (HTMLTextAreaElement | null)
     }
-    if (this.rawContentElem !== null) {
-      this.cmEditor = CodeMirror.fromTextArea(this.rawContentElem, {
-        lineNumbers: true,
-        theme: 'panda-syntax',
-        extraKeys: {
-          'Space': (cm: CodeMirror.Editor) => {
-            // TODO: This continues calling the autocompleteContent function
-            // even after other characters where pressed
-            cm.showHint({
-              hint: this.autocompleteContent,
-              completeSingle: false,
-              closeCharacters: new RegExp('\\S')
-            })
-            cm.replaceSelection(' ')
+    if (this.cmEditor === null) {
+      if (this.rawContentElem !== null) {
+        this.cmEditor = CodeMirror.fromTextArea(this.rawContentElem, {
+          lineNumbers: true,
+          theme: 'panda-syntax',
+          mode: 'markdown',
+          extraKeys: {
+            'Space': (cm: CodeMirror.Editor) => {
+              // TODO: This continues calling the autocompleteContent function
+              // even after other characters where pressed
+              cm.showHint({
+                hint: this.autocompleteContent,
+                completeSingle: false,
+                closeCharacters: new RegExp('\\S')
+              })
+              cm.replaceSelection(' ')
+            }
           }
-        }
-      })
-      this.cmEditor.on('changes', this.onTextChanged)
-    } else {
-      console.log('Warning: Unable to initialize code mirror, as the required text area was not found')
+        })
+        this.cmEditor.on('changes', this.onTextChanged)
+      } else {
+        console.log('Warning: Unable to initialize code mirror, as the required text area was not found')
+      }
     }
   }
 
@@ -356,6 +380,14 @@ export default class Wiki extends Vue {
       console.log('Unable to find the wiki-structured element')
     }
     // TODO: Autocomplete (switch over to code mirror)
+  }
+
+  @Watch('id')
+  onIdChanged (value: string, old: string) {
+    let r = /[^a-zA-Z0-9_-]/
+    if (r.test(value)) {
+      this.id = value.replace(/[^a-zA-Z0-9_-]/, '_')
+    }
   }
 
   loadIndex () {
@@ -480,15 +512,6 @@ div .wiki-center {
 /* Show the tooltip text when you mouse over the tooltip container */
 .with-tooltip:hover .tooltip {
   visibility: visible;
-}
-
-div .wiki-content-complete {
-  width: 200px;
-  height: 100px;
-  position: absolute;
-  background-color: #333333;
-  border-radius: 5px;
-  border: 1px solid black;
 }
 
 </style>

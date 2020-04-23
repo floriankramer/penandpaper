@@ -65,20 +65,22 @@ Wiki::Wiki(Database *db)
     auto it = _entry_map.find(id);
     if (it != _entry_map.end()) {
       if (predicate == "parent") {
-        auto pit = _entry_map.find(value);
-        if (pit != _entry_map.end()) {
-          it->second->reparent(pit->second);
-        } else {
-          LOG_ERROR << "The entry " << id << " refers to an nonexistant parent "
-                    << value << LOG_END;
+        if (value != "root") {
+          auto pit = _entry_map.find(value);
+          if (pit != _entry_map.end()) {
+            it->second->reparent(pit->second);
+          } else {
+            LOG_ERROR << "The entry " << id
+                      << " refers to an nonexistant parent " << value
+                      << LOG_END;
+          }
         }
-      } else {
-        IndexedAttributeData d;
-        d.idx = idx;
-        d.data.value = value;
-        d.data.flags = flags;
-        it->second->loadAttribute(predicate, d);
       }
+      IndexedAttributeData d;
+      d.idx = idx;
+      d.data.value = value;
+      d.data.flags = flags;
+      it->second->loadAttribute(predicate, d);
     } else {
       LOG_ERROR << "Wiki table modified during wiki loading." << LOG_END;
     }
@@ -176,18 +178,20 @@ void Wiki::handleCompleteEntity(const httplib::Request &req,
     json j = std::vector<json>();
     for (size_t i = 0; i < results.size(); ++i) {
       json completion;
+      std::string id = results[i].match.value;
+      std::string name = id;
+      auto it = _entry_map.find(id);
+      if (it != _entry_map.end()) {
+        name = it->second->name();
+      }
       // replace the last offset characters
-      // TODO: Alternatively it might be easier to send back a replacement
-      // for the entirety of the context, due to the way codemirror does
-      // autocompletion
       completion["offset"] = results[i].match.value.size();
       // Extract the part of the context that this replacement doesn't use
       std::string prefix =
           util::firstWords(context, parts.size() - results[i].num_words_used);
       // append the replacement to the unused part of the context
-      completion["value"] = prefix + " [" + results[i].match.value + "](" +
-                            results[i].match.value + ")";
-      completion["name"] = results[i].match.value;
+      completion["value"] = prefix + " [" + name + "](" + id + ")";
+      completion["name"] = name;
       completion["replaces"] =
           results[i].replaces + " " + std::to_string(results[i].match.score);
       j.push_back(completion);
@@ -254,18 +258,14 @@ void Wiki::handleGet(const std::string &id, httplib::Response &resp) {
   std::string cache_key = id + ":" + TEXT_ATTR;
   if (it != _entry_map.end()) {
     if (_markdown_cache.count(cache_key) > 0) {
-      LOG_DEBUG << "Answering using the cache" << LOG_END;
       resp.status = 200;
       resp.body = _markdown_cache[cache_key];
     } else {
-      LOG_DEBUG << "Loading the text and applying markdown" << LOG_END;
       std::string raw;
       const std::vector<IndexedAttributeData> *attr =
           it->second->getAttribute(TEXT_ATTR);
       if (attr != nullptr && !attr->empty()) {
         raw = attr->at(0).data.value;
-        LOG_DEBUG << "Found the " << TEXT_ATTR << " attribute: '" << raw << "'"
-                  << LOG_END;
       } else {
         LOG_WARN << "Entry " << id << " has no " << TEXT_ATTR << LOG_END;
       }
@@ -291,16 +291,23 @@ void Wiki::handleGet(const std::string &id, httplib::Response &resp) {
 }
 
 void Wiki::handleRaw(const std::string &id, httplib::Response &resp) {
+  using nlohmann::json;
   auto it = _entry_map.find(id);
   if (it != _entry_map.end()) {
-    std::string raw;
-    const std::vector<IndexedAttributeData> *attr =
-        it->second->getAttribute(TEXT_ATTR);
-    if (attr != nullptr && !attr->empty()) {
-      std::string raw = attr->at(0).data.value;
+    json entry;
+    for (auto &ait : it->second->attributes()) {
+      for (const IndexedAttributeData &a : ait.second) {
+        json attr;
+        attr["predicate"] = ait.first;
+        attr["value"] = a.data.value;
+        attr["isInteresting"] = (a.data.flags & ATTR_INTERESTING) > 0;
+        attr["isInheritable"] = (a.data.flags & ATTR_INHERITABLE) > 0;
+        attr["isDate"] = (a.data.flags & ATTR_DATE) > 0;
+        entry.push_back(attr);
+      }
     }
     resp.status = 200;
-    resp.body = raw;
+    resp.body = entry.dump();
   } else {
     resp.status = 404;
     resp.body = "No such wiki entry";
@@ -320,16 +327,16 @@ void Wiki::handleSave(const std::string &id, const httplib::Request &req,
     LOG_DEBUG << "Got json for save: " << jreq << LOG_END;
     std::vector<Attribute> attributes;
     std::string new_parent_id = "root";
-    for (const auto &attr : jreq.items()) {
+    for (const json &attr : jreq) {
       Attribute a;
-      a.predicate = attr.key();
+      a.predicate = attr.at("predicate").get<std::string>();
       a.data.flags = 0;
       a.data.flags |=
-          attr.value().at("isInteresting").get<bool>() ? ATTR_INTERESTING : 0;
+          attr.at("isInteresting").get<bool>() ? ATTR_INTERESTING : 0;
       a.data.flags |=
-          attr.value().at("isInheritable").get<bool>() ? ATTR_INHERITABLE : 0;
-      a.data.flags |= attr.value().at("isDate").get<bool>() ? ATTR_DATE : 0;
-      a.data.value = attr.value().at("value").get<std::string>();
+          attr.at("isInheritable").get<bool>() ? ATTR_INHERITABLE : 0;
+      a.data.flags |= attr.at("isDate").get<bool>() ? ATTR_DATE : 0;
+      a.data.value = attr.at("value").get<std::string>();
       LOG_DEBUG << "Got attribute " << a.predicate << " " << a.data.value
                 << LOG_END;
       if (a.predicate == "parent") {
@@ -437,6 +444,11 @@ const std::vector<Wiki::Entry *> &Wiki::Entry::children() const {
   return _children;
 }
 
+const std::unordered_map<std::string, std::vector<Wiki::IndexedAttributeData>>
+    &Wiki::Entry::attributes() const {
+  return _attributes;
+}
+
 const std::vector<Wiki::IndexedAttributeData> *Wiki::Entry::getAttribute(
     const std::string &predicate) const {
   auto it = _attributes.find(predicate);
@@ -498,26 +510,31 @@ void Wiki::Entry::setAttributes(const std::vector<Attribute> &attributes) {
     num_attributes += it.second.size();
   }
   size_t to_overwrite = std::min(num_attributes, attributes.size());
-  LOG_DEBUG << "Whill overwrite " << to_overwrite << " of the current "
+  LOG_DEBUG << "Will overwrite " << to_overwrite << " of the current "
             << num_attributes << " to store the new " << attributes.size()
             << " attributes " << LOG_END;
+
+  std::unordered_map<std::string, std::vector<IndexedAttributeData>>
+      new_attributes;
+
   // out position in the attributes vector
   size_t new_pos = 0;
-  std::vector<std::string> erased_predicates;
   for (auto it : _attributes) {
     for (auto vit = it.second.begin(); vit != it.second.end(); ++vit) {
       if (new_pos < attributes.size()) {
         // update
         const Attribute &a = attributes[new_pos];
         LOG_DEBUG << "Overwriting attribute " << it.first << " "
-                  << vit->data.value << LOG_END;
+                  << vit->data.value << " with " << a.predicate << " "
+                  << a.data.value << LOG_END;
         // update the database
         _storage->update({{PREDICATE_COL, a.predicate},
                           {VALUE_COL, a.data.value},
                           {FLAG_COL, a.data.flags}},
                          DbCondition(IDX_COL, DBCT::EQ, vit->idx));
-        // update out cached version
-        vit->data = a.data;
+        // update our cached version
+        new_attributes[a.predicate].push_back(
+            IndexedAttributeData{vit->idx, a.data});
         new_pos++;
       } else {
         // delete
@@ -527,28 +544,21 @@ void Wiki::Entry::setAttributes(const std::vector<Attribute> &attributes) {
                     << vit->data.value << LOG_END;
           _storage->erase(DbCondition(IDX_COL, DBCT::EQ, dit->idx));
         }
-        // delete the remainder in the cache
-        it.second.erase(vit, it.second.end());
         break;
       }
-    }
-    if (it.second.empty()) {
-      erased_predicates.push_back(it.first);
     }
   }
   for (size_t i = new_pos; i < attributes.size(); ++i) {
     LOG_DEBUG << "Adding a new attribute " << attributes[i].predicate << " "
               << attributes[i].data.value << LOG_END;
+    const Attribute &a = attributes[i];
     // create
-    addAttribute(attributes[i].predicate, attributes[i].data);
+    int64_t idx = writeAttribute(a.predicate, a.data);
+    new_attributes[a.predicate].push_back({idx, a.data});
   }
 
-  // Delete all empty predicates from the cache
-  for (const std::string &predicate : erased_predicates) {
-    LOG_DEBUG << "The predicate " << predicate << " has no valuse, deleting it"
-              << LOG_END;
-    _attributes.erase(predicate);
-  }
+  // update the cache
+  _attributes = new_attributes;
 }
 
 int64_t Wiki::Entry::writeAttribute(const std::string &predicate,

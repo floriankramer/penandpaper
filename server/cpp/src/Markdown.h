@@ -30,7 +30,8 @@ class Markdown {
     LINE_BREAK,
     FORCE_LINE_BREAK,
     EMPTY_LINE,
-    WHITESPACE
+    WHITESPACE,
+    HEADING_HASHES
   };
 
   class Token {
@@ -103,6 +104,13 @@ class Markdown {
     virtual void step(char c) override;
   };
 
+  // Matches up to six hashes
+  class HeadingHashesMatcher : public TokenMatcher {
+   public:
+    HeadingHashesMatcher();
+    virtual void step(char c) override;
+  };
+
   // The lexer tranforms the input into a list of tokens
   class Lexer {
    public:
@@ -126,6 +134,7 @@ class Markdown {
      * @return true if the next token is one of the paragraph ending tokens
      */
     bool peekLineEnd();
+    bool acceptLineEnd();
 
     // If the current token does not match the given one throw an exception
     void expect(const Token &token);
@@ -164,6 +173,7 @@ class Markdown {
  private:
   void parseLine(std::ostream &out);
   bool parseLink(std::ostream &out);
+  bool parseHashesHeading(std::ostream &out);
 
   bool parseBlock(std::ostream &out);
   bool parseUnorderedList(std::ostream &out);

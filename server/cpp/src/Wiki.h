@@ -103,6 +103,8 @@ class Wiki : public HttpServer::RequestHandler {
     Entry *parent();
     const std::vector<Entry *> &children() const;
 
+    const std::unordered_map<std::string, std::vector<IndexedAttributeData>> &attributes() const;
+
    private:
     int64_t writeAttribute(const std::string &predicate,
                            const AttributeData &value);
