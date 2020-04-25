@@ -32,7 +32,7 @@ std::string dbDataTypeName(DbDataType t) {
     case DbDataType::TEXT:
       return "TEXT";
     case DbDataType::AUTO_INCREMENT:
-      return "NTEGER PRIMARY KEY";
+      return "INTEGER PRIMARY KEY";
   }
   return "";
 }

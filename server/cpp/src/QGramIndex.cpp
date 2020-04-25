@@ -107,10 +107,11 @@ void QGramIndex::add(const std::string &alias, const ValueType &value) {
   auto vit = _reverse_vocab.find(value);
   if (vit == _reverse_vocab.end()) {
     id = _vocabulary.size();
-    _vocabulary.push_back(value);
+    _vocabulary.push_back({alias, value});
     // TODO: It might make a lot more sense to not differentaite between alias
     // and value but instead do the alias mapping later on.
     _vocab_num_qgrams.push_back(grams.size());
+    _reverse_vocab[computeVocabKey(alias, value)] = id;
   } else {
     id = vit->second;
   }
@@ -128,11 +129,11 @@ void QGramIndex::add(const std::string &alias, const ValueType &value) {
   }
 }
 
-void QGramIndex::remove(const ValueType &value) {
+void QGramIndex::remove(const std::string &alias, const ValueType &value) {
   std::vector<std::string> to_erase;
   std::vector<std::string> grams = split(value);
 
-  auto vocab_it = _reverse_vocab.find(value);
+  auto vocab_it = _reverse_vocab.find(computeVocabKey(alias, value));
   if (vocab_it == _reverse_vocab.end()) {
     // The value isn't known
     return;
@@ -179,4 +180,9 @@ std::vector<std::string> QGramIndex::split(const std::string &word) {
     grams.push_back(buf);
   }
   return grams;
+}
+
+std::string QGramIndex::computeVocabKey(const std::string &alias,
+                                        const ValueType &value) {
+  return alias + char(1) + value;
 }

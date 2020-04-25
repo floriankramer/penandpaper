@@ -141,6 +141,7 @@ export default class Wiki extends Vue {
       this.initCodeMirror()
       let jdata = JSON.parse(body)
       let structured = ''
+      let regexWs = new RegExp('\\s')
       jdata.forEach((attr: any) => {
         if (attr.predicate === 'text') {
           this.rawContent = attr.value
@@ -150,10 +151,17 @@ export default class Wiki extends Vue {
             console.log('The cm editor is null on wiki/raw response')
           }
         } else {
-          structured += attr.predicate + '    ' + attr.value + '\n'
+          structured += attr.predicate + '    '
+          if (regexWs.test(attr.value)) {
+            structured += '"' + attr.value + '"'
+          } else {
+            structured += attr.value
+          }
+          structured += '\n'
         }
       })
       this.structured = structured
+      this.relayoutAttributes()
     }).fail(() => {
       this.rawContent = 'Unable to load the specified page'
     })
@@ -185,15 +193,71 @@ export default class Wiki extends Vue {
 
   parseAttributes () : Attribute[] {
     let attr: Attribute[] = []
-    let lines = this.structured.split('\n')
-    lines.forEach((line) => {
-      let parts = line.split(new RegExp('\\s+'))
-      if (parts.length !== 2 || line.length < 3) {
-        console.log('Malformed attribute definition ' + line)
-        return
+
+    let inString = false
+    let pos = 0
+    while (pos < this.structured.length) {
+      // skip leading whitespace
+      while (pos < this.structured.length && (this.structured[pos] === ' ' || this.structured[pos] === '\n' || this.structured[pos] === '\t')) {
+        pos++
       }
-      attr.push(new Attribute(parts[0], parts[1], false, false, false))
-    })
+
+      // parse the predicate
+      if (this.structured[pos] === '"') {
+        inString = true
+        ++pos
+      }
+      let start = pos
+      while (pos < this.structured.length) {
+        // Check if the word has ended (we reached non escaped whitespace)
+        if (!inString && (this.structured[pos] === ' ' || this.structured[pos] === '\n' || this.structured[pos] === '\t')) {
+          break
+        }
+        // Check if there is a string ending
+        if (inString && this.structured[pos] === '"') {
+          inString = false
+          break
+        }
+        pos++
+      }
+      let pred = this.structured.substring(start, pos)
+
+      // Advanve past a closing quotation mark
+      if (pos < this.structured.length && this.structured[pos] === '"') {
+        ++pos
+      }
+
+      // skip whitespace
+      while (pos < this.structured.length && (this.structured[pos] === ' ' || this.structured[pos] === '\n' || this.structured[pos] === '\t')) {
+        pos++
+      }
+
+      // parse the value
+      if (this.structured[pos] === '"') {
+        inString = true
+        ++pos
+      }
+      start = pos
+      while (pos < this.structured.length) {
+        // Check if the word has ended (we reached non escaped whitespace)
+        if (!inString && (this.structured[pos] === ' ' || this.structured[pos] === '\n' || this.structured[pos] === '\t')) {
+          break
+        }
+        // Check if there is a string ending
+        if (inString && this.structured[pos] === '"') {
+          inString = false
+          break
+        }
+        pos++
+      }
+      let value = this.structured.substring(start, pos)
+      // Advanve past a closing quotation mark
+      if (pos < this.structured.length && this.structured[pos] === '"') {
+        ++pos
+      }
+
+      attr.push(new Attribute(pred, value, false, false, false))
+    }
     return attr
   }
 
@@ -234,12 +298,15 @@ export default class Wiki extends Vue {
     let end = new CodeMirror.Pos(c.line, c.ch)
     // Extract at least 16 and up to 32 characters from the text.
     let ctx = ''
-    for (let i = 0; i < MAX_CTX_SIZE && !(c.line < 0 && c.ch < 0); ++i) {
+    for (let pos = 0; pos < MAX_CTX_SIZE && !(c.line < 0 && c.ch < 0); ++pos) {
       let line = cm.getLine(c.line)
       let char = line[c.ch]
+      if (char === ')' || char === ']') {
+        break
+      }
       if (char !== undefined) {
         // We read at least 16 characters and are on a word boundary
-        if (i > CTX_TARGET_SIZE && (char === ' ' || char === '\r' || char === '\n')) {
+        if (pos > CTX_TARGET_SIZE && (char === ' ' || char === '\r' || char === '\n')) {
           break
         }
         // Update the start marker of the ctx and add the character
@@ -257,9 +324,30 @@ export default class Wiki extends Vue {
           c.ch = -1
           break
         }
+        // Setup the next character we read
         c.ch = cm.getLine(c.line).length - 1
+
+        // Update the ctx
+        ctx = '\n' + ctx
+        pos++
+        if (pos >= MAX_CTX_SIZE) {
+          // we are done
+          c.line = -1
+          c.ch = -1
+          break
+        }
       }
     }
+    // Strip the ctx from leading newlines
+    let firstNonNl = 0
+    for (let pos = 0; pos < ctx.length; ++pos) {
+      firstNonNl = pos
+      if (ctx[pos] !== '\n') {
+        break
+      }
+    }
+    ctx = ctx.substring(firstNonNl, ctx.length)
+
     let hints = { list: [], from: start, to: end } as CodeMirror.Hints
     return new Promise((resolve, reject) => {
       $.post('/wiki/complete', JSON.stringify({ context: ctx }), (result) => {
@@ -316,41 +404,71 @@ export default class Wiki extends Vue {
     }
   }
 
-  relayoutStructured (allowTrailing: boolean = false) {
-    let newVal = ''
+  relayoutAttributes (allowTrailing: boolean = false) {
     let val = this.structured
     if (val.length > 0) {
-      let isWs = val[0] === ' ' || val[0] === '\r' || val[0] === '\n'
-      let hadWs = false
-      for (let i = 0; i < val.length; ++i) {
-        let c = val[i]
-        if (c === ' ' || c === '\r' || c === '\n') {
-          isWs = true
-        } else {
-          if (isWs) {
-            isWs = false
-            if (hadWs) {
-              newVal += '\n'
-              hadWs = false
-            } else {
-              newVal += '    '
-              hadWs = true
-            }
+      let words = []
+      let start = 0
+      let inString = false
+      let firstNonWs = 0
+      // find the first non whitespace character
+      while (firstNonWs < val.length) {
+        let c = val[firstNonWs]
+        let isWs = c === ' ' || c === '\r' || c === '\n'
+        if (!isWs) {
+          break
+        }
+        firstNonWs++
+      }
+      let insideWs = false
+      // Split the input into words
+      for (let pos = firstNonWs; pos < val.length; ++pos) {
+        let c = val[pos]
+        // If the character is a " we want to toggle the string state and also
+        // process the " as a normal character
+        if (c === '"') {
+          inString = !inString
+        }
+        let isWs = c === ' ' || c === '\r' || c === '\n'
+        if (!insideWs && !inString && isWs) {
+          // Insert the word into the list
+          words.push(val.substring(start, pos))
+          insideWs = true
+        } else if (insideWs && (inString || !isWs)) {
+          // We transitioned from whitespace to non whitespace
+          insideWs = false
+          start = pos
+        }
+      }
+      if (!insideWs) {
+        words.push(val.substring(start))
+      }
+      let newVal = ''
+      let maxlen = 0
+      for (let pos = 0; pos < words.length; pos += 2) {
+        maxlen = Math.max(words[pos].length, maxlen)
+      }
+
+      // determine wether we want trailing whitespace
+      let end = val[val.length - 1]
+      let endIsWs = end === ' ' || end === '\r' || end === '\n'
+      let endMatches = (words.length % 2 === 0) && end === '\n'
+
+      for (let pos = 0; pos < words.length; ++pos) {
+        newVal += words[pos]
+        if (pos + 1 < words.length || (allowTrailing && !inString && endIsWs && !endMatches)) {
+          if (pos % 2 === 0) {
+            newVal += ' '.repeat(maxlen - words[pos].length + 2)
+          } else {
+            newVal += '\n'
           }
-          newVal += c
         }
       }
-      if (allowTrailing && isWs) {
-        if (hadWs) {
-          newVal += '\n'
-          hadWs = false
-        } else {
-          newVal += '    '
-          hadWs = true
-        }
+      if (inString) {
+        newVal += '"'
       }
+      this.structured = newVal
     }
-    this.structured = newVal
   }
 
   @Watch('cmTheme')
@@ -372,9 +490,9 @@ export default class Wiki extends Vue {
         input = value[pos - 1]
       }
       if (value.length < old.length) {
-        this.relayoutStructured()
+        this.relayoutAttributes()
       } else if (input === ' ' || input === '\t') {
-        this.relayoutStructured(true)
+        this.relayoutAttributes(true)
       }
     } else {
       console.log('Unable to find the wiki-structured element')

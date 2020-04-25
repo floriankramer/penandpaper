@@ -30,13 +30,16 @@ class QGramIndex {
   static constexpr char PADDING_CHARACTER = 1;
   using ValueType = std::string;
 
-  struct Match {
+  struct Entry {
+    std::string alias;
     ValueType value;
+  };
+
+  struct Match {
+    Entry value;
     double score;
 
-    bool operator<(const Match &other) {
-      return score < other.score;
-    }
+    bool operator<(const Match &other) { return score < other.score; }
   };
 
   QGramIndex();
@@ -44,17 +47,20 @@ class QGramIndex {
 
   std::vector<Match> query(const std::string &word);
   void add(const std::string &alias, const ValueType &value);
-  void remove(const ValueType &value);
+  void remove(const std::string &alias, const ValueType &value);
 
  private:
   std::vector<std::string> split(const std::string &word);
-  std::vector<NumericMatch> merge(const std::vector<std::vector<uint64_t> *> &lists);
+  std::vector<NumericMatch> merge(
+      const std::vector<std::vector<uint64_t> *> &lists);
   std::vector<NumericMatch> zipper(const std::vector<NumericMatch> &matches,
                                    const std::vector<uint64_t> *list);
 
+  std::string computeVocabKey(const std::string &alias, const ValueType &value);
+
   std::vector<double> _vocab_num_qgrams;
-  std::vector<ValueType> _vocabulary;
-  std::unordered_map<ValueType, uint64_t> _reverse_vocab;
+  std::vector<Entry> _vocabulary;
+  std::unordered_map<std::string, uint64_t> _reverse_vocab;
 
   std::unordered_map<std::string, std::vector<uint64_t>> _gram_map;
 };

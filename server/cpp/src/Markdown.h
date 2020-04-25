@@ -45,12 +45,15 @@ class Markdown {
     TokenMatcher(TokenType type);
     virtual void step(char c) = 0;
     bool matches();
+    bool canMatch();
     virtual void reset();
     TokenType type();
 
    protected:
     int _state;
     bool _matches;
+    // Is there still a sequence of inputs that could lead to a match
+    bool _can_match;
     TokenType _type;
   };
 

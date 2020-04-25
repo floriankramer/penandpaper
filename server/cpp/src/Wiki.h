@@ -76,8 +76,9 @@ class Wiki : public HttpServer::RequestHandler {
     /**
      * @brief Sets the attribute but does not write it to the persistent
      * storage. Meant to be used during loading.
+     * @return false if the attribute wasn't loaded because it already exists
      */
-    void loadAttribute(const std::string &predicate,
+    bool loadAttribute(const std::string &predicate,
                        const IndexedAttributeData &value);
 
     void addAttribute(const std::string &predicate, const AttributeData &value);
@@ -137,6 +138,14 @@ class Wiki : public HttpServer::RequestHandler {
                     httplib::Response &resp);
   void handleCompleteEntity(const httplib::Request &req,
                             httplib::Response &resp);
+
+  // This scans the given entry and automatically references other entries
+  // it finds in the entries text using entry autocompletion.
+  void autoLink(Entry *e, double score_threshold = 0.95);
+
+
+  void removeFromSearchIndex(Entry *e);
+  void addToSearchIndex(Entry *e);
 
   Database *_db;
   Table _pages_table;

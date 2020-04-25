@@ -25,9 +25,12 @@ Markdown::TokenMatcher::TokenMatcher(TokenType type) : _type(type) { reset(); }
 
 bool Markdown::TokenMatcher::matches() { return _matches; }
 
+bool Markdown::TokenMatcher::canMatch() { return _can_match; }
+
 void Markdown::TokenMatcher::reset() {
   _state = 0;
   _matches = false;
+  _can_match = true;
 }
 
 Markdown::TokenType Markdown::TokenMatcher::type() { return _type; }
@@ -44,9 +47,11 @@ void Markdown::WordMatcher::step(char c) {
       } else {
         _state = -1;
         _matches = false;
+        _can_match = false;
       }
       break;
     default:
+      _can_match = false;
       _matches = false;
   }
 }
@@ -63,6 +68,7 @@ void Markdown::OrderMarkMatcher::step(char c) {
     case 0:
       if (!std::isdigit(c)) {
         _state = -1;
+        _can_match = false;
       } else {
         _state = 1;
       }
@@ -74,14 +80,17 @@ void Markdown::OrderMarkMatcher::step(char c) {
       } else if (!std::isdigit(c)) {
         _state = -1;
         _matches = false;
+        _can_match = false;
       }
       break;
     case 2:
       _state = -1;
       _matches = false;
+      _can_match = false;
       break;
     default:
       _matches = false;
+      _can_match = false;
   }
 }
 
@@ -100,14 +109,17 @@ void Markdown::ListMarkMatcher::step(char c) {
       } else {
         _state = -1;
         _matches = false;
+        _can_match = false;
       }
       break;
     case 1:
       _state = -1;
       _matches = false;
+      _can_match = false;
       break;
     default:
       _matches = false;
+      _can_match = false;
   }
 }
 
@@ -126,6 +138,7 @@ void Markdown::ForceLineBreakMatcher::step(char c) {
         _state = 1;
       } else {
         _state = -1;
+        _can_match = false;
       }
       break;
     case 1:
@@ -133,6 +146,7 @@ void Markdown::ForceLineBreakMatcher::step(char c) {
         _state = 2;
       } else {
         _state = -1;
+        _can_match = false;
       }
       break;
     case 2:
@@ -141,14 +155,17 @@ void Markdown::ForceLineBreakMatcher::step(char c) {
         _state = 3;
       } else if (c != ' ') {
         _state = -1;
+        _can_match = false;
       }
       break;
     case 3:
       _state = -1;
       _matches = false;
+      _can_match = false;
       break;
     default:
       _matches = false;
+      _can_match = false;
   }
 }
 
@@ -166,6 +183,7 @@ void Markdown::EmptyLineMatcher::step(char c) {
         _state = 1;
       } else if (!std::isspace(c)) {
         _state = -1;
+        _can_match = false;
       }
       break;
     case 1:
@@ -174,14 +192,17 @@ void Markdown::EmptyLineMatcher::step(char c) {
         _matches = true;
       } else if (!std::isspace(c)) {
         _state = -1;
+        _can_match = false;
       }
       break;
     case 2:
       _state = -1;
       _matches = false;
+      _can_match = false;
       break;
     default:
       _matches = false;
+      _can_match = false;
   }
 }
 
@@ -196,12 +217,14 @@ void Markdown::WhitespaceMatcher::step(char c) {
       if (c == '\n' || !std::isspace(c)) {
         _state = -1;
         _matches = false;
+        _can_match = false;
       } else {
         _matches = true;
       }
       break;
     default:
       _matches = false;
+      _can_match = false;
   }
 }
 
@@ -220,14 +243,17 @@ void Markdown::LineBreakMatcher::step(char c) {
         _matches = true;
       } else {
         _state = -1;
+        _can_match = false;
       }
       break;
     case 1:
       _state = -1;
       _matches = false;
+      _can_match = false;
       break;
     default:
       _matches = false;
+      _can_match = false;
   }
 }
 
@@ -249,10 +275,12 @@ void Markdown::HeadingHashesMatcher::step(char c) {
     } else {
       _state = -1;
       _matches = false;
+      _can_match = false;
     }
   } else {
     _state = -1;
     _matches = false;
+    _can_match = false;
   }
 }
 
@@ -377,37 +405,48 @@ size_t Markdown::Lexer::pos() { return _positions.back(); }
 
 void Markdown::Lexer::tokenize() {
   size_t pos = 0;
+  // Take the longest match amongst all TokenMatchers. To do so, feed
+  // characters from the input into the token matchers untill we reach the
+  // end of the input or all matchers report that they can no longer enter
+  // an accepting state.
   while (pos < _input.size()) {
     size_t start = pos;
     char first_character = _input[pos];
+    // The current candidate matcher
     TokenMatcher *match = nullptr;
-    pos++;
+    // The last character of the current candidate matcher still matched on
+    size_t match_pos = pos;
     size_t num_matching = 0;
     for (std::unique_ptr<TokenMatcher> &t : _token_matchers) {
       t->reset();
       t->step(first_character);
       if (t->matches()) {
-        num_matching++;
         match = t.get();
+        match_pos = pos;
+      }
+      if (t->canMatch()) {
+        num_matching++;
       }
     }
+    pos++;
 
     // feed characters into the token matchers
     while (num_matching > 0 && pos < _input.size()) {
       num_matching = 0;
       char c = _input[pos];
-      pos++;
       for (std::unique_ptr<TokenMatcher> &t : _token_matchers) {
         t->step(c);
         if (t->matches()) {
-          num_matching++;
+          match_pos = pos;
           match = t.get();
         }
+        if (t->canMatch()) {
+          num_matching++;
+        }
       }
+      pos++;
     }
-    if (pos < _input.size()) {
-      pos--;
-    }
+    pos = match_pos + 1;
     if (pos == start) {
       throw std::runtime_error(
           "Unable to parse the markdown input. Matched a token of length 0 in "
@@ -416,7 +455,7 @@ void Markdown::Lexer::tokenize() {
     }
     Token t;
     t.type = match->type();
-    t.value = _input.substr(start, pos - start);
+    t.value = _input.substr(start, match_pos + 1 - start);
     _tokens.push_back(t);
   }
 }
@@ -437,6 +476,12 @@ std::string Markdown::process() {
   while (parseBlock(_out))
     ;
   while (!_lexer.isDone()) {
+    // If this is true check if the paragraph continues or is interrupted by
+    // a block (list, table, etc.)
+    bool check_for_block = false;
+    // Skip trying to parse a line
+    bool skip_line = false;
+
     size_t pos = _lexer.pos();
     if (_lexer.peek(TokenType::HEADING_HASHES)) {
       std::ostringstream s;
@@ -446,26 +491,20 @@ std::string Markdown::process() {
           _in_paragraph = false;
         }
         _out << s.str();
-        if (pos == _lexer.pos()) {
-          std::ostringstream s;
-          s << "The parser was unable to find any matching construct at token "
-            << pos << " " << _lexer.current().value;
-          throw std::runtime_error(s.str());
-        }
-        continue;
+        check_for_block = true;
+        skip_line = true;
       }
     }
-    if (!_in_paragraph) {
-      _out << "<p>";
-      _in_paragraph = true;
+    if (!skip_line) {
+      if (!_in_paragraph) {
+        _out << "<p>";
+        _in_paragraph = true;
+      }
+      parseLine(_out);
     }
-    parseLine(_out);
     if (_lexer.isDone()) {
       break;
     }
-    // If this is true check if the paragraph continues or is interrupted by
-    // a block (list, table, etc.)
-    bool check_for_block = false;
     if (_lexer.accept(TokenType::EMPTY_LINE)) {
       if (_in_paragraph) {
         _out << "</p>";
@@ -531,6 +570,8 @@ bool Markdown::parseList(std::ostream &out, TokenType list_mark,
       _lexer.pop();
       return false;
     }
+    // Consume the whitespace
+    _lexer.any();
   }
 
   if (!_lexer.accept(list_mark)) {
@@ -554,8 +595,12 @@ bool Markdown::parseList(std::ostream &out, TokenType list_mark,
       std::string val = _lexer.current().value;
       // A list may be prefixed with at most three whitespace
       if (val != " " && val != "  " && val != "   ") {
+        // Keep parsing more lines. This is actually not standard conform,
+        // but will work for now.
         continue;
       }
+      // Consume the whitespace
+      _lexer.any();
     }
     // Start a new ordered point
     if (_lexer.accept(list_mark)) {

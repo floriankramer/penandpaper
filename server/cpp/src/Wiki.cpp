@@ -50,12 +50,12 @@ Wiki::Wiki(Database *db)
     if (_entry_map.count(id) == 0) {
       _entry_map.insert(
           std::make_pair(id, new Entry(id, nullptr, &_pages_table)));
-      _ids_search_index.add(id, id);
     }
     c.next();
   }
   // Then build the tree and assign all attributes
   c.reset();
+  std::vector<int64_t> duplicates_to_erase;
   while (!c.done()) {
     int64_t idx = c.col(0).integer;
     std::string id = c.col(1).text;
@@ -80,20 +80,31 @@ Wiki::Wiki(Database *db)
       d.idx = idx;
       d.data.value = value;
       d.data.flags = flags;
-      it->second->loadAttribute(predicate, d);
+      if (!it->second->loadAttribute(predicate, d)) {
+        duplicates_to_erase.push_back(idx);
+      }
     } else {
       LOG_ERROR << "Wiki table modified during wiki loading." << LOG_END;
     }
     c.next();
   }
 
+  // Delete dupliacte entries in the database. According to the spec they can't
+  // exist due to the definition of attribute identity.
+  for (int64_t idx : duplicates_to_erase) {
+    LOG_INFO << "Removign a duplicate attribute with idx " << idx << LOG_END;
+    _pages_table.erase(DbCondition(IDX_COL, DBCT::EQ, idx));
+  }
+
   // Reparent all parentless nodes to the root. This will also
   // ensure that every node will be deleted once this wiki instance
   // is destructed.
+  // Also build the search index
   for (auto &p : _entry_map) {
     if (p.second->parent() == nullptr) {
       p.second->reparent(&_root);
     }
+    addToSearchIndex(p.second);
   }
 }
 
@@ -178,19 +189,13 @@ void Wiki::handleCompleteEntity(const httplib::Request &req,
     json j = std::vector<json>();
     for (size_t i = 0; i < results.size(); ++i) {
       json completion;
-      std::string id = results[i].match.value;
-      std::string name = id;
-      auto it = _entry_map.find(id);
-      if (it != _entry_map.end()) {
-        name = it->second->name();
-      }
-      // replace the last offset characters
-      completion["offset"] = results[i].match.value.size();
+      std::string id = results[i].match.value.value;
+      std::string name = results[i].match.value.alias;
       // Extract the part of the context that this replacement doesn't use
-      std::string prefix =
-          util::firstWords(context, parts.size() - results[i].num_words_used);
+      std::string prefix = util::firstWords(
+          context, parts.size() - results[i].num_words_used, true);
       // append the replacement to the unused part of the context
-      completion["value"] = prefix + " [" + name + "](" + id + ")";
+      completion["value"] = prefix + "[" + name + "](" + id + ")";
       completion["name"] = name;
       completion["replaces"] =
           results[i].replaces + " " + std::to_string(results[i].match.score);
@@ -324,7 +329,6 @@ void Wiki::handleSave(const std::string &id, const httplib::Request &req,
   }
   try {
     json jreq = json::parse(req.body);
-    LOG_DEBUG << "Got json for save: " << jreq << LOG_END;
     std::vector<Attribute> attributes;
     std::string new_parent_id = "root";
     for (const json &attr : jreq) {
@@ -337,8 +341,6 @@ void Wiki::handleSave(const std::string &id, const httplib::Request &req,
           attr.at("isInheritable").get<bool>() ? ATTR_INHERITABLE : 0;
       a.data.flags |= attr.at("isDate").get<bool>() ? ATTR_DATE : 0;
       a.data.value = attr.at("value").get<std::string>();
-      LOG_DEBUG << "Got attribute " << a.predicate << " " << a.data.value
-                << LOG_END;
       if (a.predicate == "parent") {
         new_parent_id = a.data.value;
       }
@@ -346,22 +348,28 @@ void Wiki::handleSave(const std::string &id, const httplib::Request &req,
     }
     Entry *parent = &_root;
     if (new_parent_id != "root") {
-      parent = _entry_map[new_parent_id];
+      auto pit = _entry_map.find(new_parent_id);
+      if (pit != _entry_map.end()) {
+        parent = pit->second;
+      } else {
+        LOG_WARN << "Entry references unknown parent " << new_parent_id
+                 << LOG_END;
+      }
     }
 
     auto it = _entry_map.find(id);
     if (it != _entry_map.end()) {
-      LOG_DEBUG << "Upated the " << TEXT_ATTR << " attribute on " << id
-                << LOG_END;
+      removeFromSearchIndex(it->second);
       it->second->setAttributes(attributes);
       if (parent != it->second->parent()) {
         it->second->reparent(parent);
       }
+      addToSearchIndex(it->second);
     } else {
-      LOG_DEBUG << "Created a new entry with id " << id << LOG_END;
       Entry *e = parent->addChild(id);
       e->setAttributes(attributes);
       _entry_map[id] = e;
+      addToSearchIndex(e);
     }
     auto mit = _markdown_cache.find(id + ":" + TEXT_ATTR);
     if (mit != _markdown_cache.end()) {
@@ -380,16 +388,95 @@ void Wiki::handleSave(const std::string &id, const httplib::Request &req,
 void Wiki::handleDelete(const std::string &id, const httplib::Request &req,
                         httplib::Response &resp) {
   auto it = _entry_map.find(id);
-  if (it != _entry_map.end()) {
-    delete it->second;
-    _entry_map.erase(it);
-    _ids_search_index.remove(id);
-    resp.status = 200;
-    resp.body = "Deletion succesfull";
+  if (it == _entry_map.end()) {
+    resp.status = 400;
+    resp.body = "Unable to delete the entry.";
     return;
   }
-  resp.status = 400;
-  resp.body = "Unable to delete the entry.";
+  // run a bfs on the nodes subtree to generate an inverse topological
+  // sorting.
+  std::vector<Entry *> sorting;
+  std::vector<Entry *> to_process;
+  to_process.push_back(it->second);
+  sorting.push_back(it->second);
+  // This works for a tree, but might not work for all graphs.
+  while (!to_process.empty()) {
+    Entry *e = to_process.back();
+    to_process.pop_back();
+    for (Entry *c : e->children()) {
+      sorting.push_back(c);
+      to_process.push_back(c);
+    }
+  }
+  // process the topological sorting backwards to ensure children are
+  // processed before their parents
+  for (size_t i = sorting.size(); i > 0; i--) {
+    Entry *e = sorting[i - 1];
+    _entry_map.erase(e->id());
+    _pages_table.erase(DbCondition(ID_COL, DBCT::EQ, e->id()));
+
+    // Erase all mentions from the search index
+    removeFromSearchIndex(e);
+  }
+
+  // This will recursively free the memory of the children
+  delete it->second;
+  resp.status = 200;
+  resp.body = "Deletion succesfull";
+  return;
+}
+
+void Wiki::autoLink(Entry *e, double score_threshold) {
+  const auto *texts = e->getAttribute(TEXT_ATTR);
+  if (texts == nullptr || texts->empty()) {
+    return;
+  }
+  for (const IndexedAttributeData &data : *texts) {
+    const std::string &text = data.data.value;
+    std::ostringstream result;
+    // a vector of alternating words and whitespace
+    std::vector<std::string> ctx_entries;
+    // TODO: keep between 16 and 32 characters worth of data in ctx_entries.
+    // then whenever a full word was read apply the autocompletion. Apply any
+    // results with score at least score_threshold. if nothing was applied throw
+    // out the last two entries in the vector and write them to result. Ignore
+    // any data inside of () or [] and discard the current context if such a
+    // block is found.
+
+    // Update the cache, invalidate the markdown cache, write to disk
+  }
+}
+
+void Wiki::removeFromSearchIndex(Entry *e) {
+  const auto *names = e->getAttribute("name");
+  if (names != nullptr) {
+    for (const IndexedAttributeData &name : *names) {
+      _ids_search_index.remove(name.data.value, e->id());
+    }
+  }
+  const auto *aliases = e->getAttribute("alias");
+  if (aliases != nullptr) {
+    for (const IndexedAttributeData &alias : *aliases) {
+      _ids_search_index.remove(alias.data.value, e->id());
+    }
+  }
+  _ids_search_index.remove(e->id(), e->id());
+}
+
+void Wiki::addToSearchIndex(Entry *e) {
+  const auto *names = e->getAttribute("name");
+  if (names != nullptr) {
+    for (const IndexedAttributeData &name : *names) {
+      _ids_search_index.add(name.data.value, e->id());
+    }
+  }
+  const auto *aliases = e->getAttribute("alias");
+  if (aliases != nullptr) {
+    for (const IndexedAttributeData &alias : *aliases) {
+      _ids_search_index.add(alias.data.value, e->id());
+    }
+  }
+  _ids_search_index.add(e->id(), e->id());
 }
 
 // =============================================================================
@@ -458,7 +545,7 @@ const std::vector<Wiki::IndexedAttributeData> *Wiki::Entry::getAttribute(
   return nullptr;
 }
 
-void Wiki::Entry::loadAttribute(const std::string &predicate,
+bool Wiki::Entry::loadAttribute(const std::string &predicate,
                                 const IndexedAttributeData &value) {
   auto it = _attributes.find(predicate);
   if (it == _attributes.end()) {
@@ -472,11 +559,12 @@ void Wiki::Entry::loadAttribute(const std::string &predicate,
       // The attribute already exists. This is not necessarily an error
       LOG_WARN << "Duplicate attribute " << _id << " - " << predicate << " - "
                << value.data.value << " while loading." << LOG_END;
-      return;
+      return false;
     } else {
       it->second.push_back(value);
     }
   }
+  return true;
 }
 
 void Wiki::Entry::addAttribute(const std::string &predicate,
@@ -524,9 +612,8 @@ void Wiki::Entry::setAttributes(const std::vector<Attribute> &attributes) {
       if (new_pos < attributes.size()) {
         // update
         const Attribute &a = attributes[new_pos];
-        LOG_DEBUG << "Overwriting attribute " << it.first << " "
-                  << vit->data.value << " with " << a.predicate << " "
-                  << a.data.value << LOG_END;
+        LOG_DEBUG << "Overwriting attribute " << it.first << "(" << vit->idx
+                  << ") with " << a.predicate << LOG_END;
         // update the database
         _storage->update({{PREDICATE_COL, a.predicate},
                           {VALUE_COL, a.data.value},
@@ -540,8 +627,7 @@ void Wiki::Entry::setAttributes(const std::vector<Attribute> &attributes) {
         // delete
         // Delete the remainder in the database
         for (auto dit = vit; dit != it.second.end(); ++dit) {
-          LOG_DEBUG << "Deleting attribute " << it.first << " "
-                    << vit->data.value << LOG_END;
+          LOG_DEBUG << "Deleting attribute " << it.first << LOG_END;
           _storage->erase(DbCondition(IDX_COL, DBCT::EQ, dit->idx));
         }
         break;
@@ -549,8 +635,8 @@ void Wiki::Entry::setAttributes(const std::vector<Attribute> &attributes) {
     }
   }
   for (size_t i = new_pos; i < attributes.size(); ++i) {
-    LOG_DEBUG << "Adding a new attribute " << attributes[i].predicate << " "
-              << attributes[i].data.value << LOG_END;
+    LOG_DEBUG << "Adding a new attribute " << attributes[i].predicate
+              << LOG_END;
     const Attribute &a = attributes[i];
     // create
     int64_t idx = writeAttribute(a.predicate, a.data);

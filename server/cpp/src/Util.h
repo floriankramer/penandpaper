@@ -34,7 +34,8 @@ std::vector<B> map(std::vector<A> in, std::function<B(const A &)> f) {
   return r;
 }
 
-inline std::vector<std::string> splitString(const std::string &s, char delimiter) {
+inline std::vector<std::string> splitString(const std::string &s,
+                                            char delimiter) {
   std::vector<std::string> parts;
   size_t begin = 0, end = 0;
   // Skip any leading whitespace
@@ -70,7 +71,8 @@ std::vector<std::string> splitStringWs(const std::string &s);
 /**
  * @return The string up to the num_words +1 occurence of a block of whitespace
  */
-std::string firstWords(const std::string &s, size_t num_words);
+std::string firstWords(const std::string &s, size_t num_words,
+                       bool with_trailing_ws = false);
 
 std::vector<char> base64Encode(const void *data, size_t length);
 // encode three bytes in four characters

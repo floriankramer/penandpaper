@@ -167,7 +167,8 @@ std::vector<std::string> splitStringWs(const std::string &s) {
   return res;
 }
 
-std::string firstWords(const std::string &s, size_t num_words) {
+std::string firstWords(const std::string &s, size_t num_words,
+                       bool with_trailing_ws) {
   size_t pos = 0;
   size_t word_count = 0;
   // skip leading whitespace
@@ -181,12 +182,16 @@ std::string firstWords(const std::string &s, size_t num_words) {
       pos++;
     }
     word_count++;
-    if (word_count >= num_words) {
+    if (!with_trailing_ws && word_count >= num_words) {
       break;
     }
     // skip the next bit of whitespace
     while (pos < s.size() && std::isspace(s[pos])) {
       pos++;
+    }
+    // Include the trailing whitspace
+    if (with_trailing_ws && word_count >= num_words) {
+      break;
     }
   }
   return s.substr(0, pos);

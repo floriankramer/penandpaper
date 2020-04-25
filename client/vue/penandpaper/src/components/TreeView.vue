@@ -83,7 +83,7 @@ export default class Wiki extends Vue {
     }
     // Dfs on the tree
     let rootLevel = new DfsLevel(this.tree)
-    rootLevel.html = '<ul class="tree-view"><li class="tree-view-visible tree-view">' + this.tree.html + '</li>'
+    rootLevel.html = '<ul class="tree-view"><li class="tree-view-visible tree-view">' + this.tree.html
     let stack : DfsLevel[] = [rootLevel]
     while (stack.length > 0) {
       let l = stack[stack.length - 1]
@@ -93,7 +93,7 @@ export default class Wiki extends Vue {
           if (l.item.children.length > 0) {
             l.html += '</ul>'
           }
-          l.html += '</ul>'
+          l.html += '</li></ul>'
           // we are done with the root node
           break
         }
@@ -106,6 +106,7 @@ export default class Wiki extends Vue {
         if (l.item.children.length > 0) {
           l.html += '</ul>'
         }
+        l.html += '</li>'
         parent.html += l.html
         stack.pop()
       } else {
@@ -113,7 +114,7 @@ export default class Wiki extends Vue {
         let ci = l.childIndex
         let child = l.item.children[ci]
         l.childIndex++
-        let html = '<li class="tree-view tree-view-visible">' + child.html + '</li>'
+        let html = '<li class="tree-view tree-view-visible">' + child.html
         let cl = new DfsLevel(child)
         cl.html = html
         stack.push(cl)
@@ -139,7 +140,7 @@ li.tree-view {
   width: max-content;
 }
 
-.tree-view-hidden ~ul {
+.tree-view-hidden ul {
   display: none;
 }
 
