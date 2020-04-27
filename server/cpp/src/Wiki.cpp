@@ -285,6 +285,14 @@ void Wiki::handleList(httplib::Response &resp) {
   while (!dfs_stack.empty()) {
     DfsLevel &l = dfs_stack.back();
     if (l.child_index >= l.entry->children().size()) {
+      // sort the nodes children alphabetically
+      if (l.j.count("children") > 0) {
+        std::sort(l.j["children"].begin(), l.j["children"].end(),
+                  [](const json &left, const json &right) {
+                    return left["name"].get<std::string>() <
+                           right["name"].get<std::string>();
+                  });
+      }
       // we are done with this node
       if (dfs_stack.size() == 1) {
         // we are done with the root node
