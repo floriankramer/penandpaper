@@ -139,6 +139,8 @@ class Wiki : public HttpServer::RequestHandler {
                     httplib::Response &resp);
   void handleCompleteEntity(const httplib::Request &req,
                             httplib::Response &resp);
+  void handleCompleteAttrRef(const httplib::Request &req,
+                            httplib::Response &resp);
 
   // This scans the given entry and automatically references other entries
   // it finds in the entries text using entry autocompletion.
@@ -157,6 +159,7 @@ class Wiki : public HttpServer::RequestHandler {
   std::unordered_map<std::string, std::string> _markdown_cache;
 
   QGramIndex _ids_search_index;
+  QGramIndex _attr_ref_search_index;
 
   Entry _root;
 

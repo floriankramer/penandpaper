@@ -110,20 +110,35 @@ Wiki::Wiki(Database *db)
 
 void Wiki::onRequest(const httplib::Request &req, httplib::Response &resp) {
   std::vector<std::string> parts = util::splitString(req.path, '/');
-  if (parts.size() != 3 &&
-      !(parts.size() == 2 && (parts[1] == "list" || parts[1] == "complete"))) {
+  LOG_INFO << "Wiki " << req.method << " request for " << req.path << LOG_END;
+  if (parts.size() < 2) {
     LOG_ERROR << "Invalid wiki request at path " << req.path << LOG_END;
     resp.status = 400;
     resp.body = "Invalid wiki request.";
     return;
   }
-  LOG_INFO << "Wiki " << req.method << " request for " << req.path << LOG_END;
   std::string action = parts[1];
-  if (action == "list") {
+  if (action == "list" && parts.size() == 2) {
     handleList(resp);
-  } else if (action == "complete") {
-    handleCompleteEntity(req, resp);
-  } else if (action == "get") {
+    return;
+  }
+  if (action == "complete" && parts.size() == 3) {
+    if (parts[2] == "entry") {
+      handleCompleteEntity(req, resp);
+      return;
+    } else if (parts[2] == "reference") {
+      handleCompleteAttrRef(req, resp);
+      return;
+    }
+  }
+
+  if (parts.size() != 3) {
+    LOG_ERROR << "Invalid wiki request at path " << req.path << LOG_END;
+    resp.status = 400;
+    resp.body = "Invalid wiki request.";
+    return;
+  }
+  if (action == "get") {
     handleGet(parts[2], resp);
   } else if (action == "raw") {
     handleRaw(parts[2], resp);
@@ -213,6 +228,44 @@ void Wiki::handleCompleteEntity(const httplib::Request &req,
   }
 }
 
+void Wiki::handleCompleteAttrRef(const httplib::Request &req,
+                                 httplib::Response &resp) {
+  using nlohmann::json;
+  struct Completion {
+    QGramIndex::Match match;
+    size_t num_words_used;
+    std::string replaces;
+
+    bool operator<(const Completion &other) { return match < other.match; }
+  };
+  try {
+    json jreq = json::parse(req.body);
+    std::string context = jreq.at("context");
+    std::vector<QGramIndex::Match> results =
+        _attr_ref_search_index.query(context);
+
+    json j = std::vector<json>();
+    for (size_t i = 0; i < results.size(); ++i) {
+      json completion;
+      const QGramIndex::Match &m = results[i];
+      // append the replacement to the unused part of the context
+      completion["value"] = m.value.value;
+      completion["name"] = m.value.alias;
+      completion["replaces"] = context;
+      j.push_back(completion);
+    }
+
+    resp.status = 200;
+    resp.set_header("Content-Type", "application/json");
+    resp.body = j.dump();
+  } catch (const std::exception &e) {
+    LOG_WARN << "Wiki: Error while handling a completion request: " << e.what()
+             << LOG_END;
+    resp.status = 400;
+    resp.body = "Malformed completion request.";
+  }
+}
+
 void Wiki::handleList(httplib::Response &resp) {
   using nlohmann::json;
 
@@ -259,38 +312,57 @@ void Wiki::handleList(httplib::Response &resp) {
 }
 
 void Wiki::handleGet(const std::string &id, httplib::Response &resp) {
+  using nlohmann::json;
   auto it = _entry_map.find(id);
   std::string cache_key = id + ":" + TEXT_ATTR;
   if (it != _entry_map.end()) {
-    if (_markdown_cache.count(cache_key) > 0) {
-      resp.status = 200;
-      resp.body = _markdown_cache[cache_key];
-    } else {
-      std::string raw;
-      const std::vector<IndexedAttributeData> *attr =
-          it->second->getAttribute(TEXT_ATTR);
-      if (attr != nullptr && !attr->empty()) {
-        raw = attr->at(0).data.value;
-      } else {
-        LOG_WARN << "Entry " << id << " has no " << TEXT_ATTR << LOG_END;
-      }
-      Markdown m(raw, std::bind(&Wiki::lookupAttribute, this,
-                                std::placeholders::_1, std::placeholders::_2));
-      try {
-        std::string parsed = m.process();
-        if (_markdown_cache.size() > MAX_MARKDOWN_CACHE_SIZE) {
-          // just erase any element.
-          _markdown_cache.erase(_markdown_cache.begin());
+    json entry;
+    for (auto &ait : it->second->attributes()) {
+      for (const IndexedAttributeData &a : ait.second) {
+        json attr;
+        attr["predicate"] = ait.first;
+        if (ait.first == TEXT_ATTR) {
+          if (_markdown_cache.count(cache_key) > 0) {
+            attr["value"] = _markdown_cache[cache_key];
+          } else {
+            std::string raw;
+            const std::vector<IndexedAttributeData> *attrs =
+                it->second->getAttribute(TEXT_ATTR);
+            if (attrs != nullptr && !attrs->empty()) {
+              raw = attrs->at(0).data.value;
+            } else {
+              LOG_WARN << "Entry " << id << " has no " << TEXT_ATTR << LOG_END;
+            }
+            Markdown m(raw,
+                       std::bind(&Wiki::lookupAttribute, this,
+                                 std::placeholders::_1, std::placeholders::_2));
+            try {
+              std::string parsed = m.process();
+              if (_markdown_cache.size() > MAX_MARKDOWN_CACHE_SIZE) {
+                // just erase any element.
+                _markdown_cache.erase(_markdown_cache.begin());
+              }
+              _markdown_cache[cache_key] = parsed;
+              attr["value"] = parsed;
+            } catch (const std::exception &e) {
+              LOG_WARN << "Error while parsing the markdown: " << e.what()
+                       << LOG_END;
+              resp.status = 500;
+              resp.body = "Unable to parse the input markdown<br/>" + raw;
+              return;
+            }
+          }
+        } else {
+          attr["value"] = a.data.value;
         }
-        _markdown_cache[cache_key] = parsed;
-        resp.status = 200;
-        resp.body = parsed;
-      } catch (const std::exception &e) {
-        LOG_WARN << "Error while parsing the markdown: " << e.what() << LOG_END;
-        resp.status = 200;
-        resp.body = "Unable to parse the input markdown<br/>" + raw;
+        attr["isInteresting"] = (a.data.flags & ATTR_INTERESTING) > 0;
+        attr["isInheritable"] = (a.data.flags & ATTR_INHERITABLE) > 0;
+        attr["isDate"] = (a.data.flags & ATTR_DATE) > 0;
+        entry.push_back(attr);
       }
     }
+    resp.status = 200;
+    resp.body = entry.dump();
   } else {
     resp.status = 404;
     resp.body = "No such wiki entry";
@@ -473,6 +545,7 @@ std::string Wiki::lookupAttribute(const std::string &id,
 }
 
 void Wiki::removeFromSearchIndex(Entry *e) {
+  // Remove it from the entry search index
   const auto *names = e->getAttribute("name");
   if (names != nullptr) {
     for (const IndexedAttributeData &name : *names) {
@@ -486,9 +559,16 @@ void Wiki::removeFromSearchIndex(Entry *e) {
     }
   }
   _ids_search_index.remove(e->id(), e->id());
+
+  // Remove it from the attr ref search index
+  for (const auto &a : e->attributes()) {
+    std::string s = e->id() + ":" + a.first;
+    _attr_ref_search_index.remove(s, s);
+  }
 }
 
 void Wiki::addToSearchIndex(Entry *e) {
+  // Add to the entry search index
   const auto *names = e->getAttribute("name");
   if (names != nullptr) {
     for (const IndexedAttributeData &name : *names) {
@@ -502,6 +582,12 @@ void Wiki::addToSearchIndex(Entry *e) {
     }
   }
   _ids_search_index.add(e->id(), e->id());
+
+  // Add it to the attribute ref search index
+  for (const auto &a : e->attributes()) {
+    std::string s = e->id() + ":" + a.first;
+    _attr_ref_search_index.add(s, s);
+  }
 }
 
 // =============================================================================

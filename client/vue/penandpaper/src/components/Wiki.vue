@@ -20,7 +20,17 @@
       <TreeView v-bind:tree="indexTree" v-on:show="loadPage" v-on:new="newPage" v-on:edit="editPage" v-on:delete="deletePage"/>
     </div>
     <div class="wiki-center">
-      <div id="wiki-content" v-on:click.prevent="interceptLink" v-show="showContent" v-html="content">
+      <div id="wiki-content" v-on:click="interceptLink" v-show="showContent" >
+        <details>
+          <summary>Attributes</summary>
+          <table>
+            <tr v-for="attr in displayedAttributes" v-bind:key="attr.idx">
+              <td>{{attr.data.predicate}}</td><td>{{attr.data.value}}</td>
+            </tr>
+          </table>
+        </details>
+        <hr/>
+        <span v-html="content"></span>
       </div>
       <div id="wiki-edit" v-show="showEdit">
         <form>
@@ -97,6 +107,15 @@ class Attribute {
   }
 }
 
+class DisplayedAttribute {
+  idx: number
+  data: Attribute
+  constructor (idx: number, data: Attribute) {
+    this.idx = idx
+    this.data = data
+  }
+}
+
 @Component({
   components: {
     TreeView
@@ -108,6 +127,8 @@ export default class Wiki extends Vue {
 
   id: string = ''
   content: string = ''
+  displayedAttributes: DisplayedAttribute[] = []
+
   rawContent: string = ''
   rawContentElem: HTMLTextAreaElement | null = null
   cmTheme: string = 'panda-syntax'
@@ -268,7 +289,16 @@ export default class Wiki extends Vue {
     this.showEdit = false
     this.id = id
     $.get('/wiki/get/' + id, (body) => {
-      this.content = body
+      let attrs = JSON.parse(body)
+      let nDAttr: DisplayedAttribute[] = []
+      attrs.forEach((attr: Attribute) => {
+        if (attr.predicate === 'text') {
+          this.content = attr.value
+        } else if (attr.predicate !== 'parent') {
+          nDAttr.push(new DisplayedAttribute(nDAttr.length, attr))
+        }
+      })
+      this.displayedAttributes = nDAttr
     }).fail(() => {
       this.content = 'Unable to load the specified page'
     })
@@ -285,6 +315,7 @@ export default class Wiki extends Vue {
         if (target !== null) {
           this.loadPage(target)
         }
+        event.preventDefault()
       }
     }
   }
@@ -300,10 +331,15 @@ export default class Wiki extends Vue {
     let end = new CodeMirror.Pos(c.line, c.ch)
     // Extract at least 16 and up to 32 characters from the text.
     let ctx = ''
+    let completeAttrRef = false
     for (let pos = 0; pos < MAX_CTX_SIZE && !(c.line < 0 && c.ch < 0); ++pos) {
       let line = cm.getLine(c.line)
       let char = line[c.ch]
       if (char === ')' || char === ']') {
+        break
+      }
+      if (char === '[') {
+        completeAttrRef = true
         break
       }
       if (char !== undefined) {
@@ -350,12 +386,21 @@ export default class Wiki extends Vue {
     }
     ctx = ctx.substring(firstNonNl, ctx.length)
 
+    let completionEndpoint = '/wiki/complete/'
+    let completionPostfix = ''
+
+    if (completeAttrRef) {
+      completionEndpoint += 'reference'
+      completionPostfix = ']'
+    } else {
+      completionEndpoint += 'entry'
+    }
     let hints = { list: [], from: start, to: end } as CodeMirror.Hints
     return new Promise((resolve, reject) => {
-      $.post('/wiki/complete', JSON.stringify({ context: ctx }), (result) => {
+      $.post(completionEndpoint, JSON.stringify({ context: ctx }), (result) => {
         result.forEach((hint: any) => {
           hints.list.push({
-            text: hint.value,
+            text: hint.value + completionPostfix,
             displayText: hint.name + ' (' + hint.replaces + ')'
           })
         })
@@ -648,6 +693,9 @@ div .wiki-center {
   visibility: visible;
 }
 
+td {
+  padding-right: 25px;
+}
 </style>
 
 <style>
