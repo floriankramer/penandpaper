@@ -50,7 +50,8 @@ class WebSocketServer {
 
  public:
   WebSocketServer(std::shared_ptr<Authenticator> authenticator,
-                  OnMsgHandler_t on_msg, OnConnectHandler_t on_connect);
+                  OnMsgHandler_t on_msg, OnConnectHandler_t on_connect,
+                  std::string base_dir);
 
   void disableKeyCheck();
   void broadcast(const std::string &data);
@@ -70,4 +71,5 @@ class WebSocketServer {
   OnConnectHandler_t _on_connect;
 
   bool _do_key_check;
+  std::string _base_dir;
 };

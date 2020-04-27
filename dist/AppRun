@@ -1,0 +1,3 @@
+#!/bin/bash
+BASE=$(dirname "${BASH_SOURCE[0]}")
+"$BASE"/usr/bin/penandpaper-server -d "$BASE"/usr/share/penandpaper/ $@

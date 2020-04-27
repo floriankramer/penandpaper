@@ -14,18 +14,54 @@
  * limitations under the License.
  */
 
+#include <getopt.h>
+
 #include <functional>
 #include <memory>
 
 #include "Authenticator.h"
 #include "Database.h"
 #include "HttpServer.h"
+#include "Logger.h"
 #include "Simulation.h"
 #include "WebSocketServer.h"
 #include "Wiki.h"
 
+struct Settings {
+  int do_keycheck = true;
+  std::string base_dir = ".";
+};
+
+Settings parseSettings(int argc, char **argv) {
+  Settings s;
+  struct option long_options[] = {
+      {"no-key", no_argument, &s.do_keycheck, false},
+      {"data-dir", required_argument, 0, 'd'},
+      {0, 0, 0, 0}};
+  int option_index = 0;
+  while (true) {
+    int c = getopt_long(argc, argv, "d:", long_options, &option_index);
+    if (c < 0) {
+      break;
+    }
+    switch (c) {
+      case 0:
+        // Flag option, nothing to do
+        break;
+      case 'd':
+        s.base_dir = optarg;
+      case '?':
+        break;
+      default:
+        LOG_ERROR << "Unexpected argument: " << char(c) << LOG_END;
+        break;
+    }
+  }
+  return s;
+}
+
 int main(int argc, char **argv) {
-  bool do_keycheck = !(argc == 2 && strcmp(argv[1], "--no-key") == 0);
+  Settings settings = parseSettings(argc, argv);
 
   std::shared_ptr<Authenticator> authenticator =
       std::make_shared<Authenticator>();
@@ -36,13 +72,13 @@ int main(int argc, char **argv) {
   WebSocketServer wss(
       authenticator,
       std::bind(&Simulation::onMessage, &sim, std::placeholders::_1),
-      std::bind(&Simulation::onNewClient, &sim));
+      std::bind(&Simulation::onNewClient, &sim), settings.base_dir);
   sim.setWebSocketServer(&wss);
-  if (!do_keycheck) {
+  if (!settings.do_keycheck) {
     wss.disableKeyCheck();
   }
 
-  HttpServer server(authenticator, do_keycheck);
+  HttpServer server(authenticator, settings.base_dir, settings.do_keycheck);
   server.registerRequestHandler("/wiki/.*", HttpServer::RequestType::GET, wiki);
   server.registerRequestHandler("/wiki/.*", HttpServer::RequestType::POST,
                                 wiki);

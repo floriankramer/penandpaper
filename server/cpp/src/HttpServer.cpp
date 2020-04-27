@@ -29,10 +29,15 @@
 #include "Random.h"
 
 HttpServer::HttpServer(std::shared_ptr<Authenticator> authenticator,
-                       bool do_keycheck)
+                       const std::string &base_dir, bool do_keycheck)
     : _authenticator(authenticator),
-      _do_keycheck(do_keycheck),
-      _server("./cert/certificate.pem", "./cert/key.pem") {}
+      _base_dir(base_dir),
+      _do_keycheck(do_keycheck) {
+  std::string cert_path = base_dir + "/cert/certificate.pem";
+  std::string key_path = base_dir + "/cert/key.pem";
+  _server =
+      std::make_unique<httplib::SSLServer>(cert_path.c_str(), key_path.c_str());
+}
 
 void HttpServer::registerRequestHandler(
     const std::string &path, RequestType type,
@@ -41,19 +46,21 @@ void HttpServer::registerRequestHandler(
       std::bind(&RequestHandler::onRequest, handler.get(),
                 std::placeholders::_1, std::placeholders::_2);
   if (type == RequestType::GET) {
-    _server.Get(path.c_str(), callback);
+    _server->Get(path.c_str(), callback);
   } else {
-    _server.Post(path.c_str(), callback);
+    _server->Post(path.c_str(), callback);
   }
 }
 
 void HttpServer::run() {
   std::string key = Random::secureRandomString(32);
   std::string basepath;
-  {
+  if (_base_dir == ".") {
     char buffer[PATH_MAX];
     getcwd(buffer, PATH_MAX);
     basepath = buffer;
+  } else {
+    basepath = _base_dir;
   }
   basepath += "/html";
   {
@@ -67,8 +74,8 @@ void HttpServer::run() {
     LOG_INFO << "The key is: " << key << LOG_END;
   }
 
-  _server.Get(".*", [this, &key, &basepath](const httplib::Request &req,
-                                            httplib::Response &resp) {
+  _server->Get(".*", [this, &key, &basepath](const httplib::Request &req,
+                                             httplib::Response &resp) {
     std::string cookies = req.get_header_value("Cookie");
     if (_do_keycheck && req.path != "/auth") {
       if (!_authenticator->authenticateFromCookies(cookies)) {
@@ -155,7 +162,7 @@ void HttpServer::run() {
   while (true) {
     try {
       LOG_INFO << "Starting the http server on 8082..." << LOG_END;
-      _server.listen("0.0.0.0", 8082);
+      _server->listen("0.0.0.0", 8082);
       std::this_thread::sleep_for(std::chrono::seconds(15));
     } catch (const std::exception &e) {
       LOG_ERROR << "Unable to listen on 0.0.0.0:8082 : " << e.what() << LOG_END;

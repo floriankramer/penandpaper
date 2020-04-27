@@ -24,11 +24,13 @@
 
 WebSocketServer::WebSocketServer(std::shared_ptr<Authenticator> authenticator,
                                  OnMsgHandler_t on_msg,
-                                 OnConnectHandler_t on_connect)
+                                 OnConnectHandler_t on_connect,
+                                 std::string base_dir)
     : _authenticator(authenticator),
       _on_msg(on_msg),
       _on_connect(on_connect),
-      _do_key_check(true) {
+      _do_key_check(true),
+      _base_dir(base_dir) {
   std::thread t(&WebSocketServer::run, this);
   t.detach();
 }
@@ -92,7 +94,7 @@ void WebSocketServer::run() {
         }
       });
 
-      _socket.set_tls_init_handler([](websocketpp::connection_hdl conn)
+      _socket.set_tls_init_handler([this](websocketpp::connection_hdl conn)
                                        -> ssl_ctx_pt {
         ssl_ctx_pt ctx =
             std::make_shared<asio::ssl::context>(asio::ssl::context::sslv23);
@@ -101,9 +103,9 @@ void WebSocketServer::run() {
               asio::ssl::context::default_workarounds |
               asio::ssl::context::no_sslv2 | asio::ssl::context::no_sslv3 |
               asio::ssl::context::no_tlsv1 | asio::ssl::context::single_dh_use);
-          ctx->use_certificate_chain_file("./cert/certificate.pem");
-          ctx->use_private_key_file("./cert/key.pem", asio::ssl::context::pem);
-          ctx->use_tmp_dh_file("./cert/dh1024.pem");
+          ctx->use_certificate_chain_file(_base_dir + "/cert/certificate.pem");
+          ctx->use_private_key_file(_base_dir + "/cert/key.pem", asio::ssl::context::pem);
+          ctx->use_tmp_dh_file(_base_dir + "/cert/dh1024.pem");
         } catch (const std::exception &e) {
           LOG_ERROR << "Error during tls initializtion " << e.what() << LOG_END;
         }

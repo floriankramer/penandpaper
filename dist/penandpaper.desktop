@@ -1,0 +1,8 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=PenAndPaper
+TryExec=penandpaper-server
+Exec=penandpaper-server %F
+Icon=penandpaper
+Categories=Game;Office;
