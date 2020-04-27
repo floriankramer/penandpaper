@@ -157,7 +157,7 @@ export default class ToolFurniture extends Tool {
       renderer.addActor(this.fontActor, RenderLayers.TOOL)
     }
 
-    let t = this.currentFurniture.size.x.toFixed(2) + 'm x ' + this.currentFurniture.size.y.toFixed(2) + 'm'
+    let t = (this.currentFurniture.size.x * 2).toFixed(2) + 'm x ' + (this.currentFurniture.size.y * 2).toFixed(2) + 'm'
     this.fontActor.setText(t)
     this.fontActor.setPosition(this.currentFurniture.position.x + this.currentFurniture.size.x, this.currentFurniture.position.y - this.currentFurniture.size.y)
 

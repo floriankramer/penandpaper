@@ -294,9 +294,11 @@ WebSocketServer::Response Simulation::onChat(const Packet &j) {
     return resp;
   } else if (msg.empty()) {
     return {"", WebSocketServer::ResponseType::SILENCE};
+  } else {
+    json modified = j.json();
+    modified["data"]["sender"] = sender;
+    return {modified.dump(), WebSocketServer::ResponseType::BROADCAST};
   }
-
-  return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
 WebSocketServer::Response Simulation::onCreateDoodadLine(const Packet &j) {

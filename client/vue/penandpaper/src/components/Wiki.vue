@@ -66,6 +66,7 @@ import 'codemirror/addon/hint/show-hint.css'
 import 'codemirror/mode/markdown/markdown.js'
 
 import 'codemirror/lib/codemirror.css'
+import 'codemirror/addon/display/rulers.js'
 
 import 'codemirror/theme/railscasts.css'
 import 'codemirror/theme/pastel-on-dark.css'
@@ -128,6 +129,7 @@ export default class Wiki extends Vue {
     } else {
       this.structured = 'parent    root'
     }
+    this.initCodeMirror()
     if (this.cmEditor != null) {
       this.cmEditor.setValue(this.rawContent)
     }
@@ -368,9 +370,18 @@ export default class Wiki extends Vue {
     this.loadIndex()
   }
 
-  initCodeMirror () {
+  async initCodeMirror () {
+    this.showContent = false
+    this.showEdit = true
     if (this.rawContentElem === null) {
       this.rawContentElem = document.getElementById('wiki-raw-content') as (HTMLTextAreaElement | null)
+      if (this.rawContentElem === null) {
+        console.log('unable to initialize codemirror')
+        return
+      }
+    }
+    while (this.rawContentElem.offsetParent === null || this.rawContentElem.clientHeight === 0 || this.rawContentElem.clientWidth === 0) {
+      await new Promise(resolve => setTimeout(resolve, 150))
     }
     if (this.cmEditor === null) {
       if (this.rawContentElem !== null) {
@@ -380,8 +391,6 @@ export default class Wiki extends Vue {
           mode: 'markdown',
           extraKeys: {
             'Space': (cm: CodeMirror.Editor) => {
-              // TODO: This continues calling the autocompleteContent function
-              // even after other characters where pressed
               cm.showHint({
                 hint: this.autocompleteContent,
                 completeSingle: false,
@@ -391,6 +400,13 @@ export default class Wiki extends Vue {
             }
           }
         })
+
+        // The typing for cmEditor only supports setting the base options.
+        // To circumvent that we cast cme to any, and then operate on that
+        // object
+        let cme = this.cmEditor as any
+        cme.setOption('rulers', [{ column: 100 }])
+
         this.cmEditor.on('changes', this.onTextChanged)
       } else {
         console.log('Warning: Unable to initialize code mirror, as the required text area was not found')

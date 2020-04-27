@@ -168,7 +168,9 @@ class Markdown {
   };
 
  public:
-  Markdown(const std::string &in);
+  Markdown(const std::string &in,
+           std::function<std::string(const std::string &, const std::string &)>
+               lookup_attribute = nullptr);
   virtual ~Markdown();
 
   std::string process();
@@ -189,4 +191,7 @@ class Markdown {
 
   // tracks wether we are inside of a set of <p> tags
   bool _in_paragraph;
+
+  std::function <
+      std::string(const std::string &, const std::string &)> _lookup_attribute;
 };

@@ -464,7 +464,11 @@ void Markdown::Lexer::tokenize() {
 // Markdown
 // =============================================================================
 
-Markdown::Markdown(const std::string &in) : _lexer(in) {}
+Markdown::Markdown(
+    const std::string &in,
+    std::function<std::string(const std::string &, const std::string &)>
+        lookup_attribute)
+    : _lexer(in), _lookup_attribute(lookup_attribute) {}
 Markdown::~Markdown() {}
 
 std::string Markdown::process() {
@@ -582,6 +586,9 @@ bool Markdown::parseList(std::ostream &out, TokenType list_mark,
   out << "<" << list_tag << "><" << item_tag << ">";
   while (!_lexer.isDone()) {
     parseLine(out);
+    if (_lexer.isDone()) {
+      break;
+    }
     if (_lexer.accept(TokenType::EMPTY_LINE)) {
       break;
     } else {
@@ -700,8 +707,22 @@ bool Markdown::parseLink(std::ostream &out) {
   link_name << current->substr(name_start + 1, name_end - name_start - 1);
   if (is_attribute_link) {
     // An attribute link doesn't use the second pair of braces
-    out << pre_link << " [attribute " << link_name.str() << " not found] "
-        << current->substr(name_end + 1);
+    out << pre_link;
+    if (_lookup_attribute == nullptr) {
+      out << " [attribute " << link_name.str() << " not found] ";
+    } else {
+      std::string ln = link_name.str();
+      size_t spos = ln.find(':');
+      if (spos == std::string::npos) {
+        throw std::runtime_error(
+            "Bug in the markdown parser: wrongly identified a link as an "
+            "attribute link.");
+      }
+      std::string id = ln.substr(0, spos);
+      std::string predicate = ln.substr(spos + 1);
+      out << _lookup_attribute(id, predicate);
+    }
+    out << current->substr(name_end + 1);
     // We processed the current token, advance
     _lexer.any();
     return true;

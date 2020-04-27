@@ -274,7 +274,8 @@ void Wiki::handleGet(const std::string &id, httplib::Response &resp) {
       } else {
         LOG_WARN << "Entry " << id << " has no " << TEXT_ATTR << LOG_END;
       }
-      Markdown m(raw);
+      Markdown m(raw, std::bind(&Wiki::lookupAttribute, this,
+                                std::placeholders::_1, std::placeholders::_2));
       try {
         std::string parsed = m.process();
         if (_markdown_cache.size() > MAX_MARKDOWN_CACHE_SIZE) {
@@ -285,6 +286,7 @@ void Wiki::handleGet(const std::string &id, httplib::Response &resp) {
         resp.status = 200;
         resp.body = parsed;
       } catch (const std::exception &e) {
+        LOG_WARN << "Error while parsing the markdown: " << e.what() << LOG_END;
         resp.status = 200;
         resp.body = "Unable to parse the input markdown<br/>" + raw;
       }
@@ -371,10 +373,9 @@ void Wiki::handleSave(const std::string &id, const httplib::Request &req,
       _entry_map[id] = e;
       addToSearchIndex(e);
     }
-    auto mit = _markdown_cache.find(id + ":" + TEXT_ATTR);
-    if (mit != _markdown_cache.end()) {
-      _markdown_cache.erase(mit);
-    }
+    // This is a very aggressive cache invalidation strategy. It is used, as it
+    // is simple and ensures all attribute refs are recomputed.
+    _markdown_cache.clear();
     resp.status = 200;
     resp.body = "Save succesfull";
     return;
@@ -444,6 +445,30 @@ void Wiki::autoLink(Entry *e, double score_threshold) {
     // block is found.
 
     // Update the cache, invalidate the markdown cache, write to disk
+  }
+}
+
+std::string Wiki::lookupAttribute(const std::string &id,
+                                  const std::string &predicate) {
+  auto eit = _entry_map.find(id);
+  if (eit == _entry_map.end()) {
+    return "[Id " + id + " unknown]";
+  }
+  const auto *vals = eit->second->getAttribute(predicate);
+  if (vals == nullptr) {
+    return "[" + predicate + " is empty]";
+  }
+  if (vals->size() == 1) {
+    return (*vals)[0].data.value;
+  } else {
+    std::ostringstream out;
+    for (size_t i = 0; i < vals->size(); ++i) {
+      out << vals->at(i).data.value;
+      if (i + 1 < vals->size()) {
+        out << ", ";
+      }
+    }
+    return out.str();
   }
 }
 

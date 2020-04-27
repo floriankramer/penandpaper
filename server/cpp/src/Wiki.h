@@ -104,13 +104,14 @@ class Wiki : public HttpServer::RequestHandler {
     Entry *parent();
     const std::vector<Entry *> &children() const;
 
-    const std::unordered_map<std::string, std::vector<IndexedAttributeData>> &attributes() const;
+    const std::unordered_map<std::string, std::vector<IndexedAttributeData>>
+        &attributes() const;
 
    private:
     int64_t writeAttribute(const std::string &predicate,
                            const AttributeData &value);
     void updateAttribute(int64_t idx, const std::string &new_predicate,
-                            const AttributeData &new_value);
+                         const AttributeData &new_value);
 
     std::string _id;
 
@@ -143,6 +144,9 @@ class Wiki : public HttpServer::RequestHandler {
   // it finds in the entries text using entry autocompletion.
   void autoLink(Entry *e, double score_threshold = 0.95);
 
+  // Used to resolve attribute links
+  std::string lookupAttribute(const std::string &id,
+                              const std::string &predicate);
 
   void removeFromSearchIndex(Entry *e);
   void addToSearchIndex(Entry *e);
