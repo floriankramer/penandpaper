@@ -17,7 +17,7 @@
 <template>
   <div class="wiki-container">
     <div class="wiki-sidebar">
-      <TreeView v-bind:tree="indexTree" v-on:show="loadPage" v-on:new="newPage" v-on:edit="editPage" v-on:delete="deletePage"/>
+      <TreeView v-bind:tree="indexTree" v-on:show="loadPage" v-on:new="newPage" v-on:edit="editPage" v-on:delete="deletePage" v-on:autoLink="autoLink" v-on:autoLinkAll="autoLinkAll"/>
     </div>
     <div class="wiki-center">
       <div id="wiki-content" v-on:click="interceptLink" v-show="showContent" >
@@ -411,6 +411,48 @@ export default class Wiki extends Vue {
     })
   }
 
+  autoLink (id: string) {
+    let didConfirm = false
+    if (this.showEdit) {
+      if (confirm('Do you wish to save and close this article and apply autolinking?')) {
+        this.savePage()
+        didConfirm = true
+      } else {
+        return
+      }
+    }
+    if (didConfirm || confirm('Are you sure you want to automatically create links in this entry?')) {
+      $.get('/wiki/autolink/' + id, (body) => {
+        if (!this.showEdit) {
+          this.loadPage(id)
+        } else {
+          alert('Unable to show the autolink results: you are currently editing an article.')
+        }
+      }).fail(() => {
+        alert('Unable to autolink ' + id)
+      })
+    }
+  }
+
+  autoLinkAll () {
+    let didConfirm = false
+    if (this.showEdit) {
+      if (confirm('Do you wish to save and close this article and apply autolinking?')) {
+        this.savePage()
+        didConfirm = true
+      } else {
+        return
+      }
+    }
+    if (didConfirm || confirm('Are you sure you want to automatically create links in all entries?')) {
+      $.get('/wiki/autolink', (body) => {
+        alert('Autolinked all articles.')
+      }).fail(() => {
+        alert('An error occured while autolinking.')
+      })
+    }
+  }
+
   mounted () {
     this.loadIndex()
   }
@@ -599,6 +641,8 @@ export default class Wiki extends Vue {
       nIdxTree.html = idxItems.name
       nIdxTree.html += '<span style="width: 25px; display: inline-block"></span>'
       nIdxTree.html += '<span data-event="new" data-payload="">' + '+' + '</span>'
+      nIdxTree.html += '<span style="width: 7px; display: inline-block"></span>'
+      nIdxTree.html += '<span data-event="autoLinkAll" data-payload="">' + 'L' + '</span>'
       // Dfs on the tree
       let stack : DfsLevel[] = [new DfsLevel(idxItems, nIdxTree)]
       while (stack.length > 0) {
@@ -622,6 +666,8 @@ export default class Wiki extends Vue {
           idx.html += '<span data-event="edit" data-payload="' + child.id + '">' + 'e' + '</span>'
           idx.html += '<span style="width: 7px; display: inline-block"></span>'
           idx.html += '<span data-event="delete" data-payload="' + child.id + '">' + '-' + '</span>'
+          idx.html += '<span style="width: 7px; display: inline-block"></span>'
+          idx.html += '<span data-event="autoLink" data-payload="' + child.id + '">' + 'L' + '</span>'
           l.idxItem.children.push(idx)
           let cl = new DfsLevel(child, idx)
           stack.push(cl)

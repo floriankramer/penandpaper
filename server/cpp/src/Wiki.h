@@ -88,6 +88,10 @@ class Wiki : public HttpServer::RequestHandler {
      **/
     void setAttributes(const std::vector<Attribute> &attributes);
 
+    void setAttribute(const std::string &predicate,
+                      const IndexedAttributeData *d,
+                      const AttributeData &new_value);
+
     void removeAttribute(const std::string &predicate);
     void removeAttribute(const std::string &predicate,
                          const std::string &value);
@@ -140,7 +144,10 @@ class Wiki : public HttpServer::RequestHandler {
   void handleCompleteEntity(const httplib::Request &req,
                             httplib::Response &resp);
   void handleCompleteAttrRef(const httplib::Request &req,
-                            httplib::Response &resp);
+                             httplib::Response &resp);
+  void handleAutolink(const std::string &id, const httplib::Request &req,
+                      httplib::Response &resp);
+  void handleAutolinkAll(const httplib::Request &req, httplib::Response &resp);
 
   // This scans the given entry and automatically references other entries
   // it finds in the entries text using entry autocompletion.

@@ -89,7 +89,7 @@ Wiki::Wiki(Database *db)
     c.next();
   }
 
-  // Delete dupliacte entries in the database. According to the spec they can't
+  // Delete duplicate entries in the database. According to the spec they can't
   // exist due to the definition of attribute identity.
   for (int64_t idx : duplicates_to_erase) {
     LOG_INFO << "Removign a duplicate attribute with idx " << idx << LOG_END;
@@ -130,6 +130,15 @@ void Wiki::onRequest(const httplib::Request &req, httplib::Response &resp) {
       handleCompleteAttrRef(req, resp);
       return;
     }
+  }
+
+  if (action == "autolink" && parts.size() > 1 && parts.size() < 4) {
+    if (parts.size() == 3) {
+      handleAutolink(parts[2], req, resp);
+    } else {
+      handleAutolinkAll(req, resp);
+    }
+    return;
   }
 
   if (parts.size() != 3) {
@@ -507,6 +516,28 @@ void Wiki::handleDelete(const std::string &id, const httplib::Request &req,
   return;
 }
 
+void Wiki::handleAutolink(const std::string &id, const httplib::Request &req,
+                          httplib::Response &resp) {
+  auto it = _entry_map.find(id);
+  if (it == _entry_map.end()) {
+    resp.body = "No such entry";
+    resp.status = 400;
+    return;
+  }
+  autoLink(it->second, 0.9);
+  resp.body = "Ok";
+  resp.status = 200;
+}
+
+void Wiki::handleAutolinkAll(const httplib::Request &req,
+                             httplib::Response &resp) {
+  for (auto it : _entry_map) {
+    autoLink(it.second, 0.9);
+  }
+  resp.body = "Ok";
+  resp.status = 200;
+}
+
 void Wiki::autoLink(Entry *e, double score_threshold) {
   const auto *texts = e->getAttribute(TEXT_ATTR);
   if (texts == nullptr || texts->empty()) {
@@ -514,6 +545,10 @@ void Wiki::autoLink(Entry *e, double score_threshold) {
   }
   for (const IndexedAttributeData &data : *texts) {
     const std::string &text = data.data.value;
+    if (text.empty()) {
+      continue;
+    }
+
     std::ostringstream result;
     // a vector of alternating words and whitespace
     std::vector<std::string> ctx_entries;
@@ -523,8 +558,145 @@ void Wiki::autoLink(Entry *e, double score_threshold) {
     // out the last two entries in the vector and write them to result. Ignore
     // any data inside of () or [] and discard the current context if such a
     // block is found.
+    size_t pos = 0;
+    size_t bracket_depth = 0;
+    size_t sq_bracket_depth = 0;
+    bool insideWs = std::isspace(text[0]);
+    size_t start = 0;
+    while (pos < text.size()) {
+      char c = text[pos];
+      // Start anew from the next pos
+      bool clearContext = false;
+      // We are on the character behind a word boundary
+      bool addWord = false;
+
+      // Ignore everything inside of [] or (). This prevents links being
+      // matched again. It () may be used inside of normal text, so this is
+      // slightly to strong, but for now will have to suffice.
+      if (c == '[') {
+        addWord |= sq_bracket_depth == 0;
+        sq_bracket_depth++;
+      } else if (c == '(') {
+        addWord |= bracket_depth == 0;
+        bracket_depth++;
+      } else if (c == ']' && sq_bracket_depth > 0) {
+        sq_bracket_depth--;
+        clearContext |= sq_bracket_depth == 0;
+      } else if (c == ')' && bracket_depth > 0) {
+        bracket_depth--;
+        clearContext |= bracket_depth == 0;
+      }
+
+      if (bracket_depth == 0 && sq_bracket_depth == 0 && !clearContext) {
+        if (std::isspace(c) && !insideWs) {
+          insideWs = true;
+          addWord = true;
+        } else if (!std::isspace(c) && insideWs) {
+          insideWs = false;
+          addWord = true;
+        }
+      }
+      if (!addWord && !clearContext && pos + 1 >= text.size()) {
+        addWord = true;
+        // This is required to trigger autocompletion if the text ends in non
+        // whitespace
+        insideWs = !insideWs;
+        // We need to include the last character
+        pos++;
+      }
+
+      // We are at a word boundary, add the current word and do autocompletion.
+      if (addWord) {
+        ctx_entries.push_back(text.substr(start, pos - start));
+        start = pos;
+        if (ctx_entries.size() > 8) {
+          result << ctx_entries[0];
+          ctx_entries.erase(ctx_entries.begin());
+        }
+        // Only do autocompletion if we just left a word, otherwise we just read
+        // whitespace which we don't complete.
+        if (insideWs) {
+          // Autocomplete on the current context
+          size_t ctx_begin = 0;
+          if (std::isspace(ctx_entries[0][0])) {
+            ctx_begin++;
+          }
+          size_t ctx_end = ctx_entries.size();
+          if (std::isspace(ctx_entries[ctx_end - 1][0])) {
+            ctx_end--;
+          }
+
+          QGramIndex::Match best_match;
+          best_match.score = 0;
+          size_t max_score_words = 0;
+          // Consider any number of 1 to (ctx_end - ctx_begin) words, always
+          // starting from ctx_end - 1 up to ctx_begin. This allows for finding
+          // multi word matches
+          for (size_t i = ctx_end; i > ctx_begin; i -= 2) {
+            std::string ctx = "";
+            for (size_t j = ctx_end; j > i - 1; j--) {
+              if ((j - 1 - ctx_begin) % 2 == 1) {
+                // Replace all whitespace with a single space
+                ctx = ' ' + ctx;
+              } else {
+                ctx = ctx_entries[j - 1] + ctx;
+              }
+            }
+            std::vector<QGramIndex::Match> matches =
+                _ids_search_index.query(ctx);
+            if (matches.empty()) {
+              break;
+            }
+            // We are only interested in the best match. Also don't link an
+            // entry to itself.
+            if (matches[0].score > score_threshold &&
+                matches[0].score > best_match.score &&
+                matches[0].value.value != e->id()) {
+              best_match = matches[0];
+              max_score_words = ctx_end - i + 1;
+            }
+          }
+          if (best_match.score > score_threshold) {
+            // we found a replacement
+            size_t num_not_used = ctx_end - max_score_words;
+            for (size_t i = 0; i < num_not_used; ++i) {
+              result << ctx_entries[i];
+            }
+
+            // write the link
+            result << "[" << best_match.value.alias << "]("
+                   << best_match.value.value << ")";
+
+            // erase the used elements
+            ctx_entries.erase(ctx_entries.begin(),
+                              ctx_entries.begin() + ctx_end);
+          }
+        }
+      }
+
+      if (clearContext) {
+        // Add the current word
+        ctx_entries.push_back(text.substr(start, pos + 1 - start));
+        start = pos + 1;
+        for (const std::string s : ctx_entries) {
+          result << s;
+        }
+        ctx_entries.clear();
+      }
+      pos++;
+    }
+
+    for (std::string &s : ctx_entries) {
+      // Write the remaining entries
+      result << s;
+    }
+
+    AttributeData changed = data.data;
+    changed.value = result.str();
 
     // Update the cache, invalidate the markdown cache, write to disk
+    _markdown_cache.clear();
+    e->setAttribute(TEXT_ATTR, &data, changed);
   }
 }
 
@@ -764,6 +936,21 @@ void Wiki::Entry::setAttributes(const std::vector<Attribute> &attributes) {
 
   // update the cache
   _attributes = new_attributes;
+}
+
+void Wiki::Entry::setAttribute(const std::string &predicate,
+                               const IndexedAttributeData *d,
+                               const AttributeData &new_value) {
+  auto it = _attributes.find(predicate);
+  if (it != _attributes.end()) {
+    for (IndexedAttributeData &od : it->second) {
+      if (od.idx == d->idx) {
+        od.data = new_value;
+        // write the changes to disk
+        updateAttribute(od.idx, predicate, od.data);
+      }
+    }
+  }
 }
 
 int64_t Wiki::Entry::writeAttribute(const std::string &predicate,
