@@ -42,6 +42,10 @@ Wiki::Wiki(Database *db)
                                     {VALUE_COL, DbDataType::TEXT},
                                     {FLAG_COL, DbDataType::INTEGER}})),
       _root(&_pages_table) {
+  _lookup_attributed_bound =
+      std::bind(&Wiki::lookupAttribute, this, std::placeholders::_1,
+                std::placeholders::_2);
+
   // Build the entry tree
   DbCursor c = _pages_table.query();
   // initially create a list of entries
@@ -49,7 +53,7 @@ Wiki::Wiki(Database *db)
     std::string id = c.col(1).text;
     if (_entry_map.count(id) == 0) {
       _entry_map.insert(
-          std::make_pair(id, new Entry(id, nullptr, &_pages_table)));
+          std::make_pair(id, new Entry(id, &_root, &_pages_table)));
     }
     c.next();
   }
@@ -80,6 +84,7 @@ Wiki::Wiki(Database *db)
       d.idx = idx;
       d.data.value = value;
       d.data.flags = flags;
+      d.data.value_markdown_html = tryProcessMarkdown(d.data.value);
       if (!it->second->loadAttribute(predicate, d)) {
         duplicates_to_erase.push_back(idx);
       }
@@ -88,6 +93,8 @@ Wiki::Wiki(Database *db)
     }
     c.next();
   }
+  // Compute the attribute inheritance
+  _root.updateInheritedAttributes();
 
   // Delete duplicate entries in the database. According to the spec they can't
   // exist due to the definition of attribute identity.
@@ -155,6 +162,8 @@ void Wiki::onRequest(const httplib::Request &req, httplib::Response &resp) {
     handleSave(parts[2], req, resp);
   } else if (action == "delete") {
     handleDelete(parts[2], req, resp);
+  } else if (action == "context") {
+    handleContext(parts[2], resp);
   } else {
     LOG_ERROR << "Unknown wiki action " << action << " at " << req.path
               << LOG_END;
@@ -331,55 +340,38 @@ void Wiki::handleList(httplib::Response &resp) {
 void Wiki::handleGet(const std::string &id, httplib::Response &resp) {
   using nlohmann::json;
   auto it = _entry_map.find(id);
-  std::string cache_key = id + ":" + TEXT_ATTR;
   if (it != _entry_map.end()) {
-    json entry;
+    json direct;
     for (auto &ait : it->second->attributes()) {
       for (const IndexedAttributeData &a : ait.second) {
         json attr;
         attr["predicate"] = ait.first;
-        if (ait.first == TEXT_ATTR) {
-          if (_markdown_cache.count(cache_key) > 0) {
-            attr["value"] = _markdown_cache[cache_key];
-          } else {
-            std::string raw;
-            const std::vector<IndexedAttributeData> *attrs =
-                it->second->getAttribute(TEXT_ATTR);
-            if (attrs != nullptr && !attrs->empty()) {
-              raw = attrs->at(0).data.value;
-            } else {
-              LOG_WARN << "Entry " << id << " has no " << TEXT_ATTR << LOG_END;
-            }
-            Markdown m(raw,
-                       std::bind(&Wiki::lookupAttribute, this,
-                                 std::placeholders::_1, std::placeholders::_2));
-            try {
-              std::string parsed = m.process();
-              if (_markdown_cache.size() > MAX_MARKDOWN_CACHE_SIZE) {
-                // just erase any element.
-                _markdown_cache.erase(_markdown_cache.begin());
-              }
-              _markdown_cache[cache_key] = parsed;
-              attr["value"] = parsed;
-            } catch (const std::exception &e) {
-              LOG_WARN << "Error while parsing the markdown: " << e.what()
-                       << LOG_END;
-              resp.status = 500;
-              resp.body = "Unable to parse the input markdown<br/>" + raw;
-              return;
-            }
-          }
-        } else {
-          attr["value"] = a.data.value;
-        }
+        attr["value"] = a.data.value_markdown_html;
         attr["isInteresting"] = (a.data.flags & ATTR_INTERESTING) > 0;
         attr["isInheritable"] = (a.data.flags & ATTR_INHERITABLE) > 0;
         attr["isDate"] = (a.data.flags & ATTR_DATE) > 0;
-        entry.push_back(attr);
+        direct.push_back(attr);
       }
     }
+
+    json inherited = json::array();
+    for (auto &ait : it->second->inherited_attributes()) {
+      for (const IndexedAttributeData &a : ait.second) {
+        json attr;
+        attr["predicate"] = ait.first;
+        attr["value"] = a.data.value;
+        attr["isInteresting"] = (a.data.flags & ATTR_INTERESTING) > 0;
+        attr["isInheritable"] = (a.data.flags & ATTR_INHERITABLE) > 0;
+        attr["isDate"] = (a.data.flags & ATTR_DATE) > 0;
+        inherited.push_back(attr);
+      }
+    }
+    json j;
+    j["name"] = it->second->name();
+    j["direct"] = direct;
+    j["inherited"] = inherited;
     resp.status = 200;
-    resp.body = entry.dump();
+    resp.body = j.dump();
   } else {
     resp.status = 404;
     resp.body = "No such wiki entry";
@@ -390,7 +382,7 @@ void Wiki::handleRaw(const std::string &id, httplib::Response &resp) {
   using nlohmann::json;
   auto it = _entry_map.find(id);
   if (it != _entry_map.end()) {
-    json entry;
+    json direct;
     for (auto &ait : it->second->attributes()) {
       for (const IndexedAttributeData &a : ait.second) {
         json attr;
@@ -399,11 +391,27 @@ void Wiki::handleRaw(const std::string &id, httplib::Response &resp) {
         attr["isInteresting"] = (a.data.flags & ATTR_INTERESTING) > 0;
         attr["isInheritable"] = (a.data.flags & ATTR_INHERITABLE) > 0;
         attr["isDate"] = (a.data.flags & ATTR_DATE) > 0;
-        entry.push_back(attr);
+        direct.push_back(attr);
       }
     }
+    json inherited = json::array();
+    for (auto &ait : it->second->inherited_attributes()) {
+      for (const IndexedAttributeData &a : ait.second) {
+        json attr;
+        attr["predicate"] = ait.first;
+        attr["value"] = a.data.value_markdown_html;
+        attr["isInteresting"] = (a.data.flags & ATTR_INTERESTING) > 0;
+        attr["isInheritable"] = (a.data.flags & ATTR_INHERITABLE) > 0;
+        attr["isDate"] = (a.data.flags & ATTR_DATE) > 0;
+        inherited.push_back(attr);
+      }
+    }
+    json j;
+    j["name"] = it->second->name();
+    j["direct"] = direct;
+    j["inherited"] = inherited;
     resp.status = 200;
-    resp.body = entry.dump();
+    resp.body = j.dump();
   } else {
     resp.status = 404;
     resp.body = "No such wiki entry";
@@ -432,6 +440,7 @@ void Wiki::handleSave(const std::string &id, const httplib::Request &req,
           attr.at("isInheritable").get<bool>() ? ATTR_INHERITABLE : 0;
       a.data.flags |= attr.at("isDate").get<bool>() ? ATTR_DATE : 0;
       a.data.value = attr.at("value").get<std::string>();
+      a.data.value_markdown_html = tryProcessMarkdown(a.data.value);
       if (a.predicate == "parent") {
         new_parent_id = a.data.value;
       }
@@ -462,9 +471,6 @@ void Wiki::handleSave(const std::string &id, const httplib::Request &req,
       _entry_map[id] = e;
       addToSearchIndex(e);
     }
-    // This is a very aggressive cache invalidation strategy. It is used, as it
-    // is simple and ensures all attribute refs are recomputed.
-    _markdown_cache.clear();
     resp.status = 200;
     resp.body = "Save succesfull";
     return;
@@ -514,6 +520,44 @@ void Wiki::handleDelete(const std::string &id, const httplib::Request &req,
   resp.status = 200;
   resp.body = "Deletion succesfull";
   return;
+}
+
+void Wiki::handleContext(const std::string &id, httplib::Response &resp) {
+  using nlohmann::json;
+  auto it = _entry_map.find(id);
+  if (it == _entry_map.end()) {
+    resp.body = "No such entry";
+    resp.status = 400;
+    return;
+  }
+  json r = json::array();
+  // go through the entries parent and agglomorate interesting attributes
+  Entry *e = it->second->parent();
+  while (e != nullptr) {
+    json ej;
+    ej["name"] = e->name();
+    json eja = json::array();
+    for (const auto &ait : e->attributes()) {
+      for (const IndexedAttributeData &a : ait.second) {
+        if (a.data.flags & ATTR_INTERESTING) {
+          json attr;
+          attr["predicate"] = ait.first;
+          attr["value"] = a.data.value_markdown_html;
+          attr["isInteresting"] = (a.data.flags & ATTR_INTERESTING) > 0;
+          attr["isInheritable"] = (a.data.flags & ATTR_INHERITABLE) > 0;
+          attr["isDate"] = (a.data.flags & ATTR_DATE) > 0;
+          eja.push_back(attr);
+        }
+      }
+    }
+    ej["attributes"] = eja;
+    if (eja.size() > 0) {
+      r.push_back(ej);
+    }
+    e = e->parent();
+  }
+  resp.body = r.dump();
+  resp.status = 200;
 }
 
 void Wiki::handleAutolink(const std::string &id, const httplib::Request &req,
@@ -693,9 +737,9 @@ void Wiki::autoLink(Entry *e, double score_threshold) {
 
     AttributeData changed = data.data;
     changed.value = result.str();
+    changed.value_markdown_html = tryProcessMarkdown(changed.value);
 
-    // Update the cache, invalidate the markdown cache, write to disk
-    _markdown_cache.clear();
+    // Update the cache, write to disk
     e->setAttribute(TEXT_ATTR, &data, changed);
   }
 }
@@ -770,6 +814,18 @@ void Wiki::addToSearchIndex(Entry *e) {
   }
 }
 
+std::string Wiki::tryProcessMarkdown(const std::string &s) {
+  // Process the attributes value as markdown
+  Markdown m(s, _lookup_attributed_bound);
+  try {
+    return m.process();
+  } catch (const std::exception &e) {
+    LOG_WARN << "Error while processing attribute markdown: " << e.what()
+             << LOG_END;
+    return s;
+  }
+}
+
 // =============================================================================
 // Entry
 // =============================================================================
@@ -781,6 +837,7 @@ Wiki::Entry::Entry(const std::string &id, Entry *parent, Table *storage)
     : _id(id), _parent(parent), _storage(storage) {
   if (_parent != nullptr) {
     _parent->_children.push_back(this);
+    updateInheritedAttributes();
   }
 }
 
@@ -805,6 +862,7 @@ void Wiki::Entry::reparent(Entry *new_parent) {
   if (_parent != nullptr) {
     _parent->_children.push_back(this);
   }
+  updateInheritedAttributes();
 }
 
 Wiki::Entry *Wiki::Entry::parent() { return _parent; }
@@ -879,6 +937,7 @@ void Wiki::Entry::addAttribute(const std::string &predicate,
       // Write the attribute to the persistent storage.
     }
   }
+  updateInheritedAttributes();
 }
 
 void Wiki::Entry::setAttributes(const std::vector<Attribute> &attributes) {
@@ -936,6 +995,9 @@ void Wiki::Entry::setAttributes(const std::vector<Attribute> &attributes) {
 
   // update the cache
   _attributes = new_attributes;
+
+  // update our inherited attributes.
+  updateInheritedAttributes();
 }
 
 void Wiki::Entry::setAttribute(const std::string &predicate,
@@ -945,9 +1007,16 @@ void Wiki::Entry::setAttribute(const std::string &predicate,
   if (it != _attributes.end()) {
     for (IndexedAttributeData &od : it->second) {
       if (od.idx == d->idx) {
+        bool updateInherited = od.data.flags & ATTR_INHERITABLE;
+        updateInherited |= new_value.flags & ATTR_INHERITABLE;
         od.data = new_value;
         // write the changes to disk
         updateAttribute(od.idx, predicate, od.data);
+        if (updateInherited) {
+          for (Entry *e : _children) {
+            e->updateInheritedAttributes();
+          }
+        }
       }
     }
   }
@@ -983,12 +1052,16 @@ void Wiki::Entry::removeAttribute(const std::string &predicate) {
     _attributes.erase(predicate);
     _storage->erase(DbCondition(ID_COL, DBCT::EQ, _id) &&
                     DbCondition(PREDICATE_COL, DBCT::EQ, predicate));
+    for (Entry *e : _children) {
+      e->updateInheritedAttributes();
+    }
   }
 }
 
 void Wiki::Entry::removeAttribute(const std::string &predicate,
                                   const std::string &value) {
   auto it = _attributes.find(predicate);
+  bool updateInherited = false;
   if (it != _attributes.end()) {
     IndexedAttributeData d;
     d.data.value = value;
@@ -998,9 +1071,17 @@ void Wiki::Entry::removeAttribute(const std::string &predicate,
     // erase the entries from the database
     while (vit != it->second.end()) {
       _storage->erase(DbCondition(IDX_COL, DBCT::EQ, vit->idx));
+      if (vit->data.flags & ATTR_INHERITABLE) {
+        updateInherited = true;
+      }
       ++vit;
     }
     it->second.erase(sit, it->second.end());
+  }
+  if (updateInherited) {
+    for (Entry *e : _children) {
+      e->updateInheritedAttributes();
+    }
   }
 }
 
@@ -1018,4 +1099,49 @@ bool Wiki::Entry::hasAttribute(const std::string &predicate,
            it->second.end();
   }
   return false;
+}
+
+const std::unordered_map<std::string, std::vector<Wiki::IndexedAttributeData>>
+    &Wiki::Entry::inherited_attributes() const {
+  return _inherited_attributes;
+}
+
+void Wiki::Entry::updateInheritedAttributes() {
+  LOG_DEBUG << "Updating the inherited attributes" << LOG_END;
+  std::vector<Entry *> to_process;
+  to_process.push_back(this);
+  while (!to_process.empty()) {
+    Entry *e = to_process.back();
+    to_process.pop_back();
+    LOG_DEBUG << "Processing " << e->id() << LOG_END;
+    e->_inherited_attributes.clear();
+    if (e->_parent != nullptr) {
+      // inherited the attributes our parent inherited
+      for (const auto &it : e->_parent->_inherited_attributes) {
+        if (e->_attributes.find(it.first) == e->_attributes.end()) {
+          e->_inherited_attributes.insert(it);
+        }
+      }
+      LOG_DEBUG << "Inherited " << e->_inherited_attributes.size()
+                << " by copying the parents inherited attributes." << LOG_END;
+      // also inherit the parent inheritable attributes
+      for (const auto &ait : e->_parent->_attributes) {
+        if (e->_attributes.find(ait.first) == e->_attributes.end()) {
+          for (const IndexedAttributeData &d : ait.second) {
+            LOG_DEBUG << ait.first << " " << d.data.flags << LOG_END;
+            if (d.data.flags & ATTR_INHERITABLE) {
+              LOG_DEBUG << "Adding an inherited attribute" << LOG_END;
+              e->_inherited_attributes[ait.first].push_back(d);
+            }
+          }
+        }
+      }
+      LOG_DEBUG << "The final inherited count is "
+                << e->_inherited_attributes.size() << LOG_END;
+    }
+    LOG_DEBUG << "Adding " << e->children().size() << " children to the queue"
+              << LOG_END;
+    to_process.insert(to_process.end(), e->_children.begin(),
+                      e->_children.end());
+  }
 }

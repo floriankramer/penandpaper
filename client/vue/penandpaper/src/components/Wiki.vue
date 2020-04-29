@@ -21,11 +21,18 @@
     </div>
     <div class="wiki-center">
       <div id="wiki-content" v-on:click="interceptLink" v-show="showContent" >
+        <h5>{{entryName}}</h5>
         <details>
           <summary>Attributes</summary>
           <table>
             <tr v-for="attr in displayedAttributes" v-bind:key="attr.idx">
-              <td>{{attr.data.predicate}}</td><td>{{attr.data.value}}</td>
+              <td v-bind:class="{ 'interesting-attr': attr.data.isInteresting, 'inheritable-attr': attr.data.isInheritable }">{{attr.data.predicate}}</td><td v-html="attr.data.value"></td>
+            </tr>
+          </table>
+          <p>Inherited:</p>
+          <table>
+            <tr v-for="attr in inheritedAttributes" v-bind:key="attr.idx">
+              <td v-bind:class="{ 'interesting-attr': attr.data.isInteresting, 'inheritable-attr': attr.data.isInheritable }">{{attr.data.predicate}}</td><td v-html="attr.data.value"></td>
             </tr>
           </table>
         </details>
@@ -40,8 +47,20 @@
             <span class="tooltip">The unique identifier of this article.</span>
           </div>
           <div>
-            <textarea id="wiki-structured" name="structured" v-model="structured"/>
+            <textarea id="wiki-structured" name="structured" v-model="structured" rows="7"/>
+            <span style="font-size: 9pt;">
+              Attribute modifiers: ! : interesting, + : inheritable, - : date
+            </span>
+            <details>
+              <summary>Inherited Attributes</summary>
+              <table>
+                <tr v-for="attr in inheritedAttributes" v-bind:key="attr.idx">
+                  <td v-bind:class="{ 'interesting-attr': attr.data.isInteresting, 'inheritable-attr': attr.data.isInheritable }">{{attr.data.predicate}}</td><td v-html="attr.data.value"></td>
+                </tr>
+              </table>
+            </details>
           </div>
+          <hr/>
           <div>
             <textarea id="wiki-raw-content" name="content" rows="36" cols="80"/>
             <select id="wiki-theme" v-model="cmTheme">
@@ -59,6 +78,16 @@
           </div>
         </form>
       </div>
+    </div>
+    <div class="wiki-sidebar-right">
+      <details v-for="context in contextEntries" v-bind:key="context.idx">
+        <summary>{{context.name}}</summary>
+         <table>
+          <tr v-for="attr in context.data" v-bind:key="attr.idx">
+            <td v-bind:class="{ 'interesting-attr': attr.data.isInteresting, 'inheritable-attr': attr.data.isInheritable }">{{attr.data.predicate}}</td><td v-html="attr.data.value"></td>
+          </tr>
+        </table>
+      </details>
     </div>
   </div>
 </template>
@@ -116,6 +145,12 @@ class DisplayedAttribute {
   }
 }
 
+class ContextEntry {
+  idx: number = 0
+  name: string = ''
+  data: DisplayedAttribute[] = []
+}
+
 @Component({
   components: {
     TreeView
@@ -125,9 +160,12 @@ export default class Wiki extends Vue {
   showContent: boolean = true
   showEdit: boolean = false
 
+  entryName: string = ''
   id: string = ''
   content: string = ''
   displayedAttributes: DisplayedAttribute[] = []
+  inheritedAttributes: DisplayedAttribute[] = []
+  contextEntries: ContextEntry[] = []
 
   rawContent: string = ''
   rawContentElem: HTMLTextAreaElement | null = null
@@ -150,6 +188,7 @@ export default class Wiki extends Vue {
     } else {
       this.structured = 'parent    root'
     }
+    this.inheritedAttributes = []
     this.initCodeMirror()
     if (this.cmEditor != null) {
       this.cmEditor.setValue(this.rawContent)
@@ -162,10 +201,10 @@ export default class Wiki extends Vue {
     this.showEdit = true
     $.get('/wiki/raw/' + this.id, (body) => {
       this.initCodeMirror()
-      let jdata = JSON.parse(body)
+      let msg = JSON.parse(body)
       let structured = ''
       let regexWs = new RegExp('\\s')
-      jdata.forEach((attr: any) => {
+      msg.direct.forEach((attr: any) => {
         if (attr.predicate === 'text') {
           this.rawContent = attr.value
           if (this.cmEditor !== null) {
@@ -174,7 +213,24 @@ export default class Wiki extends Vue {
             console.log('The cm editor is null on wiki/raw response')
           }
         } else {
-          structured += attr.predicate + '    '
+          let predWs = regexWs.test(attr.predicate)
+          if (predWs) {
+            structured += '"'
+          }
+          if (attr.isInteresting) {
+            structured += '!'
+          }
+          if (attr.isInheritable) {
+            structured += '+'
+          }
+          if (attr.isDate) {
+            structured += '-'
+          }
+          structured += attr.predicate
+          if (predWs) {
+            structured += '"'
+          }
+          structured += '    '
           if (regexWs.test(attr.value)) {
             structured += '"' + attr.value + '"'
           } else {
@@ -185,6 +241,16 @@ export default class Wiki extends Vue {
       })
       this.structured = structured
       this.relayoutAttributes()
+
+      let nDAttr : DisplayedAttribute[] = []
+      msg.inherited.forEach((attr: Attribute) => {
+        if (attr.predicate === 'text') {
+          this.content = attr.value
+        } else if (attr.predicate !== 'parent') {
+          nDAttr.push(new DisplayedAttribute(nDAttr.length, attr))
+        }
+      })
+      this.inheritedAttributes = nDAttr
     }).fail(() => {
       this.rawContent = 'Unable to load the specified page'
     })
@@ -278,8 +344,16 @@ export default class Wiki extends Vue {
       if (pos < this.structured.length && this.structured[pos] === '"') {
         ++pos
       }
-
-      attr.push(new Attribute(pred, value, false, false, false))
+      let prefix = pred.substr(0, 3)
+      let isInteresting = prefix.includes('!')
+      let isInheritable = prefix.includes('+')
+      let isDate = prefix.includes('-')
+      let prefixSize = 0
+      prefixSize += isInteresting ? 1 : 0
+      prefixSize += isInheritable ? 1 : 0
+      prefixSize += isDate ? 1 : 0
+      pred = pred.substr(prefixSize)
+      attr.push(new Attribute(pred, value, isInteresting, isInheritable, isDate))
     }
     return attr
   }
@@ -288,10 +362,12 @@ export default class Wiki extends Vue {
     this.showContent = true
     this.showEdit = false
     this.id = id
+    this.entryName = ''
     $.get('/wiki/get/' + id, (body) => {
-      let attrs = JSON.parse(body)
+      let msg = JSON.parse(body)
       let nDAttr: DisplayedAttribute[] = []
-      attrs.forEach((attr: Attribute) => {
+      this.entryName = msg.name
+      msg.direct.forEach((attr: Attribute) => {
         if (attr.predicate === 'text') {
           this.content = attr.value
         } else if (attr.predicate !== 'parent') {
@@ -299,8 +375,41 @@ export default class Wiki extends Vue {
         }
       })
       this.displayedAttributes = nDAttr
+      nDAttr = []
+      msg.inherited.forEach((attr: Attribute) => {
+        if (attr.predicate === 'text') {
+          this.content = attr.value
+        } else if (attr.predicate !== 'parent') {
+          nDAttr.push(new DisplayedAttribute(nDAttr.length, attr))
+        }
+      })
+      this.inheritedAttributes = nDAttr
     }).fail(() => {
       this.content = 'Unable to load the specified page'
+    })
+    this.loadContext(id)
+  }
+
+  loadContext (id : string) {
+    $.get('/wiki/context/' + id, (body) => {
+      let msg = JSON.parse(body)
+      let nCE : ContextEntry[] = []
+      msg.forEach((e: any) => {
+        let c = new ContextEntry()
+        c.idx = nCE.length
+        c.name = e.name
+        e.attributes.forEach((a: Attribute) => {
+          let da = new DisplayedAttribute(c.data.length, a)
+          c.data.push(da)
+        })
+        nCE.push(c)
+      })
+      this.contextEntries = nCE
+    }).fail(() => {
+      let c = new ContextEntry()
+      c.idx = 0
+      c.name = 'Unable to load the context'
+      this.contextEntries = [c]
     })
   }
 
@@ -705,8 +814,20 @@ div .wiki-center {
   left: 310px;
   top: 0px;
   bottom: 0px;
-  right: 0px;
+  right: 310px;
   padding: 7px;
+}
+
+div .wiki-sidebar-right {
+  position: absolute;
+  width: 300px;
+  top: 0px;
+  bottom: 0px;
+  right: 0px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-left: 3px solid black;
+  overflow: auto;
 }
 
 #wiki-edit textarea {
@@ -742,9 +863,22 @@ div .wiki-center {
 td {
   padding-right: 25px;
 }
+
+.interesting-attr {
+  font-weight: bold;
+}
+
+.inheritable-attr {
+  font-style: italic;
+}
+
 </style>
 
 <style>
+table p {
+ margin: 0px;
+}
+
 .CodeMirror {
   font-family: Avenir,Helvetica,Arial,sans-serif !important;
 }

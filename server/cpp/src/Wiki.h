@@ -39,6 +39,7 @@ class Wiki : public HttpServer::RequestHandler {
   struct AttributeData {
     std::string value;
     int64_t flags;
+    std::string value_markdown_html;
 
     bool operator==(const AttributeData &other) const {
       return other.value == value;
@@ -75,7 +76,9 @@ class Wiki : public HttpServer::RequestHandler {
 
     /**
      * @brief Sets the attribute but does not write it to the persistent
-     * storage. Meant to be used during loading.
+     * storage. Meant to be used during loading. This does not update
+     * inherited attributes. Call updateInheritedAttributes manually
+     * on the root node after loading.
      * @return false if the attribute wasn't loaded because it already exists
      */
     bool loadAttribute(const std::string &predicate,
@@ -111,6 +114,11 @@ class Wiki : public HttpServer::RequestHandler {
     const std::unordered_map<std::string, std::vector<IndexedAttributeData>>
         &attributes() const;
 
+    const std::unordered_map<std::string, std::vector<IndexedAttributeData>>
+        &inherited_attributes() const;
+
+    void updateInheritedAttributes();
+
    private:
     int64_t writeAttribute(const std::string &predicate,
                            const AttributeData &value);
@@ -125,6 +133,9 @@ class Wiki : public HttpServer::RequestHandler {
     std::unordered_map<std::string, std::vector<IndexedAttributeData>>
         _attributes;
 
+    std::unordered_map<std::string, std::vector<IndexedAttributeData>>
+        _inherited_attributes;
+
     Table *_storage;
   };
 
@@ -134,6 +145,8 @@ class Wiki : public HttpServer::RequestHandler {
   virtual void onRequest(const httplib::Request &req, httplib::Response &resp);
 
  private:
+  std::string tryProcessMarkdown(const std::string &s);
+
   void handleList(httplib::Response &resp);
   void handleGet(const std::string &id, httplib::Response &resp);
   void handleRaw(const std::string &id, httplib::Response &resp);
@@ -148,6 +161,7 @@ class Wiki : public HttpServer::RequestHandler {
   void handleAutolink(const std::string &id, const httplib::Request &req,
                       httplib::Response &resp);
   void handleAutolinkAll(const httplib::Request &req, httplib::Response &resp);
+  void handleContext(const std::string &id, httplib::Response &resp);
 
   // This scans the given entry and automatically references other entries
   // it finds in the entries text using entry autocompletion.
@@ -163,12 +177,14 @@ class Wiki : public HttpServer::RequestHandler {
   Database *_db;
   Table _pages_table;
   std::unordered_map<std::string, Entry *> _entry_map;
-  std::unordered_map<std::string, std::string> _markdown_cache;
 
   QGramIndex _ids_search_index;
   QGramIndex _attr_ref_search_index;
 
   Entry _root;
+
+  std::function<std::string(const std::string &, const std::string &)>
+      _lookup_attributed_bound;
 
   static constexpr size_t MAX_MARKDOWN_CACHE_SIZE = 16;
 };
