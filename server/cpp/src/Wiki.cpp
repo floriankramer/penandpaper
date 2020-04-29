@@ -1107,13 +1107,11 @@ const std::unordered_map<std::string, std::vector<Wiki::IndexedAttributeData>>
 }
 
 void Wiki::Entry::updateInheritedAttributes() {
-  LOG_DEBUG << "Updating the inherited attributes" << LOG_END;
   std::vector<Entry *> to_process;
   to_process.push_back(this);
   while (!to_process.empty()) {
     Entry *e = to_process.back();
     to_process.pop_back();
-    LOG_DEBUG << "Processing " << e->id() << LOG_END;
     e->_inherited_attributes.clear();
     if (e->_parent != nullptr) {
       // inherited the attributes our parent inherited
@@ -1122,25 +1120,17 @@ void Wiki::Entry::updateInheritedAttributes() {
           e->_inherited_attributes.insert(it);
         }
       }
-      LOG_DEBUG << "Inherited " << e->_inherited_attributes.size()
-                << " by copying the parents inherited attributes." << LOG_END;
       // also inherit the parent inheritable attributes
       for (const auto &ait : e->_parent->_attributes) {
         if (e->_attributes.find(ait.first) == e->_attributes.end()) {
           for (const IndexedAttributeData &d : ait.second) {
-            LOG_DEBUG << ait.first << " " << d.data.flags << LOG_END;
             if (d.data.flags & ATTR_INHERITABLE) {
-              LOG_DEBUG << "Adding an inherited attribute" << LOG_END;
               e->_inherited_attributes[ait.first].push_back(d);
             }
           }
         }
       }
-      LOG_DEBUG << "The final inherited count is "
-                << e->_inherited_attributes.size() << LOG_END;
     }
-    LOG_DEBUG << "Adding " << e->children().size() << " children to the queue"
-              << LOG_END;
     to_process.insert(to_process.end(), e->_children.begin(),
                       e->_children.end());
   }

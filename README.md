@@ -31,7 +31,7 @@ Open a terminal at the location you want to install the software. Then run
 * `mkdir cert`
 * `cd cert`
 * `openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout key.pem -out certificate.pem`
-* `openssl dhparam 1024 -out dh1024.pem`
+* `openssl dhparam -out dh1024.pem 1024 `
 
 The build directory now contains a penandpaper executable that can be started.
 Visit `https://localhost:8082/auth?key=<key>`. The key is printed out to
