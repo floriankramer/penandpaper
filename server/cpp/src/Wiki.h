@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include <map>
+#include <nlohmann/json.hpp>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -36,6 +38,25 @@ class Wiki : public HttpServer::RequestHandler {
   static const int ATTR_INHERITABLE;
   static const int ATTR_DATE;
 
+  class Entry;
+
+  class Date {
+   public:
+    Date();
+    Date(const std::string &s);
+
+    bool operator==(const Date &other) const;
+    bool operator<(const Date &other) const;
+
+    std::string toString() const;
+
+   private:
+    void parse(const std::string &s);
+    std::array<int64_t, 16> _fields;
+    std::array<char, 15> _delimiters;
+    size_t _fields_used;
+  };
+
   struct AttributeData {
     std::string value;
     int64_t flags;
@@ -43,6 +64,15 @@ class Wiki : public HttpServer::RequestHandler {
 
     bool operator==(const AttributeData &other) const {
       return other.value == value;
+    }
+
+    nlohmann::json toJson() const {
+      nlohmann::json j;
+      j["value"] = value_markdown_html;
+      j["isInteresting"] = (flags & ATTR_INTERESTING) > 0;
+      j["isInheritable"] = (flags & ATTR_INHERITABLE) > 0;
+      j["isDate"] = (flags & ATTR_DATE) > 0;
+      return j;
     }
   };
 
@@ -56,11 +86,33 @@ class Wiki : public HttpServer::RequestHandler {
     bool operator==(const IndexedAttributeData &other) const {
       return other.data == data;
     }
+    nlohmann::json toJson() const { return data.toJson(); }
   };
 
   struct Attribute {
     std::string predicate;
     AttributeData data;
+
+    bool operator==(const Attribute &other) {
+      return predicate == other.predicate && data == other.data;
+    }
+
+    nlohmann::json toJson() const {
+      nlohmann::json j = data.toJson();
+      j["predicate"] = predicate;
+      return j;
+    }
+  };
+
+  struct EventData {
+    std::string date;
+    std::string predicate;
+    Entry *entry;
+
+    bool operator==(const EventData &other) const {
+      return date == other.date && predicate == other.predicate &&
+             entry == other.entry;
+    }
   };
 
   class Entry {
@@ -162,6 +214,7 @@ class Wiki : public HttpServer::RequestHandler {
                       httplib::Response &resp);
   void handleAutolinkAll(const httplib::Request &req, httplib::Response &resp);
   void handleContext(const std::string &id, httplib::Response &resp);
+  void handleTimeline(const httplib::Request &req, httplib::Response &resp);
 
   // This scans the given entry and automatically references other entries
   // it finds in the entries text using entry autocompletion.
@@ -174,9 +227,13 @@ class Wiki : public HttpServer::RequestHandler {
   void removeFromSearchIndex(Entry *e);
   void addToSearchIndex(Entry *e);
 
+  void addToDateIndex(Entry *e);
+  void removeFromDateIndex(Entry *e);
+
   Database *_db;
   Table _pages_table;
   std::unordered_map<std::string, Entry *> _entry_map;
+  std::map<Date, std::vector<EventData>> _dates;
 
   QGramIndex _ids_search_index;
   QGramIndex _attr_ref_search_index;

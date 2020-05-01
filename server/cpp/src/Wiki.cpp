@@ -112,6 +112,7 @@ Wiki::Wiki(Database *db)
       p.second->reparent(&_root);
     }
     addToSearchIndex(p.second);
+    addToDateIndex(p.second);
   }
 }
 
@@ -145,6 +146,11 @@ void Wiki::onRequest(const httplib::Request &req, httplib::Response &resp) {
     } else {
       handleAutolinkAll(req, resp);
     }
+    return;
+  }
+
+  if (action == "timeline" && parts.size() == 2) {
+    handleTimeline(req, resp);
     return;
   }
 
@@ -344,12 +350,8 @@ void Wiki::handleGet(const std::string &id, httplib::Response &resp) {
     json direct;
     for (auto &ait : it->second->attributes()) {
       for (const IndexedAttributeData &a : ait.second) {
-        json attr;
+        json attr = a.toJson();
         attr["predicate"] = ait.first;
-        attr["value"] = a.data.value_markdown_html;
-        attr["isInteresting"] = (a.data.flags & ATTR_INTERESTING) > 0;
-        attr["isInheritable"] = (a.data.flags & ATTR_INHERITABLE) > 0;
-        attr["isDate"] = (a.data.flags & ATTR_DATE) > 0;
         direct.push_back(attr);
       }
     }
@@ -357,12 +359,8 @@ void Wiki::handleGet(const std::string &id, httplib::Response &resp) {
     json inherited = json::array();
     for (auto &ait : it->second->inherited_attributes()) {
       for (const IndexedAttributeData &a : ait.second) {
-        json attr;
+        json attr = a.toJson();
         attr["predicate"] = ait.first;
-        attr["value"] = a.data.value;
-        attr["isInteresting"] = (a.data.flags & ATTR_INTERESTING) > 0;
-        attr["isInheritable"] = (a.data.flags & ATTR_INHERITABLE) > 0;
-        attr["isDate"] = (a.data.flags & ATTR_DATE) > 0;
         inherited.push_back(attr);
       }
     }
@@ -385,24 +383,17 @@ void Wiki::handleRaw(const std::string &id, httplib::Response &resp) {
     json direct;
     for (auto &ait : it->second->attributes()) {
       for (const IndexedAttributeData &a : ait.second) {
-        json attr;
+        json attr = a.toJson();
         attr["predicate"] = ait.first;
         attr["value"] = a.data.value;
-        attr["isInteresting"] = (a.data.flags & ATTR_INTERESTING) > 0;
-        attr["isInheritable"] = (a.data.flags & ATTR_INHERITABLE) > 0;
-        attr["isDate"] = (a.data.flags & ATTR_DATE) > 0;
         direct.push_back(attr);
       }
     }
     json inherited = json::array();
     for (auto &ait : it->second->inherited_attributes()) {
       for (const IndexedAttributeData &a : ait.second) {
-        json attr;
+        json attr = a.toJson();
         attr["predicate"] = ait.first;
-        attr["value"] = a.data.value_markdown_html;
-        attr["isInteresting"] = (a.data.flags & ATTR_INTERESTING) > 0;
-        attr["isInheritable"] = (a.data.flags & ATTR_INHERITABLE) > 0;
-        attr["isDate"] = (a.data.flags & ATTR_DATE) > 0;
         inherited.push_back(attr);
       }
     }
@@ -460,16 +451,19 @@ void Wiki::handleSave(const std::string &id, const httplib::Request &req,
     auto it = _entry_map.find(id);
     if (it != _entry_map.end()) {
       removeFromSearchIndex(it->second);
+      removeFromDateIndex(it->second);
       it->second->setAttributes(attributes);
       if (parent != it->second->parent()) {
         it->second->reparent(parent);
       }
       addToSearchIndex(it->second);
+      addToDateIndex(it->second);
     } else {
       Entry *e = parent->addChild(id);
       e->setAttributes(attributes);
       _entry_map[id] = e;
       addToSearchIndex(e);
+      addToDateIndex(e);
     }
     resp.status = 200;
     resp.body = "Save succesfull";
@@ -513,6 +507,7 @@ void Wiki::handleDelete(const std::string &id, const httplib::Request &req,
 
     // Erase all mentions from the search index
     removeFromSearchIndex(e);
+    removeFromDateIndex(e);
   }
 
   // This will recursively free the memory of the children
@@ -540,12 +535,8 @@ void Wiki::handleContext(const std::string &id, httplib::Response &resp) {
     for (const auto &ait : e->attributes()) {
       for (const IndexedAttributeData &a : ait.second) {
         if (a.data.flags & ATTR_INTERESTING) {
-          json attr;
+          json attr = a.toJson();
           attr["predicate"] = ait.first;
-          attr["value"] = a.data.value_markdown_html;
-          attr["isInteresting"] = (a.data.flags & ATTR_INTERESTING) > 0;
-          attr["isInheritable"] = (a.data.flags & ATTR_INHERITABLE) > 0;
-          attr["isDate"] = (a.data.flags & ATTR_DATE) > 0;
           eja.push_back(attr);
         }
       }
@@ -557,6 +548,27 @@ void Wiki::handleContext(const std::string &id, httplib::Response &resp) {
     e = e->parent();
   }
   resp.body = r.dump();
+  resp.status = 200;
+}
+
+void Wiki::handleTimeline(const httplib::Request &req,
+                          httplib::Response &resp) {
+  using nlohmann::json;
+  json j;
+
+  json events = json::array();
+  for (const auto &date : _dates) {
+    for (const auto &event : date.second) {
+      json event_j;
+      event_j["date"] = event.date;
+      event_j["name"] = event.entry->name();
+      event_j["id"] = event.entry->id();
+      event_j["predicate"] = event.predicate;
+      events.push_back(event_j);
+    }
+  }
+  j["events"] = events;
+  resp.body = j.dump();
   resp.status = 200;
 }
 
@@ -811,6 +823,48 @@ void Wiki::addToSearchIndex(Entry *e) {
   for (const auto &a : e->attributes()) {
     std::string s = e->id() + ":" + a.first;
     _attr_ref_search_index.add(s, s);
+  }
+}
+
+void Wiki::addToDateIndex(Entry *e) {
+  for (auto ait : e->attributes()) {
+    for (const IndexedAttributeData &d : ait.second) {
+      if (d.data.flags & ATTR_DATE) {
+        try {
+          Date date(d.data.value);
+          EventData ed = {.date = d.data.value, .predicate = ait.first, .entry = e};
+          _dates[date].push_back(ed);
+        } catch (const std::exception &e) {
+          LOG_WARN << "Failed to parse date for attr " << ait.first << " "
+                   << d.data.value << " " << e.what() << LOG_END;
+        }
+      }
+    }
+  }
+}
+
+void Wiki::removeFromDateIndex(Entry *e) {
+  for (auto ait : e->attributes()) {
+    for (const IndexedAttributeData &d : ait.second) {
+      if (d.data.flags & ATTR_DATE) {
+        try {
+          Date date(d.data.value);
+          auto it = _dates.find(date);
+          if (it != _dates.end()) {
+            auto &v = it->second;
+            EventData ed = {
+                .date = d.data.value, .predicate = ait.first, .entry = e};
+            v.erase(std::remove(v.begin(), v.end(), ed), v.end());
+            if (v.empty()) {
+              _dates.erase(it);
+            }
+          }
+        } catch (const std::exception &e) {
+          LOG_WARN << "Failed to parse date for attr " << ait.first << " "
+                   << d.data.value << " " << e.what() << LOG_END;
+        }
+      }
+    }
   }
 }
 
@@ -1134,4 +1188,81 @@ void Wiki::Entry::updateInheritedAttributes() {
     to_process.insert(to_process.end(), e->_children.begin(),
                       e->_children.end());
   }
+}
+
+// =============================================================================
+// Entry
+// =============================================================================
+
+Wiki::Date::Date() : _fields_used(0) {}
+
+Wiki::Date::Date(const std::string &s) { parse(s); }
+
+bool Wiki::Date::operator==(const Date &other) const {
+  if (_fields_used != other._fields_used) {
+    return false;
+  }
+  for (size_t i = 0; i < _fields_used; ++i) {
+    if (_fields[i] != other._fields[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool Wiki::Date::operator<(const Date &other) const {
+  size_t min_fields = std::min(_fields_used, other._fields_used);
+  for (size_t i = 0; i < min_fields; ++i) {
+    if (_fields[i] < other._fields[i]) {
+      return true;
+    }
+    if (_fields[i] > other._fields[i]) {
+      return false;
+    }
+  }
+  // All fields we can compare equal
+  return _fields_used < other._fields_used;
+}
+
+std::string Wiki::Date::toString() const {
+  std::ostringstream os;
+  for (size_t i = 0; i < _fields_used; ++i) {
+    os << _fields[i];
+    if (i + 1 < _fields_used) {
+      os << _delimiters[i];
+    }
+  }
+  return os.str();
+}
+
+void Wiki::Date::parse(const std::string &s) {
+  size_t pos = 0;
+  // skip leading whitespace
+  while (pos < s.size() && std::isspace(s[pos])) {
+    pos++;
+  }
+
+  size_t field_idx = 0;
+  size_t start = pos;
+  while (pos < s.size()) {
+    char c = s[pos];
+    if (c == ':' || c == ' ' || c == '+' || c == '-' || c == '/' || c == '.') {
+      _fields[field_idx] = std::stoi(s.substr(start, pos - start));
+      if (field_idx < _delimiters.size()) {
+        // We have space for one delimiter less than fields, as a delimiter
+        // after the last field doesn't make any sense
+        _delimiters[field_idx] = c;
+      }
+      field_idx++;
+      start = pos + 1;
+      if (field_idx >= _fields.size()) {
+        throw std::runtime_error("Dates may only contain up to " +
+                                 std::to_string(_fields.size()) + " fields.");
+      }
+    }
+    pos++;
+  }
+  // Add the last field
+  _fields[field_idx] = std::stoi(s.substr(start));
+  _fields_used = field_idx + 1;
 }

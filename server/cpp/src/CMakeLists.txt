@@ -73,7 +73,8 @@ add_executable(penandpaper-server main.cpp
   Markdown.cpp Markdown.h
   Authenticator.cpp Authenticator.h
   Random.cpp Random.h
-  QGramIndex.cpp QGramIndex.h)
+  QGramIndex.cpp QGramIndex.h
+  BTree.cpp BTree.h)
 
 
 add_executable(base64 base64_main.cpp

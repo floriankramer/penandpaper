@@ -17,10 +17,13 @@
 <template>
   <div class="wiki-container">
     <div class="wiki-sidebar">
+      <span v-on:click="showFind">Find</span><br/>
+      <span v-on:click="showTimeline">Timeline</span>
+      <hr/>
       <TreeView v-bind:tree="indexTree" v-on:show="loadPage" v-on:new="newPage" v-on:edit="editPage" v-on:delete="deletePage" v-on:autoLink="autoLink" v-on:autoLinkAll="autoLinkAll"/>
     </div>
     <div class="wiki-center">
-      <div id="wiki-content" v-on:click="interceptLink" v-show="showContent" >
+      <div id="wiki-content" v-on:click="interceptLink" v-show="currentPage == 0" >
         <h5>{{entryName}}</h5>
         <details>
           <summary>Attributes</summary>
@@ -39,7 +42,7 @@
         <hr/>
         <span v-html="content"></span>
       </div>
-      <div id="wiki-edit" v-show="showEdit">
+      <div id="wiki-edit" v-show="currentPage == 1">
         <form>
           <div class="with-tooltip">
             <label for="id">id: </label>
@@ -77,6 +80,18 @@
             <input type="submit" value="save" v-on:click.prevent="savePage"/>
           </div>
         </form>
+      </div>
+      <div id="wiki-timeline" v-on:click="interceptLink" v-show="currentPage == 2">
+        <h2>Timeline</h2>
+        <table>
+          <tr v-for="event in timeline" v-bind:key="event.date + event.predicate + event.id">
+            <td>{{event.date}}</td>
+            <td>{{event.predicate}} <a v-bind:href="event.id">{{event.name}}</a></td>
+          </tr>
+        </table>
+      </div>
+      <div id="wiki-find" v-show="currentPage == 3">
+        <h2>Find Entries</h2>
       </div>
     </div>
     <div class="wiki-sidebar-right">
@@ -151,14 +166,27 @@ class ContextEntry {
   data: DisplayedAttribute[] = []
 }
 
+class TimelineEvent {
+  date: string = ''
+  name: string = ''
+  id: string = ''
+  predicate: string = ''
+}
+
+enum CurrentPage {
+    VIEW,
+    EDIT,
+    TIMELINE,
+    FIND
+}
+
 @Component({
   components: {
     TreeView
   }
 })
 export default class Wiki extends Vue {
-  showContent: boolean = true
-  showEdit: boolean = false
+  currentPage: CurrentPage = CurrentPage.VIEW
 
   entryName: string = ''
   id: string = ''
@@ -178,9 +206,10 @@ export default class Wiki extends Vue {
 
   indexTree: IndexTreeItem = new IndexTreeItem()
 
+  timeline: TimelineEvent[] = []
+
   newPage (parent: string) {
-    this.showContent = false
-    this.showEdit = true
+    this.currentPage = CurrentPage.EDIT
     this.id = ''
     this.rawContent = ''
     if (parent.length > 0) {
@@ -193,12 +222,16 @@ export default class Wiki extends Vue {
     if (this.cmEditor != null) {
       this.cmEditor.setValue(this.rawContent)
     }
+    if (parent.length > 0) {
+      this.loadContext(parent)
+    } else {
+      this.contextEntries = []
+    }
   }
 
   editPage (id: string) {
     this.id = id
-    this.showContent = false
-    this.showEdit = true
+    this.currentPage = CurrentPage.EDIT
     $.get('/wiki/raw/' + this.id, (body) => {
       this.initCodeMirror()
       let msg = JSON.parse(body)
@@ -254,6 +287,7 @@ export default class Wiki extends Vue {
     }).fail(() => {
       this.rawContent = 'Unable to load the specified page'
     })
+    this.loadContext(this.id)
   }
 
   deletePage (id: string) {
@@ -359,8 +393,7 @@ export default class Wiki extends Vue {
   }
 
   loadPage (id: string) {
-    this.showContent = true
-    this.showEdit = false
+    this.currentPage = CurrentPage.VIEW
     this.id = id
     this.entryName = ''
     $.get('/wiki/get/' + id, (body) => {
@@ -522,7 +555,7 @@ export default class Wiki extends Vue {
 
   autoLink (id: string) {
     let didConfirm = false
-    if (this.showEdit) {
+    if (this.currentPage === CurrentPage.VIEW) {
       if (confirm('Do you wish to save and close this article and apply autolinking?')) {
         this.savePage()
         didConfirm = true
@@ -532,7 +565,7 @@ export default class Wiki extends Vue {
     }
     if (didConfirm || confirm('Are you sure you want to automatically create links in this entry?')) {
       $.get('/wiki/autolink/' + id, (body) => {
-        if (!this.showEdit) {
+        if (this.currentPage !== CurrentPage.VIEW) {
           this.loadPage(id)
         } else {
           alert('Unable to show the autolink results: you are currently editing an article.')
@@ -545,7 +578,7 @@ export default class Wiki extends Vue {
 
   autoLinkAll () {
     let didConfirm = false
-    if (this.showEdit) {
+    if (this.currentPage === CurrentPage.VIEW) {
       if (confirm('Do you wish to save and close this article and apply autolinking?')) {
         this.savePage()
         didConfirm = true
@@ -567,8 +600,7 @@ export default class Wiki extends Vue {
   }
 
   async initCodeMirror () {
-    this.showContent = false
-    this.showEdit = true
+    this.currentPage = CurrentPage.EDIT
     if (this.rawContentElem === null) {
       this.rawContentElem = document.getElementById('wiki-raw-content') as (HTMLTextAreaElement | null)
       if (this.rawContentElem === null) {
@@ -784,6 +816,20 @@ export default class Wiki extends Vue {
       }
       console.log('updating the index tree')
       this.indexTree = nIdxTree
+    })
+  }
+
+  showFind () {
+    this.currentPage = CurrentPage.FIND
+  }
+
+  showTimeline () {
+    this.currentPage = CurrentPage.TIMELINE
+    $.get('/wiki/timeline', (resp: any) => {
+      let data = JSON.parse(resp)
+      this.timeline = data.events as TimelineEvent[]
+    }).fail(() => {
+      alert('unable to load the timeline')
     })
   }
 }
