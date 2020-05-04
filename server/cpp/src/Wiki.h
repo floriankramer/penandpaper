@@ -45,10 +45,13 @@ class Wiki : public HttpServer::RequestHandler {
     Date();
     Date(const std::string &s);
 
+    Date &operator=(const Date &other);
     bool operator==(const Date &other) const;
     bool operator<(const Date &other) const;
 
     std::string toString() const;
+
+    int firstDifferentField(const Date &other) const;
 
    private:
     void parse(const std::string &s);

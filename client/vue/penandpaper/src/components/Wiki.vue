@@ -84,9 +84,13 @@
       <div id="wiki-timeline" v-on:click="interceptLink" v-show="currentPage == 2">
         <h2>Timeline</h2>
         <table>
-          <tr v-for="event in timeline" v-bind:key="event.date + event.predicate + event.id">
+          <tr v-for="event in timeline"
+              v-bind:key="event.date + event.predicate + event.id"
+              v-bind:class="{'timeline-hr': event.firstDifferentField == 0}">
             <td>{{event.date}}</td>
-            <td>{{event.predicate}} <a v-bind:href="event.id">{{event.name}}</a></td>
+            <td v-bind:class="{'timeline-color1': event.color == 0, 'timeline-color2': event.color == 1, 'timeline-color3': event.color == 2}">
+              {{event.predicate}} <a v-bind:href="event.id">{{event.name}}</a>
+            </td>
           </tr>
         </table>
       </div>
@@ -131,6 +135,7 @@ import 'codemirror/theme/darcula.css'
 import { DockNode } from 'dock-spawn-ts/lib/js/DockNode'
 
 class IndexTreeItem {
+  id: string = ''
   html: string = ''
   children: IndexTreeItem[] = []
 }
@@ -171,6 +176,8 @@ class TimelineEvent {
   name: string = ''
   id: string = ''
   predicate: string = ''
+  firstDifferentField: number = 0
+  color: number = 0
 }
 
 enum CurrentPage {
@@ -779,6 +786,7 @@ export default class Wiki extends Vue {
 
       let idxItems = ids as ServerIndexItem
       let nIdxTree = new IndexTreeItem()
+      nIdxTree.id = 'root'
       nIdxTree.html = idxItems.name
       nIdxTree.html += '<span style="width: 25px; display: inline-block"></span>'
       nIdxTree.html += '<span data-event="new" data-payload="">' + '+' + '</span>'
@@ -800,6 +808,7 @@ export default class Wiki extends Vue {
           let child = l.item.children[l.childIndex]
           l.childIndex++
           let idx = new IndexTreeItem()
+          idx.id = child.id
           idx.html = '<span data-event="show" data-payload="' + child.id + '">' + child.name + '</span>'
           idx.html += '<span style="width: 25px; display: inline-block"></span>'
           idx.html += '<span data-event="new" data-payload="' + child.id + '">' + '+' + '</span>'
@@ -828,6 +837,13 @@ export default class Wiki extends Vue {
     $.get('/wiki/timeline', (resp: any) => {
       let data = JSON.parse(resp)
       this.timeline = data.events as TimelineEvent[]
+      let color = 2
+      this.timeline.forEach((event: TimelineEvent) => {
+        if (event.firstDifferentField < 3) {
+          color = (color + 1) % 3
+        }
+        event.color = color
+      })
     }).fail(() => {
       alert('unable to load the timeline')
     })
@@ -916,6 +932,32 @@ td {
 
 .inheritable-attr {
   font-style: italic;
+}
+
+.timeline-hr td {
+  border-bottom: 1px solid white;
+}
+
+.timeline-color1 {
+  border-left: 3px solid green;
+}
+
+.timeline-color2 {
+  border-left: 3px solid yellow;
+}
+
+.timeline-color3 {
+  border-left: 3px solid red;
+}
+
+#wiki-timeline td {
+  padding-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 7px;
+}
+
+#wiki-timeline table {
+  border-collapse: collapse;
 }
 
 </style>

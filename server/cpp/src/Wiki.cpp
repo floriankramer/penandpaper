@@ -557,14 +557,20 @@ void Wiki::handleTimeline(const httplib::Request &req,
   json j;
 
   json events = json::array();
-  for (const auto &date : _dates) {
-    for (const auto &event : date.second) {
-      json event_j;
-      event_j["date"] = event.date;
-      event_j["name"] = event.entry->name();
-      event_j["id"] = event.entry->id();
-      event_j["predicate"] = event.predicate;
-      events.push_back(event_j);
+  if (!_dates.empty()) {
+    Date last_date = _dates.begin()->first;
+    for (const auto &date : _dates) {
+      for (const auto &event : date.second) {
+        json event_j;
+        event_j["date"] = event.date;
+        event_j["name"] = event.entry->name();
+        event_j["id"] = event.entry->id();
+        event_j["predicate"] = event.predicate;
+        event_j["firstDifferentField"] =
+            date.first.firstDifferentField(last_date);
+        last_date = date.first;
+        events.push_back(event_j);
+      }
     }
   }
   j["events"] = events;
@@ -832,7 +838,8 @@ void Wiki::addToDateIndex(Entry *e) {
       if (d.data.flags & ATTR_DATE) {
         try {
           Date date(d.data.value);
-          EventData ed = {.date = d.data.value, .predicate = ait.first, .entry = e};
+          EventData ed = {
+              .date = d.data.value, .predicate = ait.first, .entry = e};
           _dates[date].push_back(ed);
         } catch (const std::exception &e) {
           LOG_WARN << "Failed to parse date for attr " << ait.first << " "
@@ -1198,6 +1205,17 @@ Wiki::Date::Date() : _fields_used(0) {}
 
 Wiki::Date::Date(const std::string &s) { parse(s); }
 
+Wiki::Date &Wiki::Date::operator=(const Date &other) {
+  _fields_used = other._fields_used;
+  for (size_t i = 0; i < _fields_used; ++i) {
+    _fields[i] = other._fields[i];
+    if (i + 1 < _fields_used) {
+      _delimiters[i] = other._delimiters[i];
+    }
+  }
+  return *this;
+}
+
 bool Wiki::Date::operator==(const Date &other) const {
   if (_fields_used != other._fields_used) {
     return false;
@@ -1233,6 +1251,19 @@ std::string Wiki::Date::toString() const {
     }
   }
   return os.str();
+}
+
+int Wiki::Date::firstDifferentField(const Date &other) const {
+  size_t min_fields = std::min(_fields_used, other._fields_used);
+  if (min_fields == 0) {
+    return 0;
+  }
+  for (size_t i = 0; i < min_fields; ++i) {
+    if (_fields[i] != other._fields[i]) {
+      return i;
+    }
+  }
+  return _delimiters.size();
 }
 
 void Wiki::Date::parse(const std::string &s) {

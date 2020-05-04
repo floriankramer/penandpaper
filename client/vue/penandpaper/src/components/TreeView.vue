@@ -25,6 +25,7 @@
 import { Component, Prop, Vue, Watch } from 'vue-property-decorator'
 
 export interface TreeItem {
+  id: string
   html: string
   children: TreeItem[]
 }
@@ -40,11 +41,13 @@ class DfsLevel {
 }
 
 @Component
-export default class Wiki extends Vue {
+export default class TreeView extends Vue {
   html: string = ''
 
   @Prop()
   tree: TreeItem | null = null
+
+  treeStates: Map<string, boolean> = new Map<string, boolean>()
 
   onClick (event: MouseEvent) {
     let target = event.target || event.srcElement
@@ -52,12 +55,19 @@ export default class Wiki extends Vue {
     if (target !== null) {
       var el = target as HTMLElement
       if (el.tagName === 'LI') {
+        let id = el.dataset['id']
+        let visible = false
         if (el.classList.contains('tree-view-hidden')) {
           el.classList.remove('tree-view-hidden')
           el.classList.add('tree-view-visible')
+          visible = true
         } else {
           el.classList.add('tree-view-hidden')
           el.classList.remove('tree-view-visible')
+        }
+        if (id !== undefined) {
+          // Remember the state of the node across reloads
+          this.treeStates.set(id, visible)
         }
       } else {
         console.log(el.dataset)
@@ -83,7 +93,12 @@ export default class Wiki extends Vue {
     }
     // Dfs on the tree
     let rootLevel = new DfsLevel(this.tree)
-    rootLevel.html = '<ul class="tree-view"><li class="tree-view-visible tree-view">' + this.tree.html
+    let visiblity = 'tree-view-visible'
+    if (this.treeStates.has(this.tree.id) && !this.treeStates.get(this.tree.id)) {
+      visiblity = 'tree-view-hidden'
+    }
+    rootLevel.html = '<ul class="tree-view"><li data-id="' + this.tree.id + '" class="' + visiblity + ' tree-view">' + this.tree.html
+
     let stack : DfsLevel[] = [rootLevel]
     while (stack.length > 0) {
       let l = stack[stack.length - 1]
@@ -114,7 +129,11 @@ export default class Wiki extends Vue {
         let ci = l.childIndex
         let child = l.item.children[ci]
         l.childIndex++
-        let html = '<li class="tree-view tree-view-visible">' + child.html
+        let visiblity = 'tree-view-visible'
+        if (this.treeStates.has(child.id) && !this.treeStates.get(child.id)) {
+          visiblity = 'tree-view-hidden'
+        }
+        let html = '<li data-id="' + child.id + '" class="tree-view ' + visiblity + '">' + child.html
         let cl = new DfsLevel(child)
         cl.html = html
         stack.push(cl)
