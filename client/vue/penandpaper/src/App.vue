@@ -75,44 +75,14 @@ export default class App extends Vue {
   toolbarPanel: PanelContainer | null = null
   wikiPanel: PanelContainer | null = null
 
+  mapDockNode: DockNode | null = null
+
   mounted () {
     console.log('The app has been mounted')
     this.server.setErrorHandler(this.onConnectError)
     this.server.connect()
 
     let app = this
-    this.$store.subscribe((mutation: MutationPayload, state: any) => {
-      if (mutation.type === 'setUsername') {
-        if (state.username.length > 0) {
-          app.noUsername = false
-        }
-      }
-      if (mutation.type === 'setPermissions') {
-        app.isGamemaster = state.permissions > 0
-        if (this.dockManager !== undefined) {
-          if (this.toolbarPanel !== null) {
-            if (this.isGamemaster) {
-              let documentNode = this.dockManager.context.model.documentManagerNode
-              this.dockManager.dockUp(documentNode, this.toolbarPanel, 0.15)
-            } else {
-              this.toolbarPanel.close()
-            }
-          }
-          if (this.wikiPanel !== null) {
-            if (this.isGamemaster) {
-              let documentNode = this.dockManager.context.model.documentManagerNode
-              this.dockManager.dockFill(documentNode, this.wikiPanel)
-            } else {
-              this.wikiPanel.close()
-            }
-          }
-
-          // Trigger a round of resizes by firing the dock library's custom resize event
-          let dockSpawnResizedEvent = new CustomEvent('DockSpawnResizedEvent', { composed: true, bubbles: true })
-          document.dispatchEvent(dockSpawnResizedEvent)
-        }
-      }
-    })
 
     this.dockManagerDiv = document.getElementById('dock-container')
     if (this.dockManagerDiv) {
@@ -138,9 +108,9 @@ export default class App extends Vue {
       // The map
       let mapDiv = document.getElementById('map')
       if (mapDiv) {
-        let mapContainer = new PanelContainer(mapDiv, this.dockManager)
-        mapContainer.setTitle('Map')
-        this.dockManager.dockFill(documentNode, mapContainer)
+        let mapPanel = new PanelContainer(mapDiv, this.dockManager)
+        mapPanel.setTitle('Map')
+        this.mapDockNode = this.dockManager.dockFill(documentNode, mapPanel)
       }
 
       // The Chat
@@ -185,6 +155,43 @@ export default class App extends Vue {
           this.$el.clientHeight)
       }
     }
+
+    this.$store.subscribe((mutation: MutationPayload, state: any) => {
+      if (mutation.type === 'setUsername') {
+        if (state.username.length > 0) {
+          app.noUsername = false
+        }
+      }
+      if (mutation.type === 'setPermissions') {
+        app.isGamemaster = state.permissions > 0
+        if (this.dockManager !== undefined) {
+          if (this.toolbarPanel !== null) {
+            if (this.isGamemaster) {
+              let documentNode = this.dockManager.context.model.documentManagerNode
+              if (this.mapDockNode !== null) {
+                this.dockManager.dockUp(this.mapDockNode, this.toolbarPanel, 0.15)
+              } else {
+                this.dockManager.dockUp(documentNode, this.toolbarPanel, 0.15)
+              }
+            } else {
+              this.toolbarPanel.close()
+            }
+          }
+          if (this.wikiPanel !== null) {
+            if (this.isGamemaster) {
+              let documentNode = this.dockManager.context.model.documentManagerNode
+              this.dockManager.dockFill(documentNode, this.wikiPanel)
+            } else {
+              this.wikiPanel.close()
+            }
+          }
+
+          // Trigger a round of resizes by firing the dock library's custom resize event
+          let dockSpawnResizedEvent = new CustomEvent('DockSpawnResizedEvent', { composed: true, bubbles: true })
+          document.dispatchEvent(dockSpawnResizedEvent)
+        }
+      }
+    })
   }
 
   onConnectError () {
@@ -195,13 +202,21 @@ export default class App extends Vue {
 </script>
 
 <style>
+/**
+The original colors where:
+background: background-color: rgb(41, 41, 41);
+font: white
 
+After looking at the material design guidelines, we use
+background: #1a1a1a
+color: #afafaf
+ */
 body {
   font-family: 'Avenir', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  color: white;
-  background-color: rgb(51, 51, 51);
+  color: #afafaf;
+  background-color: #1a1a1a;
   font-size: 13pt;
 }
 
@@ -242,15 +257,15 @@ button {
 
 /** Overwrite some of the dock library's default css */
 .dockspan-tab-handle-list-container {
-    background-color: rgb(41, 41, 41);
+    background-color: #1a1a1a
 }
 
 .dockspan-tab-content {
-    background-color: rgb(41, 41, 41);
+    background-color: #1a1a1a
 }
 
 .dockspan-tab-content > * {
-    background-color: rgb(41, 41, 41);
+    background-color: #1a1a1a
 }
 
 .panel-titlebar-button-close {
@@ -261,12 +276,21 @@ button {
   display: none !important;
 }
 
+.panel-titlebar {
+  background-color: #1a1a1a;
+}
+
+.panel-titlebar-active {
+  background-color: #008749;
+}
+
 .panel-content {
-    background-color: rgb(41, 41, 41);
+    background-color: #1a1a1a
 }
 
 a {
-  color: rgb(128, 255, 64);
+  /**color: rgb(128, 255, 64);**/
+  color: #61af3a;
   text-decoration: none;
 }
 

@@ -153,6 +153,10 @@ void Wiki::onRequest(const httplib::Request &req, httplib::Response &resp) {
     handleTimeline(req, resp);
     return;
   }
+  if (action == "quicksearch" && parts.size() == 2 && req.method == "POST") {
+    handleQuicksearch(req, resp);
+    return;
+  }
 
   if (parts.size() != 3) {
     LOG_ERROR << "Invalid wiki request at path " << req.path << LOG_END;
@@ -574,6 +578,28 @@ void Wiki::handleTimeline(const httplib::Request &req,
     }
   }
   j["events"] = events;
+  resp.body = j.dump();
+  resp.status = 200;
+}
+
+void Wiki::handleQuicksearch(const httplib::Request &req,
+                             httplib::Response &resp) {
+  using nlohmann::json;
+  json j = json::array();
+  std::unordered_set<std::string> returned_ids;
+
+  std::string query = req.body.substr(0, 512);
+  std::vector<QGramIndex::Match> matches = _ids_search_index.query(query);
+  size_t num = std::min(size_t(64), matches.size());
+  for (size_t i = 0; i < num; ++i) {
+    if (returned_ids.count(matches[i].value.value) == 0) {
+      returned_ids.insert(matches[i].value.value);
+      json res;
+      res["name"] = matches[i].value.alias;
+      res["id"] = matches[i].value.value;
+      j.push_back(res);
+    }
+  }
   resp.body = j.dump();
   resp.status = 200;
 }

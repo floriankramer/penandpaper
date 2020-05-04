@@ -16,7 +16,7 @@
 
 <template>
 <div>
-<div v-html="html" v-on:click="onClick">
+<div class="tree-view-container" v-html="html" v-on:click="onClick">
 </div>
 </div>
 </template>
@@ -97,7 +97,7 @@ export default class TreeView extends Vue {
     if (this.treeStates.has(this.tree.id) && !this.treeStates.get(this.tree.id)) {
       visiblity = 'tree-view-hidden'
     }
-    rootLevel.html = '<ul class="tree-view"><li data-id="' + this.tree.id + '" class="' + visiblity + ' tree-view">' + this.tree.html
+    rootLevel.html = '<ul class="tree-view"><li data-id="' + this.tree.id + '" class="' + visiblity + ' tree-view"><div class="tree-view-item">' + this.tree.html + '</div>'
 
     let stack : DfsLevel[] = [rootLevel]
     while (stack.length > 0) {
@@ -133,7 +133,7 @@ export default class TreeView extends Vue {
         if (this.treeStates.has(child.id) && !this.treeStates.get(child.id)) {
           visiblity = 'tree-view-hidden'
         }
-        let html = '<li data-id="' + child.id + '" class="tree-view ' + visiblity + '">' + child.html
+        let html = '<li data-id="' + child.id + '" class="tree-view ' + visiblity + '"><div class="tree-view-item">' + child.html + '</div>'
         let cl = new DfsLevel(child)
         cl.html = html
         stack.push(cl)
@@ -151,7 +151,7 @@ export default class TreeView extends Vue {
 <style>
 ul.tree-view {
   list-style: none;
-  padding: 7px;
+  padding-left: 7px;
   width: max-content;
 }
 
@@ -169,5 +169,21 @@ li.tree-view {
 
 .tree-view-visible::before {
   content: "- ";
+}
+
+.tree-view-active {
+  color: #55a8a8;
+}
+
+div.tree-view-item {
+  margin-bottom: 7px;
+  padding: 4px;
+  background-color: #2e2e2e;
+  border-radius: 7px;
+  display: inline-block;
+}
+
+div.tree-view-container {
+  background-color: #111111;
 }
 </style>

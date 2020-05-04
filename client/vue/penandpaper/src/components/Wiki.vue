@@ -20,27 +20,17 @@
       <span v-on:click="showFind">Find</span><br/>
       <span v-on:click="showTimeline">Timeline</span>
       <hr/>
-      <TreeView v-bind:tree="indexTree" v-on:show="loadPage" v-on:new="newPage" v-on:edit="editPage" v-on:delete="deletePage" v-on:autoLink="autoLink" v-on:autoLinkAll="autoLinkAll"/>
+      <input type="text" placeholder="quicksearch" v-model="quicksearchWord"/>
+      <TreeView v-show="quicksearchWord.length == 0" v-bind:tree="indexTree" v-on:show="loadPage" v-on:new="newPage" v-on:edit="editPage" v-on:delete="deletePage" v-on:autoLink="autoLink" v-on:autoLinkAll="autoLinkAll"/>
+      <ListView v-show="quicksearchWord.length != 0" v-bind:list="quicksearchResults" v-on:show="loadPage" v-on:new="newPage" v-on:edit="editPage" v-on:delete="deletePage" v-on:autoLink="autoLink" v-on:autoLinkAll="autoLinkAll"/>
     </div>
     <div class="wiki-center">
+      <div class="wiki-popup" v-show="showPopup" v-on:click="interceptLinkPopup">
+        <span v-on:click="closePopup">Close</span>
+        <WikiContentView v-bind:id="popupVisibleId"/>
+      </div>
       <div id="wiki-content" v-on:click="interceptLink" v-show="currentPage == 0" >
-        <h5>{{entryName}}</h5>
-        <details>
-          <summary>Attributes</summary>
-          <table>
-            <tr v-for="attr in displayedAttributes" v-bind:key="attr.idx">
-              <td v-bind:class="{ 'interesting-attr': attr.data.isInteresting, 'inheritable-attr': attr.data.isInheritable }">{{attr.data.predicate}}</td><td v-html="attr.data.value"></td>
-            </tr>
-          </table>
-          <p>Inherited:</p>
-          <table>
-            <tr v-for="attr in inheritedAttributes" v-bind:key="attr.idx">
-              <td v-bind:class="{ 'interesting-attr': attr.data.isInteresting, 'inheritable-attr': attr.data.isInheritable }">{{attr.data.predicate}}</td><td v-html="attr.data.value"></td>
-            </tr>
-          </table>
-        </details>
-        <hr/>
-        <span v-html="content"></span>
+        <WikiContentView v-bind:id="visibleId" />
       </div>
       <div id="wiki-edit" v-show="currentPage == 1">
         <form>
@@ -117,6 +107,10 @@ import Server from './server'
 import $ from 'jquery'
 
 import TreeView, { TreeItem } from './TreeView.vue'
+import ListView, { ListItem } from './ListView.vue'
+import WikiContentView from './WikiContentView.vue'
+
+import { Attribute, DisplayedAttribute } from './WikiTypes'
 
 import CodeMirror, { showHint } from 'codemirror'
 import 'codemirror/addon/hint/show-hint.js'
@@ -140,29 +134,9 @@ class IndexTreeItem {
   children: IndexTreeItem[] = []
 }
 
-class Attribute {
-  predicate: string = ''
-  value: string = ''
-  isInteresting: boolean = false
-  isInheritable: boolean = false
-  isDate: boolean = false
-
-  constructor (predicate: string, value: string, isInteresting: boolean, isInheritable: boolean, isDate: boolean) {
-    this.predicate = predicate
-    this.value = value
-    this.isInteresting = isInteresting
-    this.isInheritable = isInheritable
-    this.isDate = isDate
-  }
-}
-
-class DisplayedAttribute {
-  idx: number
-  data: Attribute
-  constructor (idx: number, data: Attribute) {
-    this.idx = idx
-    this.data = data
-  }
+class QuickSearchResult {
+  id: string = ''
+  html: string = ''
 }
 
 class ContextEntry {
@@ -189,18 +163,23 @@ enum CurrentPage {
 
 @Component({
   components: {
-    TreeView
+    TreeView,
+    ListView,
+    WikiContentView
   }
 })
 export default class Wiki extends Vue {
   currentPage: CurrentPage = CurrentPage.VIEW
+  showPopup: boolean = false
 
-  entryName: string = ''
+  visibleId: string = ''
+  popupVisibleId: string = ''
+
   id: string = ''
-  content: string = ''
+  contextEntries: ContextEntry[] = []
+
   displayedAttributes: DisplayedAttribute[] = []
   inheritedAttributes: DisplayedAttribute[] = []
-  contextEntries: ContextEntry[] = []
 
   rawContent: string = ''
   rawContentElem: HTMLTextAreaElement | null = null
@@ -214,6 +193,9 @@ export default class Wiki extends Vue {
   indexTree: IndexTreeItem = new IndexTreeItem()
 
   timeline: TimelineEvent[] = []
+
+  quicksearchWord : string = ''
+  quicksearchResults: QuickSearchResult[] = []
 
   newPage (parent: string) {
     this.currentPage = CurrentPage.EDIT
@@ -284,9 +266,7 @@ export default class Wiki extends Vue {
 
       let nDAttr : DisplayedAttribute[] = []
       msg.inherited.forEach((attr: Attribute) => {
-        if (attr.predicate === 'text') {
-          this.content = attr.value
-        } else if (attr.predicate !== 'parent') {
+        if (attr.predicate !== 'parent' && attr.predicate !== 'text') {
           nDAttr.push(new DisplayedAttribute(nDAttr.length, attr))
         }
       })
@@ -400,34 +380,20 @@ export default class Wiki extends Vue {
   }
 
   loadPage (id: string) {
+    this.closePopup()
     this.currentPage = CurrentPage.VIEW
     this.id = id
-    this.entryName = ''
-    $.get('/wiki/get/' + id, (body) => {
-      let msg = JSON.parse(body)
-      let nDAttr: DisplayedAttribute[] = []
-      this.entryName = msg.name
-      msg.direct.forEach((attr: Attribute) => {
-        if (attr.predicate === 'text') {
-          this.content = attr.value
-        } else if (attr.predicate !== 'parent') {
-          nDAttr.push(new DisplayedAttribute(nDAttr.length, attr))
-        }
-      })
-      this.displayedAttributes = nDAttr
-      nDAttr = []
-      msg.inherited.forEach((attr: Attribute) => {
-        if (attr.predicate === 'text') {
-          this.content = attr.value
-        } else if (attr.predicate !== 'parent') {
-          nDAttr.push(new DisplayedAttribute(nDAttr.length, attr))
-        }
-      })
-      this.inheritedAttributes = nDAttr
-    }).fail(() => {
-      this.content = 'Unable to load the specified page'
-    })
+    this.visibleId = id
     this.loadContext(id)
+  }
+
+  loadPopup (id: string) {
+    this.showPopup = true
+    this.popupVisibleId = id
+  }
+
+  closePopup () {
+    this.showPopup = false
   }
 
   loadContext (id : string) {
@@ -453,7 +419,7 @@ export default class Wiki extends Vue {
     })
   }
 
-  interceptLink (event: Event) {
+  interceptLink (event: MouseEvent) {
     let target = event.target || event.srcElement
 
     if (target !== null) {
@@ -462,7 +428,27 @@ export default class Wiki extends Vue {
         // intercept the link
         let target = el.getAttribute('href')
         if (target !== null) {
-          this.loadPage(target)
+          if (event.button === 1 || event.shiftKey) {
+            this.loadPopup(target)
+          } else {
+            this.loadPage(target)
+          }
+        }
+        event.preventDefault()
+      }
+    }
+  }
+
+  interceptLinkPopup (event: MouseEvent) {
+    let target = event.target || event.srcElement
+
+    if (target !== null) {
+      var el = target as HTMLElement
+      if (el.tagName === 'A') {
+        // intercept the link
+        let target = el.getAttribute('href')
+        if (target !== null) {
+          this.loadPopup(target)
         }
         event.preventDefault()
       }
@@ -759,6 +745,28 @@ export default class Wiki extends Vue {
     }
   }
 
+  @Watch('quicksearchWord')
+  onQuicksearchWordChanged (value: string, old: string) {
+    if (value.length !== 0) {
+      $.post('/wiki/quicksearch', value, (resp: any) => {
+        let nQR : QuickSearchResult[] = []
+        let raw = JSON.parse(resp)
+        raw.forEach((rqs: any) => {
+          let rq = new QuickSearchResult()
+          rq.id = rqs.id
+          rq.html = this.buildIndexTreeEntryHtml(rqs.id, rqs.name)
+          nQR.push(rq)
+        })
+        this.quicksearchResults = nQR
+      }).fail(() => {
+        let r = new QuickSearchResult()
+        r.id = ''
+        r.html = 'Quicksearch Failed.'
+        this.quicksearchResults = [r]
+      })
+    }
+  }
+
   loadIndex () {
     $.get('/wiki/list', (body) => {
       interface ServerIndexItem {
@@ -809,15 +817,7 @@ export default class Wiki extends Vue {
           l.childIndex++
           let idx = new IndexTreeItem()
           idx.id = child.id
-          idx.html = '<span data-event="show" data-payload="' + child.id + '">' + child.name + '</span>'
-          idx.html += '<span style="width: 25px; display: inline-block"></span>'
-          idx.html += '<span data-event="new" data-payload="' + child.id + '">' + '+' + '</span>'
-          idx.html += '<span style="width: 7px; display: inline-block"></span>'
-          idx.html += '<span data-event="edit" data-payload="' + child.id + '">' + 'e' + '</span>'
-          idx.html += '<span style="width: 7px; display: inline-block"></span>'
-          idx.html += '<span data-event="delete" data-payload="' + child.id + '">' + '-' + '</span>'
-          idx.html += '<span style="width: 7px; display: inline-block"></span>'
-          idx.html += '<span data-event="autoLink" data-payload="' + child.id + '">' + 'L' + '</span>'
+          idx.html = this.buildIndexTreeEntryHtml(child.id, child.name)
           l.idxItem.children.push(idx)
           let cl = new DfsLevel(child, idx)
           stack.push(cl)
@@ -826,6 +826,19 @@ export default class Wiki extends Vue {
       console.log('updating the index tree')
       this.indexTree = nIdxTree
     })
+  }
+
+  buildIndexTreeEntryHtml (id: string, name: string) : string {
+    let html = '<span data-event="show" data-payload="' + id + '">' + name + '</span>'
+    html += '<span style="width: 25px; display: inline-block"></span>'
+    html += '<span data-event="new" data-payload="' + id + '">' + '+' + '</span>'
+    html += '<span style="width: 7px; display: inline-block"></span>'
+    html += '<span data-event="edit" data-payload="' + id + '">' + 'e' + '</span>'
+    html += '<span style="width: 7px; display: inline-block"></span>'
+    html += '<span data-event="delete" data-payload="' + id + '">' + '-' + '</span>'
+    html += '<span style="width: 7px; display: inline-block"></span>'
+    html += '<span data-event="autoLink" data-payload="' + id + '">' + 'L' + '</span>'
+    return html
   }
 
   showFind () {
@@ -958,6 +971,18 @@ td {
 
 #wiki-timeline table {
   border-collapse: collapse;
+}
+
+.wiki-popup {
+  position: absolute;
+  background-color: #2e2e2e;
+  border-radius: 12px;
+  z-index: 100;
+  left: 20px;
+  right: 20px;
+  top: 20px;
+  bottom: 20px;
+  padding: 7px;
 }
 
 </style>

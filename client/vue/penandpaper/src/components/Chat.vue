@@ -144,7 +144,6 @@ export default class Chat extends Vue {
 div .chat-flex-container {
   display: flex;
   flex-direction: column;
-  background-color: rgb(51, 51, 51);
   height: calc(100% - 20px);
   padding: 10px;
 }

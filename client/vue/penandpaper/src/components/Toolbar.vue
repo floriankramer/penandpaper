@@ -134,7 +134,6 @@ div .toolbar-container {
   padding-left: 10px;
   padding-right: 10px;
   padding-top: 5px;
-  background-color: rgb(51, 51, 51);
 }
 
 .toolbar-align-right {
