@@ -178,12 +178,15 @@ li.tree-view {
 div.tree-view-item {
   margin-bottom: 7px;
   padding: 4px;
-  background-color: #2e2e2e;
   border-radius: 7px;
   display: inline-block;
 }
 
-div.tree-view-container {
-  background-color: #111111;
+body.dark-mode div.tree-view-item  {
+  background-color: #2e2e2e;
+}
+
+body.light-mode div.tree-view-item  {
+  background-color: #3e3e3e;
 }
 </style>

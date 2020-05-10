@@ -19,12 +19,16 @@ import Camera from './camera'
 import ShaderCache from './shader_cache'
 import Actor, { ShaderInputType } from './actor'
 
+import GlobalSettings from '../global'
+
 export default class GridMaterial extends Material {
   heightLoc: WebGLUniformLocation | null = null
   widthLoc: WebGLUniformLocation | null = null
   thresholdLoc: WebGLUniformLocation | null = null
   stepLoc: WebGLUniformLocation | null = null
   offsetLoc: WebGLUniformLocation | null = null
+  backgkgroundLoc: WebGLUniformLocation | null = null
+  foregroundLoc: WebGLUniformLocation | null = null
 
   constructor () {
     super()
@@ -51,15 +55,18 @@ export default class GridMaterial extends Material {
 
       uniform vec2 uOff;
 
+      uniform vec4 background;
+      uniform vec4 foreground;
+
       void main() {
         float fx = pos.x * uWidth + uOff.x;
         float fy = pos.y * uHeight + uOff.y;
         fx = fract(fx / uStep) * uStep;
         fy = fract(fy / uStep) * uStep;
         if (step(uThreshold, fx) * step(uThreshold, fy) < 1.0) {
-          gl_FragColor = vec4(0.3, 0.3, 0.3, 1);
+          gl_FragColor = foreground;
         } else {
-          gl_FragColor = vec4(0.2, 0.2, 0.2, 1);
+          gl_FragColor = background;
         }
       }
     `
@@ -78,12 +85,23 @@ export default class GridMaterial extends Material {
     this.thresholdLoc = ctx.getUniformLocation(this.program, 'uThreshold')
     this.stepLoc = ctx.getUniformLocation(this.program, 'uStep')
     this.offsetLoc = ctx.getUniformLocation(this.program, 'uOff')
+    this.backgkgroundLoc = ctx.getUniformLocation(this.program, 'background')
+    this.foregroundLoc = ctx.getUniformLocation(this.program, 'foreground')
   }
 
   activate (ctx: WebGLRenderingContext, shaderCache: ShaderCache, cam: Camera, actor: Actor) {
     super.activate(ctx, shaderCache, cam, actor)
     ctx.uniform1f(this.heightLoc, cam.height)
     ctx.uniform1f(this.widthLoc, cam.height * cam.aspectRatio)
+
+    if (GlobalSettings.darkMode) {
+      // TODO: this is hacky and should not be inside the material
+      ctx.uniform4f(this.backgkgroundLoc, 0.102, 0.102, 0.102, 1)
+      ctx.uniform4f(this.foregroundLoc, 0.2, 0.2, 0.2, 1)
+    } else {
+      ctx.uniform4f(this.backgkgroundLoc, 0.2, 0.2, 0.2, 1)
+      ctx.uniform4f(this.foregroundLoc, 0.3, 0.3, 0.3, 1)
+    }
 
     let pixelHeight = (cam.height * 2.0) / cam.heightPixels
     ctx.uniform1f(this.thresholdLoc, pixelHeight)

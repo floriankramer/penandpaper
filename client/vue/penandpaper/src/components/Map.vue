@@ -134,6 +134,8 @@ export default class World extends Vue {
     eventBus.$on('/server/tiles/clear', () => { this.tileRenderer.clear() })
 
     eventBus.$on('/tools/select_tool', (data: string) => { this.onToolSelected(data) })
+
+    eventBus.$on('/client/colorscheme/changed', () => { this.requestRedraw() })
   }
 
   requestRedraw (dontResize: boolean = false) {
@@ -161,7 +163,6 @@ export default class World extends Vue {
       this.renderer.endFrame()
     }
     let end: number = Date.now()
-    // console.log(end - now)
   }
 
   setupScreenSpaceFont (ctx: CanvasRenderingContext2D) {

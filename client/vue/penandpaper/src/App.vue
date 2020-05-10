@@ -49,6 +49,11 @@ import 'dock-spawn-ts/lib/css/dock-manager.css'
 import 'dock-spawn-ts/lib/css/dock-manager-style.css'
 import { DockNode } from 'dock-spawn-ts/lib/js/DockNode'
 
+import GlobalSettings from './global'
+
+import $ from 'jquery'
+import eventbus from './eventbus'
+
 @Component({
   components: {
     Login,
@@ -192,6 +197,20 @@ export default class App extends Vue {
         }
       }
     })
+
+    // Dark mode
+    $('body').addClass('light-mode')
+    document.addEventListener('keyup', (e: KeyboardEvent) => {
+      if (e.key === 'l') {
+        GlobalSettings.darkMode = !GlobalSettings.darkMode
+        if (GlobalSettings.darkMode) {
+          $('body').removeClass('light-mode').addClass('dark-mode')
+        } else {
+          $('body').addClass('light-mode').removeClass('dark-mode')
+        }
+        eventbus.$emit('/client/colorscheme/changed')
+      }
+    })
   }
 
   onConnectError () {
@@ -215,9 +234,60 @@ body {
   font-family: 'Avenir', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-size: 13pt;
+}
+
+body.dark-mode {
   color: #afafaf;
   background-color: #1a1a1a;
-  font-size: 13pt;
+}
+
+body.dark-mode .panel-titlebar {
+  background-color: #1a1a1a;
+}
+
+body.dark-mode .panel-content {
+    background-color: #1a1a1a
+}
+
+body.dark-mode .dockspan-tab-handle-list-container {
+    background-color: #1a1a1a
+}
+
+body.dark-mode .dockspan-tab-content {
+    background-color: #1a1a1a
+}
+
+body.dark-mode .dockspan-tab-content > * {
+    background-color: #1a1a1a
+}
+
+body.light-mode {
+  color: #eeeeee;
+  background-color: #333333;
+}
+
+body.light-mode .panel-titlebar {
+  background-color: #333333;
+}
+
+body.light-mode .panel-content {
+    background-color: #333333
+}
+body.light-mode .dockspan-tab-handle-list-container {
+    background-color: #333333
+}
+
+body.light-mode .dockspan-tab-content {
+    background-color: #333333
+}
+
+body.light-mode .dockspan-tab-content > * {
+    background-color: #333333
+}
+
+.panel-titlebar-active {
+  background-color: #008749;
 }
 
 input {
@@ -256,17 +326,6 @@ button {
 }
 
 /** Overwrite some of the dock library's default css */
-.dockspan-tab-handle-list-container {
-    background-color: #1a1a1a
-}
-
-.dockspan-tab-content {
-    background-color: #1a1a1a
-}
-
-.dockspan-tab-content > * {
-    background-color: #1a1a1a
-}
 
 .panel-titlebar-button-close {
   display: none !important;
@@ -274,18 +333,6 @@ button {
 
 .dockspan-tab-handle-close-button {
   display: none !important;
-}
-
-.panel-titlebar {
-  background-color: #1a1a1a;
-}
-
-.panel-titlebar-active {
-  background-color: #008749;
-}
-
-.panel-content {
-    background-color: #1a1a1a
 }
 
 a {

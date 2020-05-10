@@ -39,6 +39,7 @@ Settings parseSettings(int argc, char **argv) {
       {"data-dir", required_argument, 0, 'd'},
       {0, 0, 0, 0}};
   int option_index = 0;
+  bool failed = false;
   while (true) {
     int c = getopt_long(argc, argv, "d:", long_options, &option_index);
     if (c < 0) {
@@ -51,11 +52,16 @@ Settings parseSettings(int argc, char **argv) {
       case 'd':
         s.base_dir = optarg;
       case '?':
+        failed = true;
         break;
       default:
         LOG_ERROR << "Unexpected argument: " << char(c) << LOG_END;
+        failed = true;
         break;
     }
+  }
+  if (failed) {
+    exit(1);
   }
   return s;
 }

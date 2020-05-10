@@ -866,6 +866,24 @@ export default class Wiki extends Vue {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
+body.light-mode #wiki-edit textarea {
+  color: #eeeeee;
+  background-color: #333333;
+}
+
+body.light-mode .wiki-popup {
+  background-color: #434343;
+}
+
+body.dark-mode #wiki-edit textarea {
+  color: #afafaf;
+  background-color: #111111;
+}
+
+body.dark-mode .wiki-popup {
+  background-color: #333333;
+}
+
 div .wiki-sidebar {
   position: absolute;
   width: 300px;
@@ -908,8 +926,6 @@ div .wiki-sidebar-right {
 #wiki-edit textarea {
   width: 100%;
   height: 100%;
-  color: white;
-  background-color: rgb(61, 61, 61);
   border: 3px solid black;
 }
 
@@ -975,7 +991,6 @@ td {
 
 .wiki-popup {
   position: absolute;
-  background-color: #2e2e2e;
   border-radius: 12px;
   z-index: 100;
   left: 20px;
