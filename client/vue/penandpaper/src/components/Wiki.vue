@@ -90,7 +90,7 @@
     </div>
     <div class="wiki-sidebar-right">
       <details v-for="context in contextEntries" v-bind:key="context.idx">
-        <summary>{{context.name}}</summary>
+        <summary>{{context.name}} <span v-on:click.prevent="loadPopup(context.id)">+</span></summary>
          <table>
           <tr v-for="attr in context.data" v-bind:key="attr.idx">
             <td v-bind:class="{ 'interesting-attr': attr.data.isInteresting, 'inheritable-attr': attr.data.isInheritable }">{{attr.data.predicate}}</td><td v-html="attr.data.value"></td>
@@ -141,6 +141,7 @@ class QuickSearchResult {
 
 class ContextEntry {
   idx: number = 0
+  id: string = ''
   name: string = ''
   data: DisplayedAttribute[] = []
 }
@@ -402,6 +403,7 @@ export default class Wiki extends Vue {
       let nCE : ContextEntry[] = []
       msg.forEach((e: any) => {
         let c = new ContextEntry()
+        c.id = e.id
         c.idx = nCE.length
         c.name = e.name
         e.attributes.forEach((a: Attribute) => {
@@ -414,6 +416,7 @@ export default class Wiki extends Vue {
     }).fail(() => {
       let c = new ContextEntry()
       c.idx = 0
+      c.id = ''
       c.name = 'Unable to load the context'
       this.contextEntries = [c]
     })

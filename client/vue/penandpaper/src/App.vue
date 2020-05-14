@@ -201,7 +201,7 @@ export default class App extends Vue {
     // Dark mode
     $('body').addClass('light-mode')
     document.addEventListener('keyup', (e: KeyboardEvent) => {
-      if (e.key === 'l') {
+      if (e.ctrlKey && e.key === ' ') {
         GlobalSettings.darkMode = !GlobalSettings.darkMode
         if (GlobalSettings.darkMode) {
           $('body').removeClass('light-mode').addClass('dark-mode')

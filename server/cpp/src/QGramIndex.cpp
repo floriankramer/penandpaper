@@ -33,6 +33,7 @@ std::vector<QGramIndex::Match> QGramIndex::query(const std::string &word) {
     }
   }
   std::vector<NumericMatch> num_matches = merge(occurences);
+  LOG_DEBUG << "Got " << num_matches.size() << " matches" << LOG_END;
 
   // Normalize the scores, which currently are simply how many grams match
   // the grams of word. We divide it by the number of grams in the target, to
@@ -48,6 +49,7 @@ std::vector<QGramIndex::Match> QGramIndex::query(const std::string &word) {
             [](const NumericMatch &n, const NumericMatch &n2) {
               return n.score > n2.score;
             });
+
   std::vector<Match> matches;
   matches.reserve(num_matches.size());
   for (const NumericMatch &m : num_matches) {
@@ -66,9 +68,11 @@ std::vector<QGramIndex::NumericMatch> QGramIndex::merge(
   for (uint64_t i : *lists[0]) {
     matches.push_back({i, 1});
   }
-  // Do the n-way join through a series of consecutive joins
+  // Do the n-way merge through a series of consecutive joins
   for (size_t i = 1; i < lists.size(); ++i) {
     matches = zipper(matches, lists[i]);
+    LOG_DEBUG << "After merge " << i << " we have " << matches.size()
+              << " matches" << LOG_END;
   }
   return matches;
 }
@@ -84,7 +88,8 @@ std::vector<QGramIndex::NumericMatch> QGramIndex::zipper(
       res.push_back(matches[pos_l]);
       pos_l++;
     }
-    while (pos_r < list->size() && matches[pos_l].value > (*list)[pos_r]) {
+    while (pos_r < list->size() && pos_l < matches.size() &&
+           matches[pos_l].value > (*list)[pos_r]) {
       res.push_back({(*list)[pos_r], 1});
       pos_r++;
     }
@@ -96,6 +101,14 @@ std::vector<QGramIndex::NumericMatch> QGramIndex::zipper(
       pos_l++;
       pos_r++;
     }
+  }
+  while (pos_l < matches.size()) {
+    res.push_back(matches[pos_l]);
+    pos_l++;
+  }
+  while (pos_r < list->size()) {
+    res.push_back({(*list)[pos_r], 1});
+    pos_r++;
   }
   return res;
 }
@@ -139,7 +152,7 @@ void QGramIndex::remove(const std::string &alias, const ValueType &value) {
     return;
   }
 
-  for (const std::string gram : grams) {
+  for (const std::string &gram : grams) {
     auto it = _gram_map.find(gram);
     if (it != _gram_map.end()) {
       std::vector<uint64_t> &values = it->second;

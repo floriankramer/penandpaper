@@ -84,7 +84,12 @@ Wiki::Wiki(Database *db)
       d.idx = idx;
       d.data.value = value;
       d.data.flags = flags;
-      d.data.value_markdown_html = tryProcessMarkdown(d.data.value);
+
+      MdNode md = tryProcessMarkdown(d.data.value);
+      std::ostringstream html;
+      md.toHTML(html, _lookup_attributed_bound);
+      d.data.value_markdown_html = html.str();
+
       if (!it->second->loadAttribute(predicate, d)) {
         duplicates_to_erase.push_back(idx);
       }
@@ -198,10 +203,11 @@ void Wiki::handleCompleteEntity(const httplib::Request &req,
     std::string context = jreq.at("context");
     std::vector<std::string> parts = util::splitStringWs(context);
     std::vector<Completion> results;
-    for (size_t i = 1; i <= parts.size(); ++i) {
+    for (size_t num_words_used = 1; num_words_used <= parts.size();
+         ++num_words_used) {
       std::string word;
-      // use the i last words
-      for (size_t j = 0; j < i; ++j) {
+      // use the num_words_used last words
+      for (size_t j = 0; j < num_words_used; ++j) {
         std::string next = parts[parts.size() - 1 - j];
         if (j > 0) {
           next += " ";
@@ -220,7 +226,8 @@ void Wiki::handleCompleteEntity(const httplib::Request &req,
       for (const QGramIndex::Match &m : subres) {
         // Ignore matches with a very low score.
         if (m.score > 0.3) {
-          results.push_back({m, i, word});
+          results.push_back(
+              {.match = m, .num_words_used = num_words_used, .replaces = word});
         }
       }
     }
@@ -435,7 +442,12 @@ void Wiki::handleSave(const std::string &id, const httplib::Request &req,
           attr.at("isInheritable").get<bool>() ? ATTR_INHERITABLE : 0;
       a.data.flags |= attr.at("isDate").get<bool>() ? ATTR_DATE : 0;
       a.data.value = attr.at("value").get<std::string>();
-      a.data.value_markdown_html = tryProcessMarkdown(a.data.value);
+
+      MdNode md = tryProcessMarkdown(a.data.value);
+      std::ostringstream html;
+      md.toHTML(html, _lookup_attributed_bound);
+      a.data.value_markdown_html = html.str();
+
       if (a.predicate == "parent") {
         new_parent_id = a.data.value;
       }
@@ -529,11 +541,10 @@ void Wiki::handleContext(const std::string &id, httplib::Response &resp) {
     resp.status = 400;
     return;
   }
-  json r = json::array();
-  // go through the entries parent and agglomorate interesting attributes
-  Entry *e = it->second->parent();
-  while (e != nullptr) {
+  std::unordered_set<std::string> referenced_ids;
+  auto entryToContextJson = [](const Entry *e) {
     json ej;
+    ej["id"] = e->id();
     ej["name"] = e->name();
     json eja = json::array();
     for (const auto &ait : e->attributes()) {
@@ -546,11 +557,40 @@ void Wiki::handleContext(const std::string &id, httplib::Response &resp) {
       }
     }
     ej["attributes"] = eja;
-    if (eja.size() > 0) {
-      r.push_back(ej);
+    return ej;
+  };
+
+  json r = json::array();
+  // go through the entries parent and agglomorate interesting attributes
+  Entry *e = it->second->parent();
+  while (e != nullptr) {
+    if (referenced_ids.count(e->id()) == 0) {
+      json ej = entryToContextJson(e);
+      if (ej.at("attributes").size() > 0) {
+        r.push_back(ej);
+      }
+      referenced_ids.insert(e->id());
     }
     e = e->parent();
   }
+  // go through all linked entries
+  MdNode md = tryProcessMarkdown(getText(it->second));
+  md.traverse(
+      [this, &r, &referenced_ids, &entryToContextJson](const MdNode &e) {
+        if (e.type() == MdNodeType::LINK) {
+          const LinkMdNode *link = static_cast<const LinkMdNode *>(&e);
+          auto it = _entry_map.find(link->target());
+          if (it != _entry_map.end()) {
+            if (referenced_ids.count(it->second->id()) == 0) {
+              json ej = entryToContextJson(it->second);
+              if (ej.at("attributes").size() > 0) {
+                r.push_back(ej);
+              }
+              referenced_ids.insert(it->second->id());
+            }
+          }
+        }
+      });
   resp.body = r.dump();
   resp.status = 200;
 }
@@ -640,7 +680,7 @@ void Wiki::autoLink(Entry *e, double score_threshold) {
     std::ostringstream result;
     // a vector of alternating words and whitespace
     std::vector<std::string> ctx_entries;
-    // TODO: keep between 16 and 32 characters worth of data in ctx_entries.
+    // keep between 16 and 32 characters worth of data in ctx_entries.
     // then whenever a full word was read apply the autocompletion. Apply any
     // results with score at least score_threshold. if nothing was applied throw
     // out the last two entries in the vector and write them to result. Ignore
@@ -781,7 +821,10 @@ void Wiki::autoLink(Entry *e, double score_threshold) {
 
     AttributeData changed = data.data;
     changed.value = result.str();
-    changed.value_markdown_html = tryProcessMarkdown(changed.value);
+    MdNode md = tryProcessMarkdown(changed.value);
+    std::ostringstream html;
+    md.toHTML(html, _lookup_attributed_bound);
+    changed.value_markdown_html = html.str();
 
     // Update the cache, write to disk
     e->setAttribute(TEXT_ATTR, &data, changed);
@@ -799,11 +842,11 @@ std::string Wiki::lookupAttribute(const std::string &id,
     return "[" + predicate + " is empty]";
   }
   if (vals->size() == 1) {
-    return (*vals)[0].data.value;
+    return (*vals)[0].data.value_markdown_html;
   } else {
     std::ostringstream out;
     for (size_t i = 0; i < vals->size(); ++i) {
-      out << vals->at(i).data.value;
+      out << vals->at(i).data.value_markdown_html;
       if (i + 1 < vals->size()) {
         out << ", ";
       }
@@ -901,7 +944,7 @@ void Wiki::removeFromDateIndex(Entry *e) {
   }
 }
 
-std::string Wiki::tryProcessMarkdown(const std::string &s) {
+MdNode Wiki::tryProcessMarkdown(const std::string &s) {
   // Process the attributes value as markdown
   Markdown m(s, _lookup_attributed_bound);
   try {
@@ -909,8 +952,16 @@ std::string Wiki::tryProcessMarkdown(const std::string &s) {
   } catch (const std::exception &e) {
     LOG_WARN << "Error while processing attribute markdown: " << e.what()
              << LOG_END;
-    return s;
+    return TextMdNode(s);
   }
+}
+
+std::string Wiki::getText(Entry *e) const {
+  auto *v = e->getAttribute(TEXT_ATTR);
+  if (v != nullptr && !v->empty()) {
+    return (*v)[0].data.value;
+  }
+  return std::string();
 }
 
 // =============================================================================

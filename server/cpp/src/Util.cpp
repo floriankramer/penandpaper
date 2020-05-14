@@ -175,6 +175,9 @@ std::string firstWords(const std::string &s, size_t num_words,
   while (pos < s.size() && std::isspace(s[pos])) {
     pos++;
   }
+  if (num_words == 0) {
+    return s.substr(0, pos);
+  }
   while (pos < s.size()) {
     size_t start = pos;
     // seek to the end of the non whitespace

@@ -15,7 +15,8 @@ int main(int argc, char **argv) {
   std::string inp_str = inp.str();
   try {
     Markdown m(inp_str);
-    std::cout << m.process();
+    m.process().toHTML(std::cout);
+    std::cout << std::endl;
   } catch (const std::exception &e) {
     std::cerr << "Unable to parse the markdown: " << e.what() << std::endl;
   }

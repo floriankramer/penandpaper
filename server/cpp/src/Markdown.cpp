@@ -17,6 +17,11 @@
 
 #include "Logger.h"
 
+const char *Markdown::TOKEN_TYPE_NAMES[] = {
+    "WORD",       "ORDER_MARK",       "LIST_MARK",
+    "LINE_BREAK", "FORCE_LINE_BREAK", "EMPTY_LINE",
+    "WHITESPACE", "HEADING_HASHES",   "BRACKET"};
+
 // =============================================================================
 // TokenMatcher
 // =============================================================================
@@ -42,8 +47,31 @@ void Markdown::WordMatcher::step(char c) {
   //  0 Accept any non whitespace
   switch (_state) {
     case 0:
-      if (!std::isspace(c)) {
+      if (!std::isspace(c) && !(c == '[' || c == '(' || c == ']' || c == ')')) {
         _matches = true;
+      } else {
+        _state = -1;
+        _matches = false;
+        _can_match = false;
+      }
+      break;
+    default:
+      _can_match = false;
+      _matches = false;
+  }
+}
+
+Markdown::BracketMatcher::BracketMatcher() : TokenMatcher(TokenType::BRACKET) {}
+void Markdown::BracketMatcher::step(char c) {
+  // States:
+  // -1  failure
+  //  0 Accept any non whitespace
+  //  1 accepts nothing
+  switch (_state) {
+    case 0:
+      if (c == '[' || c == '(' || c == ']' || c == ')') {
+        _matches = true;
+        _state = 1;
       } else {
         _state = -1;
         _matches = false;
@@ -300,6 +328,7 @@ Markdown::Lexer::Lexer(const std::string &input)
 
   // The none whitespace tokens
   _token_matchers.emplace_back(std::make_unique<Markdown::WordMatcher>());
+  _token_matchers.emplace_back(std::make_unique<Markdown::BracketMatcher>());
   _token_matchers.emplace_back(
       std::make_unique<Markdown::HeadingHashesMatcher>());
   _token_matchers.emplace_back(std::make_unique<Markdown::OrderMarkMatcher>());
@@ -447,7 +476,7 @@ void Markdown::Lexer::tokenize() {
       pos++;
     }
     pos = match_pos + 1;
-    if (pos == start) {
+    if (pos == start || match == nullptr) {
       throw std::runtime_error(
           "Unable to parse the markdown input. Matched a token of length 0 in "
           "input part: " +
@@ -458,6 +487,11 @@ void Markdown::Lexer::tokenize() {
     t.value = _input.substr(start, match_pos + 1 - start);
     _tokens.push_back(t);
   }
+
+  //  LOG_DEBUG << "Done Tokenizing:" << LOG_END;
+  //  for (Token &t : _tokens) {
+  //    std::cout << TOKEN_TYPE_NAMES[int(t.type)] << "\t\t" << t.value << "\n";
+  //  }
 }
 
 // =============================================================================
@@ -471,14 +505,16 @@ Markdown::Markdown(
     : _lexer(in), _lookup_attribute(lookup_attribute) {}
 Markdown::~Markdown() {}
 
-std::string Markdown::process() {
+MdNode Markdown::process() {
+  MdNode root;
   if (_lexer.isDone()) {
-    return _out.str();
+    return root;
   }
 
   // Parse all blocks at the beginning
-  while (parseBlock(_out))
+  while (parseBlock(root))
     ;
+  std::unique_ptr<ParagraphMdNode> paragraph = nullptr;
   while (!_lexer.isDone()) {
     // If this is true check if the paragraph continues or is interrupted by
     // a block (list, table, etc.)
@@ -489,50 +525,50 @@ std::string Markdown::process() {
     size_t pos = _lexer.pos();
     if (_lexer.peek(TokenType::HEADING_HASHES)) {
       std::ostringstream s;
-      if (parseHashesHeading(s)) {
-        if (_in_paragraph) {
-          _out << "</p>";
-          _in_paragraph = false;
+      if (parseHashesHeading(root)) {
+        if (paragraph != nullptr) {
+          paragraph.release();
+          paragraph = nullptr;
         }
-        _out << s.str();
         check_for_block = true;
         skip_line = true;
       }
     }
     if (!skip_line) {
-      if (!_in_paragraph) {
-        _out << "<p>";
-        _in_paragraph = true;
+      if (paragraph == nullptr) {
+        paragraph = std::make_unique<ParagraphMdNode>();
+        root.addChild(paragraph.get());
       }
-      parseLine(_out);
+      parseLine(*paragraph);
     }
     if (_lexer.isDone()) {
       break;
     }
     if (_lexer.accept(TokenType::EMPTY_LINE)) {
-      if (_in_paragraph) {
-        _out << "</p>";
-        _in_paragraph = false;
+      if (paragraph != nullptr) {
+        paragraph.release();
+        paragraph = nullptr;
       }
       check_for_block = true;
     } else if (_lexer.accept(TokenType::FORCE_LINE_BREAK)) {
-      _out << "<br/>";
+      if (paragraph != nullptr) {
+        paragraph->addChild(new LineBreakMdNode());
+      } else {
+        root.addChild(new LineBreakMdNode());
+      }
       check_for_block = true;
     } else if (_lexer.accept(TokenType::LINE_BREAK)) {
-      _out << " ";
       check_for_block = true;
     }
     if (check_for_block) {
-      std::ostringstream block;
-      if (parseBlock(block)) {
-        if (_in_paragraph) {
-          _out << "</p>";
-          _in_paragraph = false;
+      if (parseBlock(root)) {
+        if (paragraph != nullptr) {
+          paragraph.release();
+          paragraph = nullptr;
         }
-        _out << block.str();
       }
       // parse all consecutive blocks
-      while (parseBlock(_out))
+      while (parseBlock(root))
         ;
     }
 
@@ -545,32 +581,30 @@ std::string Markdown::process() {
       throw std::runtime_error(s.str());
     }
   }
-  if (_in_paragraph) {
-    _out << "</p>";
+  if (paragraph != nullptr) {
+    paragraph.release();
   }
-  return _out.str();
+  return root;
 }
 
-bool Markdown::parseBlock(std::ostream &out) {
-  return parseUnorderedList(out) || parseOrderedList(out);
+bool Markdown::parseBlock(MdNode &parent) {
+  return parseUnorderedList(parent) || parseOrderedList(parent);
 }
 
-bool Markdown::parseUnorderedList(std::ostream &out) {
-  return parseList(out, TokenType::LIST_MARK, "ul", "li");
+bool Markdown::parseUnorderedList(MdNode &parent) {
+  return parseList(parent, TokenType::LIST_MARK, false);
 }
 
-bool Markdown::parseOrderedList(std::ostream &out) {
-  return parseList(out, TokenType::ORDER_MARK, "ol", "li");
+bool Markdown::parseOrderedList(MdNode &parent) {
+  return parseList(parent, TokenType::ORDER_MARK, true);
 }
 
-bool Markdown::parseList(std::ostream &out, TokenType list_mark,
-                         const std::string &list_tag,
-                         const std::string &item_tag) {
+bool Markdown::parseList(MdNode &parent, TokenType list_mark, bool is_ordered) {
   _lexer.push();
   if (_lexer.peek(TokenType::WHITESPACE)) {
     std::string val = _lexer.current().value;
     // A list may be prefixed with at most three whitespace
-    if (val != " " && val != "  " && val != "   ") {
+    if (indentLevel(val) > 0) {
       _lexer.pop();
       return false;
     }
@@ -583,17 +617,14 @@ bool Markdown::parseList(std::ostream &out, TokenType list_mark,
     _lexer.pop();
     return false;
   }
-  out << "<" << list_tag << "><" << item_tag << ">";
+
+  std::unique_ptr<ListMdNode> list = std::make_unique<ListMdNode>(is_ordered);
+  std::unique_ptr<ListItemMdNode> item = std::make_unique<ListItemMdNode>();
   while (!_lexer.isDone()) {
-    parseLine(out);
-    if (_lexer.isDone()) {
+    parseLine(*item.get());
+    if (_lexer.isDone() || _lexer.accept(TokenType::EMPTY_LINE)) {
+      list->addChild(item.release());
       break;
-    }
-    if (_lexer.accept(TokenType::EMPTY_LINE)) {
-      break;
-    } else {
-      // Insert a whitespace
-      out << " ";
     }
     // Consume the token ending the line.
     _lexer.any();
@@ -601,7 +632,7 @@ bool Markdown::parseList(std::ostream &out, TokenType list_mark,
     if (_lexer.peek(TokenType::WHITESPACE)) {
       std::string val = _lexer.current().value;
       // A list may be prefixed with at most three whitespace
-      if (val != " " && val != "  " && val != "   ") {
+      if (indentLevel(val) > 0) {
         // Keep parsing more lines. This is actually not standard conform,
         // but will work for now.
         continue;
@@ -611,160 +642,168 @@ bool Markdown::parseList(std::ostream &out, TokenType list_mark,
     }
     // Start a new ordered point
     if (_lexer.accept(list_mark)) {
-      out << "</" << item_tag << "><" << item_tag << ">";
+      list->addChild(item.release());
+      item = std::make_unique<ListItemMdNode>();
     }
   }
-  out << "</" << item_tag << "></" << list_tag << ">";
+  parent.addChild(list.release());
   return true;
 }
 
-void Markdown::parseLine(std::ostream &out) {
+void Markdown::parseLine(MdNode &parent) {
+  std::ostringstream buf;
+  // assume we'll need to create a new text node
+  bool is_new_text = true;
+  std::unique_ptr<TextMdNode> text_local = std::make_unique<TextMdNode>();
+  TextMdNode *text = text_local.get();
+
+  // check if we can extend an old node
+  if (parent.children().size() > 0 &&
+      parent.children().back()->type() == MdNodeType::TEXT) {
+    // merge the texts instead of creating a new text node
+    is_new_text = false;
+    text = static_cast<TextMdNode *>(parent.children().back().get());
+  }
+
+  // read a line
   while (!_lexer.isDone()) {
     if (_lexer.peekLineEnd()) {
-      return;
+      break;
     } else if (_lexer.accept(TokenType::WHITESPACE)) {
-      out << " ";
+      buf << " ";
     } else {
-      if (parseLink(out)) {
-        continue;
+      if (_lexer.peek(TokenType::BRACKET)) {
+        MdNode tmp;
+        if (parseLink(tmp)) {
+          // Add the text to the node
+          if (is_new_text) {
+            text->text() = buf.str();
+            parent.addChild(text);
+            text_local.release();
+          } else {
+            text->text() += " " + buf.str();
+          }
+          // we now need a new text node
+          is_new_text = true;
+          text_local = std::make_unique<TextMdNode>();
+          text = text_local.get();
+
+          buf = std::ostringstream();
+          // add the link to the parent
+          parent.addChild(tmp.releaseChild(0));
+          continue;
+        }
       }
-      out << _lexer.any().value;
+      buf << _lexer.any().value;
+    }
+  }
+  if (buf.tellp() > 0) {
+    if (is_new_text) {
+      text->text() = buf.str();
+      parent.addChild(text);
+      text_local.release();
+    } else {
+      text->text() += " " + buf.str();
     }
   }
 }
 
-bool Markdown::parseHashesHeading(std::ostream &out) {
+bool Markdown::parseHashesHeading(MdNode &parent) {
   _lexer.push();
   if (!_lexer.peek(TokenType::HEADING_HASHES)) {
     _lexer.pop();
     return false;
   }
+  std::unique_ptr<HeadingMdNode> heading = std::make_unique<HeadingMdNode>();
+  std::unique_ptr<TextMdNode> text = std::make_unique<TextMdNode>();
+  std::ostringstream buf;
+
   Token hashes = _lexer.any();
   int heading_level = hashes.value.size();
-  out << "<h" << heading_level << ">";
+  heading->level() = heading_level;
   while (!_lexer.isDone()) {
     if (_lexer.accept(hashes) || _lexer.acceptLineEnd()) {
       // the heading is done
-      out << "</h" << heading_level << ">";
-      return true;
+      break;
     }
     if (_lexer.accept(TokenType::WHITESPACE)) {
-      out << ' ';
+      buf << ' ';
     } else {
-      out << _lexer.any().value;
+      buf << _lexer.any().value;
     }
   }
-  out << "</h" << heading_level << ">";
+  text->text() = buf.str();
+  heading->addChild(text.release());
+  parent.addChild(heading.release());
   return true;
 }
 
-bool Markdown::parseLink(std::ostream &out) {
+bool Markdown::parseLink(MdNode &parent) {
   _lexer.push();
-  const std::string *current = &_lexer.current().value;
-  size_t pos = 0;
-  // Look for an opening brace
-  bool escaped = false;
-  bool is_attribute_link = false;
-  while (pos < current->size() && (escaped || (*current)[pos] != '[')) {
-    pos++;
-  }
-  if (pos >= current->size()) {
+  // Links have to start with a [
+  if (!_lexer.accept("[")) {
     _lexer.pop();
     return false;
   }
-  // The position of the name opening brace [
-  ssize_t name_start = pos;
-  std::string pre_link = current->substr(0, name_start);
-  std::ostringstream link_name;
-
-  // Look for the name closing brace. That could be several tokens down the line
-  size_t name_end = std::string::npos;
-  while (!_lexer.isDone() && !_lexer.peekLineEnd()) {
-    while (pos < current->size() && (escaped || (*current)[pos] != ']')) {
-      if ((*current)[pos] == ':') {
-        is_attribute_link = true;
-      }
-      pos++;
+  // read the name
+  std::stringstream name;
+  while (!_lexer.accept("]")) {
+    if (_lexer.isDone() || _lexer.acceptLineEnd()) {
+      // this is not a link
+      _lexer.pop();
+      return false;
     }
-    if (pos < current->size()) {
-      // We found it
-      name_end = pos;
-      break;
-    } else {
-      // We reached the end of the token
-      link_name << current->substr(name_start + 1);
-      // proceed with the next token
-      _lexer.any();
-      current = &_lexer.current().value;
-      pos = 0;
-      name_start = -1;
-    }
-  }
-  if (name_end == std::string::npos) {
-    _lexer.pop();
-    return false;
-  }
-  link_name << current->substr(name_start + 1, name_end - name_start - 1);
-  if (is_attribute_link) {
-    // An attribute link doesn't use the second pair of braces
-    out << pre_link;
-    if (_lookup_attribute == nullptr) {
-      out << " [attribute " << link_name.str() << " not found] ";
-    } else {
-      std::string ln = link_name.str();
-      size_t spos = ln.find(':');
-      if (spos == std::string::npos) {
-        throw std::runtime_error(
-            "Bug in the markdown parser: wrongly identified a link as an "
-            "attribute link.");
-      }
-      std::string id = ln.substr(0, spos);
-      std::string predicate = ln.substr(spos + 1);
-      out << _lookup_attribute(id, predicate);
-    }
-    out << current->substr(name_end + 1);
-    // We processed the current token, advance
+    // Read the name verbatim
+    name << _lexer.current().value;
     _lexer.any();
+  }
+  std::string namestr = name.str();
+  size_t attr_delim_pos = namestr.find(':');
+  if (attr_delim_pos != std::string::npos) {
+    // this is an attr ref
+    std::unique_ptr<AttrRefMdNode> ref = std::make_unique<AttrRefMdNode>();
+    ref->id() = namestr.substr(0, attr_delim_pos);
+    ref->predicate() = namestr.substr(attr_delim_pos + 1);
+    parent.addChild(ref.release());
     return true;
   }
 
-  // Look for the opening brace of the link target
-  size_t target_start = std::string::npos;
-  pos++;
-  if (pos < current->size() && (*current)[pos] == '(') {
-    target_start = pos;
-  } else {
-    // There may only be a single block of whitespace before the opening brace.
-    // We must also not be done after accepting the whitespace
-    if (!_lexer.accept(TokenType::WHITESPACE) || _lexer.isDone()) {
-      _lexer.pop();
-      return false;
+  // Look for the link target
+  while (!_lexer.isDone()) {
+    if (!_lexer.accept(TokenType::WHITESPACE)) {
+      break;
     }
-    current = &_lexer.current().value;
-    pos = 0;
-    if ((*current)[pos] != '(') {
-      _lexer.pop();
-      return false;
-    }
-    target_start = pos;
   }
-
-  // Look for the closing brace of the link target. It must be in the same token
-  while (pos < current->size() && (*current)[pos] != ')') {
-    pos++;
-  }
-
-  if (pos >= current->size()) {
+  if (_lexer.isDone() || !_lexer.accept("(")) {
     _lexer.pop();
     return false;
   }
-
-  std::string link_target =
-      current->substr(target_start + 1, pos - target_start - 1);
-
-  out << pre_link << "<a href=\"" << link_target << "\">" << link_name.str()
-      << "</a>";
-  _lexer.any();
-
+  // read the target
+  std::ostringstream target;
+  while (!_lexer.accept(")")) {
+    if (_lexer.isDone() || _lexer.acceptLineEnd()) {
+      // this is not a link
+      _lexer.pop();
+      return false;
+    }
+    // Read the name verbatim
+    target << _lexer.current().value;
+    _lexer.any();
+  }
+  std::unique_ptr<LinkMdNode> link = std::make_unique<LinkMdNode>();
+  link->text() = namestr;
+  link->target() = target.str();
+  parent.addChild(link.release());
   return true;
+}
+
+int Markdown::indentLevel(const std::string &s) {
+  size_t num_spaces = 0;
+  for (size_t i = s.size(); i > 0; i--) {
+    if (!std::isspace(s[i - 1]) || s[i - 1] == '\n') {
+      return num_spaces / 4;
+    }
+    num_spaces++;
+  }
+  return num_spaces / 4;
 }

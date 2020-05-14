@@ -22,6 +22,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "MarkdownNode.h"
+
 class Markdown {
   enum class TokenType {
     WORD,
@@ -31,8 +33,11 @@ class Markdown {
     FORCE_LINE_BREAK,
     EMPTY_LINE,
     WHITESPACE,
-    HEADING_HASHES
+    HEADING_HASHES,
+    BRACKET
   };
+
+  static const char* TOKEN_TYPE_NAMES[];
 
   class Token {
    public:
@@ -57,10 +62,17 @@ class Markdown {
     TokenType _type;
   };
 
-  // Matches any string of non whitespace characters
+  // Matches any string of non whitespace, non special characters
   class WordMatcher : public TokenMatcher {
    public:
     WordMatcher();
+    virtual void step(char c) override;
+  };
+
+  // Matches any string of non whitespace characters
+  class BracketMatcher : public TokenMatcher {
+   public:
+    BracketMatcher();
     virtual void step(char c) override;
   };
 
@@ -173,25 +185,25 @@ class Markdown {
                lookup_attribute = nullptr);
   virtual ~Markdown();
 
-  std::string process();
+  MdNode process();
 
  private:
-  void parseLine(std::ostream &out);
-  bool parseLink(std::ostream &out);
-  bool parseHashesHeading(std::ostream &out);
+  void parseLine(MdNode &parent);
+  bool parseLink(MdNode &parent);
+  bool parseHashesHeading(MdNode &parent);
 
-  bool parseBlock(std::ostream &out);
-  bool parseUnorderedList(std::ostream &out);
-  bool parseOrderedList(std::ostream &out);
-  bool parseList(std::ostream &out, TokenType list_mark,
-                 const std::string &list_tag, const std::string &item_tag);
+  bool parseBlock(MdNode &parent);
+  bool parseUnorderedList(MdNode &parent);
+  bool parseOrderedList(MdNode &parent);
+  bool parseList(MdNode &parent, TokenType list_mark, bool is_ordered);
 
-  std::ostringstream _out;
+  /**
+   * @return The indent level of text after s
+   */
+  int indentLevel(const std::string &s);
+
   Lexer _lexer;
 
-  // tracks wether we are inside of a set of <p> tags
-  bool _in_paragraph;
-
-  std::function <
-      std::string(const std::string &, const std::string &)> _lookup_attribute;
+  std::function<std::string(const std::string &, const std::string &)>
+      _lookup_attribute;
 };

@@ -24,6 +24,7 @@
 #include "Database.h"
 #include "HttpServer.h"
 #include "QGramIndex.h"
+#include "MarkdownNode.h"
 
 class Wiki : public HttpServer::RequestHandler {
   static const std::string IDX_COL;
@@ -200,7 +201,8 @@ class Wiki : public HttpServer::RequestHandler {
   virtual void onRequest(const httplib::Request &req, httplib::Response &resp);
 
  private:
-  std::string tryProcessMarkdown(const std::string &s);
+  MdNode tryProcessMarkdown(const std::string &s);
+  std::string getText(Entry *e) const;
 
   void handleList(httplib::Response &resp);
   void handleGet(const std::string &id, httplib::Response &resp);
