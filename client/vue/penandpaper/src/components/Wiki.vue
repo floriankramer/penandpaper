@@ -88,7 +88,7 @@
         <h2>Find Entries</h2>
       </div>
     </div>
-    <div class="wiki-sidebar-right">
+    <div class="wiki-sidebar-right" v-on:click="interceptLink">
       <details v-for="context in contextEntries" v-bind:key="context.idx">
         <summary>{{context.name}} <span v-on:click.prevent="loadPopup(context.id)">+</span></summary>
          <table>
@@ -384,12 +384,20 @@ export default class Wiki extends Vue {
     this.closePopup()
     this.currentPage = CurrentPage.VIEW
     this.id = id
+    // Ensure we reload the page
+    if (this.visibleId === id) {
+      this.visibleId = ''
+    }
     this.visibleId = id
     this.loadContext(id)
   }
 
   loadPopup (id: string) {
     this.showPopup = true
+    // Ensure we reload the page
+    if (this.popupVisibleId === id) {
+      this.popupVisibleId = ''
+    }
     this.popupVisibleId = id
   }
 
