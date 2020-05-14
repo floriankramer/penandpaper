@@ -33,7 +33,6 @@ std::vector<QGramIndex::Match> QGramIndex::query(const std::string &word) {
     }
   }
   std::vector<NumericMatch> num_matches = merge(occurences);
-  LOG_DEBUG << "Got " << num_matches.size() << " matches" << LOG_END;
 
   // Normalize the scores, which currently are simply how many grams match
   // the grams of word. We divide it by the number of grams in the target, to
@@ -71,8 +70,6 @@ std::vector<QGramIndex::NumericMatch> QGramIndex::merge(
   // Do the n-way merge through a series of consecutive joins
   for (size_t i = 1; i < lists.size(); ++i) {
     matches = zipper(matches, lists[i]);
-    LOG_DEBUG << "After merge " << i << " we have " << matches.size()
-              << " matches" << LOG_END;
   }
   return matches;
 }

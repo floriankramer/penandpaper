@@ -18,7 +18,8 @@
   <div class="wiki-container">
     <div class="wiki-sidebar">
       <span v-on:click="showFind">Find</span><br/>
-      <span v-on:click="showTimeline">Timeline</span>
+      <span v-on:click="showTimeline">Timeline</span><br/>
+      <span v-on:click="openQuickEntryCreator" title="alt+z">Quickcreate</span>
       <hr/>
       <input type="text" placeholder="quicksearch" v-model="quicksearchWord"/>
       <TreeView v-show="quicksearchWord.length == 0" v-bind:tree="indexTree" v-on:show="loadPage" v-on:new="newPage" v-on:edit="editPage" v-on:delete="deletePage" v-on:autoLink="autoLink" v-on:autoLinkAll="autoLinkAll"/>
@@ -29,6 +30,7 @@
         <span v-on:click="closePopup">Close</span>
         <WikiContentView v-bind:id="popupVisibleId"/>
       </div>
+      <QuickEntryCreator v-show="showQuickEntryCreator" v-bind:requestFocus="quickEntryCreatorFocus" v-on:close="onQuickEntryCreated"/>
       <div id="wiki-content" v-on:click="interceptLink" v-show="currentPage == 0" >
         <WikiContentView v-bind:id="visibleId" />
       </div>
@@ -109,6 +111,7 @@ import $ from 'jquery'
 import TreeView, { TreeItem } from './TreeView.vue'
 import ListView, { ListItem } from './ListView.vue'
 import WikiContentView from './WikiContentView.vue'
+import QuickEntryCreator from './QuickEntryCreator.vue'
 
 import { Attribute, DisplayedAttribute } from './WikiTypes'
 
@@ -166,7 +169,8 @@ enum CurrentPage {
   components: {
     TreeView,
     ListView,
-    WikiContentView
+    WikiContentView,
+    QuickEntryCreator
   }
 })
 export default class Wiki extends Vue {
@@ -197,6 +201,9 @@ export default class Wiki extends Vue {
 
   quicksearchWord : string = ''
   quicksearchResults: QuickSearchResult[] = []
+
+  showQuickEntryCreator: boolean = false
+  quickEntryCreatorFocus: boolean = false
 
   newPage (parent: string) {
     this.currentPage = CurrentPage.EDIT
@@ -600,6 +607,8 @@ export default class Wiki extends Vue {
   }
 
   mounted () {
+    var e = this.$el as HTMLElement
+    e.addEventListener('keyup', this.onGlobalKey)
     this.loadIndex()
   }
 
@@ -871,6 +880,25 @@ export default class Wiki extends Vue {
     }).fail(() => {
       alert('unable to load the timeline')
     })
+  }
+
+  onQuickEntryCreated (success: boolean) {
+    if (success) {
+      this.loadIndex()
+    }
+    this.quickEntryCreatorFocus = false
+    this.showQuickEntryCreator = false
+  }
+
+  onGlobalKey (event: KeyboardEvent) {
+    if (event.altKey && event.key === 'z') {
+      this.openQuickEntryCreator()
+    }
+  }
+
+  openQuickEntryCreator () {
+    this.showQuickEntryCreator = true
+    this.quickEntryCreatorFocus = true
   }
 }
 </script>

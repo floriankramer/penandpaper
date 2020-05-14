@@ -60,6 +60,7 @@ Wiki::Wiki(Database *db)
   // Then build the tree and assign all attributes
   c.reset();
   std::vector<int64_t> duplicates_to_erase;
+  std::vector<Entry *> entries_with_invalid_parents;
   while (!c.done()) {
     int64_t idx = c.col(0).integer;
     std::string id = c.col(1).text;
@@ -74,9 +75,9 @@ Wiki::Wiki(Database *db)
           if (pit != _entry_map.end()) {
             it->second->reparent(pit->second);
           } else {
-            LOG_ERROR << "The entry " << id
-                      << " refers to an nonexistant parent " << value
-                      << LOG_END;
+            LOG_WARN << "The entry " << id << " refers to a nonexistant parent."
+                     << value << LOG_END;
+            entries_with_invalid_parents.push_back(it->second);
           }
         }
       }
@@ -98,6 +99,19 @@ Wiki::Wiki(Database *db)
     }
     c.next();
   }
+  // Ensure entries with invalid parents are properly children of root
+  for (Entry *e : entries_with_invalid_parents) {
+    AttributeData d;
+    d.flags = 0;
+    d.value = "root";
+    auto v = e->getAttribute("parent");
+    if (v != nullptr && v->size() != 0) {
+      e->setAttribute("parent", &(*v)[0], d);
+    } else {
+      e->addAttribute("root", d);
+    }
+  }
+
   // Compute the attribute inheritance
   _root.updateInheritedAttributes();
 
