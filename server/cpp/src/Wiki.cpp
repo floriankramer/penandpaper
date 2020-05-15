@@ -240,8 +240,7 @@ void Wiki::handleCompleteEntity(const httplib::Request &req,
       for (const QGramIndex::Match &m : subres) {
         // Ignore matches with a very low score.
         if (m.score > 0.3) {
-          results.push_back(
-              {.match = m, .num_words_used = num_words_used, .replaces = word});
+          results.push_back({m, num_words_used, word});
         }
       }
     }
@@ -921,8 +920,7 @@ void Wiki::addToDateIndex(Entry *e) {
       if (d.data.flags & ATTR_DATE) {
         try {
           Date date(d.data.value);
-          EventData ed = {
-              .date = d.data.value, .predicate = ait.first, .entry = e};
+          EventData ed = {d.data.value, ait.first, e};
           _dates[date].push_back(ed);
         } catch (const std::exception &e) {
           LOG_WARN << "Failed to parse date for attr " << ait.first << " "
@@ -942,8 +940,7 @@ void Wiki::removeFromDateIndex(Entry *e) {
           auto it = _dates.find(date);
           if (it != _dates.end()) {
             auto &v = it->second;
-            EventData ed = {
-                .date = d.data.value, .predicate = ait.first, .entry = e};
+            EventData ed = {d.data.value, ait.first, e};
             v.erase(std::remove(v.begin(), v.end(), ed), v.end());
             if (v.empty()) {
               _dates.erase(it);

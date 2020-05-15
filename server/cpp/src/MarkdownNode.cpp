@@ -1,6 +1,7 @@
 #include "MarkdownNode.h"
 
 #include <iostream>
+#include <string>
 
 const char *MD_NODE_TYPE_NAMES[] = {"ROOT",      "HEADING",   "TEXT",
                                     "LINK",      "ATTR_REF",  "LIST",

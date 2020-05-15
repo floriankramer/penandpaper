@@ -16,8 +16,7 @@
 
 #include "HttpServer.h"
 
-#include <linux/limits.h>
-#include <unistd.h>
+#include "Os.h"
 
 #include <chrono>
 #include <cstdlib>
@@ -56,18 +55,11 @@ void HttpServer::run() {
   std::string key = Random::secureRandomString(32);
   std::string basepath;
   if (_base_dir == ".") {
-    char buffer[PATH_MAX];
-    getcwd(buffer, PATH_MAX);
-    basepath = buffer;
-  } else {
-    basepath = _base_dir;
+      _base_dir = os::getcwd();
   }
+  basepath = _base_dir;
   basepath += "/html";
-  {
-    char buffer[PATH_MAX];
-    realpath(basepath.c_str(), buffer);
-    basepath = buffer;
-  }
+  basepath = os::realpath(basepath);
   if (!_do_keycheck) {
     LOG_INFO << "Http server keychecking is disabled" << LOG_END;
   } else {
@@ -127,9 +119,7 @@ void HttpServer::run() {
     }
     {
       realpath = basepath + realpath;
-      char buffer[PATH_MAX];
-      ::realpath(realpath.c_str(), buffer);
-      realpath = buffer;
+      realpath = os::realpath(realpath);
     }
     LOG_DEBUG << "GET: " << realpath << LOG_END;
 

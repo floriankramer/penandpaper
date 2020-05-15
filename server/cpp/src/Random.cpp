@@ -14,7 +14,12 @@
  * limitations under the License.
  */
 #include "Random.h"
+
+#ifndef WIN32
 #include <sys/random.h>
+#else
+#include <Windows.h>
+#endif
 
 #include "Util.h"
 
@@ -24,7 +29,14 @@ std::string Random::secureRandomString(size_t length) {
   // divide and ceil
   num_bytes = (num_bytes + ((4 - (num_bytes % 4)) % 4)) / 4;
   std::vector<char> buffer(num_bytes);
+#ifndef WIN32
   getrandom(buffer.data(), num_bytes, 0);
+#else
+  BCRYPT_ALG_HANDLE handle;
+  BCryptOpenAlgorithmProvider(&handle, BCRYPT_RNG_ALGORITHM, NULL, 0);
+  BCryptGenRandom(handle, reinterpret_cast<PUCHAR>(buffer.data()), num_bytes, 0);
+  BCryptCloseAlgorithmProvider(handle, 0);
+#endif
   std::vector<char> encoded = util::base64Encode(buffer.data(), buffer.size());
   return std::string(encoded.begin(), encoded.begin() + length);
 }

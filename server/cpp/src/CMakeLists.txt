@@ -5,6 +5,8 @@ project(penandpaper)
 set(BUILD_ATLAS_MODULE OFF CACHE BOOL "Build the atlas module")
 set(BUILD_FONTRENDERER ON CACHE BOOL "Build the font renderer used to pregenerate sdf font.")
 
+set(SQLITE_SRC_FILES "")
+
 #==============================================================================
 # threading
 #==============================================================================
@@ -15,6 +17,7 @@ find_package(Threads REQUIRED)
 # ssl
 #==============================================================================
 find_package(OpenSSL REQUIRED)
+include_directories(${OPENSSL_INCLUDE_DIR})
 
 #============================================================================== 
 # httplib
@@ -25,12 +28,37 @@ include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/cpp-httplib/")
 # websocket-hpp 
 #============================================================================== 
 include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/websocketpp/")
+if (WIN32)
+ add_definitions(-D_WEBSOCKETPP_CPP11_STL_)
+endif (WIN32)
 
 #==============================================================================
 # nlohman json
 #==============================================================================
 include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/json/include/")
 
+
+#==============================================================================
+# sqlite3
+#==============================================================================
+if (WIN32)
+  include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/sqlite3/")
+  set(SQLITE_SRC_FILES "${CMAKE_CURRENT_LIST_DIR}/../depend/sqlite3/sqlite3.c")
+endif ()
+
+#==============================================================================
+# asio
+#==============================================================================
+if (WIN32)
+  include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/asio-1.16.1/include")
+endif ()
+
+#==============================================================================
+# boost
+#==============================================================================
+if (WIN32)
+  include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/boost_1_73_0")
+endif ()
 
 if (BUILD_ATLAS_MODULE)
   #==============================================================================
@@ -75,7 +103,9 @@ add_executable(penandpaper-server main.cpp
   Authenticator.cpp Authenticator.h
   Random.cpp Random.h
   QGramIndex.cpp QGramIndex.h
-  BTree.cpp BTree.h)
+  BTree.cpp BTree.h
+  Os.cpp Os.h
+  ${SQLITE_SRC_FILES})
 
 
 add_executable(base64 base64_main.cpp
@@ -85,6 +115,11 @@ add_executable(markdown markdown_main.cpp
   Markdown.cpp Markdown.h
   MarkdownNode.cpp MarkdownNode.h)
 
-target_link_libraries(penandpaper-server building geometry sqlite3 OpenSSL::SSL ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(penandpaper-server building geometry OpenSSL::SSL ${CMAKE_THREAD_LIBS_INIT})
+if (NOT WIN32) 
+    target_link_libraries(penandpaper-server sqlite3)
+else()
+    target_link_libraries(penandpaper-server bcrypt)
+endif ()
 
 install(TARGETS penandpaper-server DESTINATION bin/)

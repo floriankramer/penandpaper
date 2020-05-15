@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef WIN32
 #include <getopt.h>
+#endif
 
 #include <functional>
 #include <memory>
@@ -34,6 +36,7 @@ struct Settings {
 
 Settings parseSettings(int argc, char **argv) {
   Settings s;
+#ifndef WIN32
   struct option long_options[] = {
       {"no-key", no_argument, &s.do_keycheck, false},
       {"data-dir", required_argument, 0, 'd'},
@@ -63,6 +66,9 @@ Settings parseSettings(int argc, char **argv) {
   if (failed) {
     exit(1);
   }
+#else
+  s.do_keycheck = false;
+#endif
   return s;
 }
 

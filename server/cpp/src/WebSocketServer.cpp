@@ -67,7 +67,7 @@ void WebSocketServer::run() {
 
       _socket.set_close_handler([this](websocketpp::connection_hdl conn_hdl) {
         LOG_DEBUG << "A client disconnected" << LOG_END;
-        for (ssize_t i = 0; i < _connections.size(); i++) {
+        for (int64_t i = 0; i < _connections.size(); i++) {
           websocketpp::connection_hdl hdl = _connections[i];
           if (_socket.get_con_from_hdl(conn_hdl) ==
               _socket.get_con_from_hdl(hdl)) {

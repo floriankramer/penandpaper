@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
-#include "Simulation.h"
-
+#ifdef WIN32
+#define _CRT_RAND_S
+#endif
 #include <cstdlib>
+
+#include "Simulation.h"
 #include <unordered_map>
 
 #include "Logger.h"
@@ -413,7 +416,14 @@ std::string Simulation::cmdRollDice(const std::string &who,
       try {
         int faces = std::max(1, std::stoi(cmd[i]));
         die.push_back(faces);
-        int val = (rand_r(&_rand_seed) % faces) + 1;
+        int val;
+#ifndef WIN32
+        val = (rand_r(&_rand_seed) % faces) + 1;
+#else
+        unsigned int v;
+        rand_s(&v);
+        val = (v % faces) + 1;
+#endif
         out << val << " ";
       } catch (const std::exception &e) {
         out << "- ";
