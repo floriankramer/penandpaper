@@ -30,7 +30,7 @@
         <span v-on:click="closePopup">Close</span>
         <WikiContentView v-bind:id="popupVisibleId"/>
       </div>
-      <QuickEntryCreator v-show="showQuickEntryCreator" v-bind:requestFocus="quickEntryCreatorFocus" v-on:close="onQuickEntryCreated"/>
+      <QuickEntryCreator ref="quickEntryCreator" v-show="showQuickEntryCreator" v-on:close="onQuickEntryCreated"/>
       <div id="wiki-content" v-on:click="interceptLink" v-show="currentPage == 0" >
         <WikiContentView v-bind:id="visibleId" />
       </div>
@@ -203,7 +203,6 @@ export default class Wiki extends Vue {
   quicksearchResults: QuickSearchResult[] = []
 
   showQuickEntryCreator: boolean = false
-  quickEntryCreatorFocus: boolean = false
 
   newPage (parent: string) {
     this.currentPage = CurrentPage.EDIT
@@ -607,8 +606,7 @@ export default class Wiki extends Vue {
   }
 
   mounted () {
-    var e = this.$el as HTMLElement
-    e.addEventListener('keyup', this.onGlobalKey)
+    document.addEventListener('keyup', this.onGlobalKey)
     this.loadIndex()
   }
 
@@ -886,7 +884,6 @@ export default class Wiki extends Vue {
     if (success) {
       this.loadIndex()
     }
-    this.quickEntryCreatorFocus = false
     this.showQuickEntryCreator = false
   }
 
@@ -897,8 +894,14 @@ export default class Wiki extends Vue {
   }
 
   openQuickEntryCreator () {
+    if (this.currentPage === CurrentPage.EDIT && this.cmEditor !== null) {
+      if (this.$refs.quickEntryCreator instanceof QuickEntryCreator) {
+        var qec = this.$refs.quickEntryCreator as QuickEntryCreator
+        qec.setNameAndId(this.cmEditor.getSelection())
+        qec.requestFocus()
+      }
+    }
     this.showQuickEntryCreator = true
-    this.quickEntryCreatorFocus = true
   }
 }
 </script>

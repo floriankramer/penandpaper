@@ -50,9 +50,6 @@ export default class QuickEntryCreator extends Vue {
   description: string = ''
   parent: string = ''
 
-  @Prop()
-  requestFocus: boolean = false
-
   completions: Completion[] = []
 
   onCompleteParent (val: string) {
@@ -102,21 +99,23 @@ export default class QuickEntryCreator extends Vue {
     this.parent = ''
   }
 
-  @Watch('requestFocus')
-  onRequestFocus (n: boolean, o: boolean) {
-    if (n) {
-      if (this.$refs.idInput instanceof HTMLElement) {
-        var e = this.$refs.idInput as HTMLElement
-        e.focus()
-      }
-    }
-  }
-
   @Watch('id')
   onIdChanged (value: string, old: string) {
     let r = /[^a-zA-Z0-9_-]/
     if (r.test(value)) {
       this.id = value.replace(/[^a-zA-Z0-9_-]/, '_')
+    }
+  }
+
+  setNameAndId (name: string) {
+    this.name = name
+    this.id = name
+  }
+
+  requestFocus () {
+    if (this.$refs.idInput instanceof HTMLElement) {
+      var e = this.$refs.idInput as HTMLElement
+      e.focus()
     }
   }
 }
