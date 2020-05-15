@@ -13,7 +13,7 @@ namespace os {
 	std::string realpath(const std::string& relpath) {
 #ifndef WIN32
 		char buffer[PATH_MAX];
-		realpath(relpath.c_str(), buffer);
+    ::realpath(relpath.c_str(), buffer);
 		return std::string(buffer);
 #else
 		char buffer[4096];
@@ -26,7 +26,7 @@ namespace os {
 	std::string getcwd() {
 #ifndef WIN32
 		char buffer[PATH_MAX];
-		getcwd(buffer, PATH_MAX);
+    ::getcwd(buffer, PATH_MAX);
 		return std::string(buffer);
 #else
 		char buffer[4096];
