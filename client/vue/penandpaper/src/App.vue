@@ -16,6 +16,7 @@
 
 <template>
   <div id="app">
+    <Menu v-bind:menus="menus" v-on:selected="onMenuSelected" id="menu"/>
     <CriticalError v-if="hasCriticalError">{{criticalErrorString}}</CriticalError>
     <div id="dock-container"></div>
     <Toolbar id="toolbar"></Toolbar>
@@ -39,6 +40,8 @@ import CriticalError from './components/CriticalError.vue'
 import Server from './components/server'
 import PlayerList from './components/PlayerList.vue'
 import Wiki from './components/Wiki.vue'
+import Menu, { MenuGroup, MenuItem } from './components/Menu.vue'
+
 import { MutationPayload } from 'vuex'
 
 import { DockManager } from 'dock-spawn-ts/lib/js/DockManager'
@@ -62,7 +65,8 @@ import eventbus from './eventbus'
     Toolbar,
     Map,
     PlayerList,
-    Wiki
+    Wiki,
+    Menu
   }
 })
 export default class App extends Vue {
@@ -79,8 +83,39 @@ export default class App extends Vue {
 
   toolbarPanel: PanelContainer | null = null
   wikiPanel: PanelContainer | null = null
+  mapPanel: PanelContainer | null = null
+  chatPanel: PanelContainer | null = null
+  playerListPanel: PanelContainer | null = null
 
   mapDockNode: DockNode | null = null
+
+  menus: MenuGroup[] = [
+    {
+      text: 'view',
+      items: [
+        {
+          id: 'wiki',
+          text: 'wiki'
+        },
+        {
+          id: 'map',
+          text: 'map'
+        },
+        {
+          id: 'chat',
+          text: 'chat'
+        },
+        {
+          id: 'toolbar',
+          text: 'toolbar'
+        },
+        {
+          id: 'playerlist',
+          text: 'playerlist'
+        }
+      ]
+    }
+  ]
 
   mounted () {
     console.log('The app has been mounted')
@@ -113,28 +148,28 @@ export default class App extends Vue {
       // The map
       let mapDiv = document.getElementById('map')
       if (mapDiv) {
-        let mapPanel = new PanelContainer(mapDiv, this.dockManager)
-        mapPanel.setTitle('Map')
-        this.mapDockNode = this.dockManager.dockFill(documentNode, mapPanel)
+        this.mapPanel = new PanelContainer(mapDiv, this.dockManager)
+        this.mapPanel.setTitle('Map')
+        this.mapDockNode = this.dockManager.dockFill(documentNode, this.mapPanel)
       }
 
       // The Chat
       let chatDiv = document.getElementById('chat')
       let chatNode : DockNode | null = null
       if (chatDiv) {
-        let chatContainer = new PanelContainer(chatDiv, this.dockManager)
-        chatContainer.setTitle('Chat')
-        chatNode = this.dockManager.dockRight(documentNode, chatContainer, 0.2)
+        this.chatPanel = new PanelContainer(chatDiv, this.dockManager)
+        this.chatPanel.setTitle('Chat')
+        chatNode = this.dockManager.dockRight(documentNode, this.chatPanel, 0.2)
       }
       // The PlayerList
       let playerListDiv = document.getElementById('playerlist')
       if (playerListDiv) {
-        let playerListContainer = new PanelContainer(playerListDiv, this.dockManager)
-        playerListContainer.setTitle('playerList')
+        this.playerListPanel = new PanelContainer(playerListDiv, this.dockManager)
+        this.playerListPanel.setTitle('playerList')
         if (chatNode !== null) {
-          this.dockManager.dockUp(chatNode, playerListContainer, 0.2)
+          this.dockManager.dockUp(chatNode, this.playerListPanel, 0.2)
         } else {
-          this.dockManager.dockRight(documentNode, playerListContainer, 0.2)
+          this.dockManager.dockRight(documentNode, this.playerListPanel, 0.2)
         }
       }
       // The Toolbar
@@ -216,6 +251,43 @@ export default class App extends Vue {
   onConnectError () {
     this.hasCriticalError = true
     this.criticalErrorString = 'Lost connection to the server.'
+  }
+
+  togglePanel (panel: PanelContainer) {
+    if (this.dockManager !== undefined) {
+      if (this.dockManager.getVisiblePanels().includes(panel)) {
+        panel.close()
+      } else {
+        this.dockManager.dockFill(this.dockManager.context.model.documentManagerNode, panel)
+      }
+    }
+  }
+
+  onMenuSelected (id: string) {
+    console.log(id)
+    if (id === 'wiki') {
+      if (this.isGamemaster) {
+        if (this.wikiPanel !== null) {
+          this.togglePanel(this.wikiPanel)
+        }
+      }
+    } else if (id === 'map') {
+      if (this.mapPanel !== null) {
+        this.togglePanel(this.mapPanel)
+      }
+    } else if (id === 'chat') {
+      if (this.chatPanel !== null) {
+        this.togglePanel(this.chatPanel)
+      }
+    } else if (id === 'playerlist') {
+      if (this.playerListPanel !== null) {
+        this.togglePanel(this.playerListPanel)
+      }
+    } else if (id === 'toolbar') {
+      if (this.toolbarPanel !== null) {
+        this.togglePanel(this.toolbarPanel)
+      }
+    }
   }
 }
 </script>
@@ -317,8 +389,16 @@ button {
   position: absolute;
 }
 
-#dock-container {
+#menu {
+  position: absolute;
   top: 0px;
+  left: 0px;
+  right: 0px;
+  height: 25px;
+}
+
+#dock-container {
+  top: 25px;
   left: 0px;
   bottom: 0px;
   right: 0px;
