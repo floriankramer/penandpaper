@@ -532,6 +532,49 @@ a {
   text-decoration: none;
 }
 
+/** Scroll bar styling */
+body.light-mode {
+  scrollbar-width: thin;
+  scrollbar-color: #2b4c4c #333;
+}
+
+body.dark-mode {
+  scrollbar-width: thin;
+  scrollbar-color: #2b4c4c #111;
+}
+
+body.light-mode ::-webkit-scrollbar-track {
+    background-color: #333;
+}
+
+body.light-mode ::-webkit-scrollbar {
+    background-color: #333;
+}
+
+body.light-mode ::-webkit-scrollbar-thumb {
+    background-color: #2b4c4c;
+}
+
+body.light-mode ::-webkit-scrollbar-corner {
+  background: #333;
+}
+
+body.dark-mode ::-webkit-scrollbar-track {
+    background-color: #111;
+}
+
+body.dark-mode ::-webkit-scrollbar {
+    background-color: #111;
+}
+
+body.dark-mode ::-webkit-scrollbar-thumb {
+    background-color: #2b4c4c;
+}
+
+body.dark-mode ::-webkit-scrollbar-corner {
+  background: #111;
+}
+
 /** Image radio buttons: https://stackoverflow.com/questions/17541614/use-images-instead-of-radio-buttons*/
 /* HIDE RADIO */
 [type=radio] {
