@@ -39,9 +39,27 @@ export interface MenuGroup {
   items: MenuItem[]
 }
 
+export interface MenuKeyShortcut {
+  key: string
+  alt?: boolean
+  ctrl?: boolean
+  shift?: boolean
+}
+
 export interface MenuItem {
   id: string
   text: string
+  shortcut?: MenuKeyShortcut
+}
+
+class KeyAction {
+  shortcut: MenuKeyShortcut
+  id: string
+
+  constructor (shortcut: MenuKeyShortcut, id: string) {
+    this.shortcut = shortcut
+    this.id = id
+  }
 }
 
 @Component
@@ -50,6 +68,12 @@ export default class Menu extends Vue {
 
   @Prop()
   menus: MenuGroup[] = []
+
+  keyActions: Map<string, KeyAction> = new Map()
+
+  mounted () {
+    document.addEventListener('keydown', this.onKeyDown)
+  }
 
   onClick (event: MouseEvent) {
     let target = event.target || event.srcElement
@@ -61,6 +85,30 @@ export default class Menu extends Vue {
         if (id !== undefined) {
           this.$emit('selected', id)
         }
+      }
+    }
+  }
+
+  @Watch('menus')
+  onMenusChanged (v: MenuGroup[], old: MenuGroup[]) {
+    this.keyActions = new Map()
+    v.forEach((g: MenuGroup) => {
+      g.items.forEach((i: MenuItem) => {
+        if (i.shortcut !== undefined) {
+          this.keyActions.set(i.shortcut.key, new KeyAction(i.shortcut, i.id))
+        }
+      })
+    })
+  }
+
+  onKeyDown (event: KeyboardEvent) {
+    let a = this.keyActions.get(event.key)
+    if (a !== undefined) {
+      if ((a.shortcut.alt !== true || event.altKey) &&
+          (a.shortcut.ctrl !== true || event.ctrlKey) &&
+          (a.shortcut.shift !== true || event.shiftKey)) {
+        this.$emit('selected', a.id)
+        event.preventDefault()
       }
     }
   }
@@ -82,6 +130,7 @@ ul.menu-root {
 
 li.menu-root {
   float: left;
+  margin-right: 20px;
 }
 
 ul.menu-item {

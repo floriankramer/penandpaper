@@ -16,20 +16,27 @@
 
 <template>
 <div class="quickentry-popup">
+  <table>
+    <tr>
+      <td>Id:</td>
+      <td><input ref="idInput" v-model="id"  pattern="[a-zA-Z0-9_-]*"/></td>
+    </tr>
+    <tr class="quickentry-row">
+      <td>Name:</td>
+      <td><input v-model="name"/></td>
+    </tr>
+    <tr class="quickentry-row">
+      <td>Description:</td>
+      <td><input v-model="description"/></td>
+    </tr>
+    <tr class="quickentry-row">
+      <td>Parent:</td>
+      <td><Autocomplete style="display: inline-block;" v-bind:completions="completions" v-model="parent" v-on:autocomplete="onCompleteParent"/></td>
+    </tr>
+  </table>
+  <div class="quickentry-divider"></div>
   <div class="quickentry-row">
-    Id: <input ref="idInput" v-model="id"  pattern="[a-zA-Z0-9_-]*"/>
-  </div>
-  <div class="quickentry-row">
-    Name: <input v-model="name"/>
-  </div>
-  <div class="quickentry-row">
-    Description: <input v-model="description"/>
-  </div>
-  <div class="quickentry-row">
-    Parent: <Autocomplete v-bind:completions="completions" v-model="parent" v-on:autocomplete="onCompleteParent"/>
-  </div>
-  <div class="quickentry-row">
-    <button v-on:click="onClose">Cancel</button><button v-on:click="onCreate">Create</button>
+    <button v-on:click="onClose">Cancel</button><button v-on:click="onCreateAndEdit">Create and Edit</button><button v-on:click="onCreate">Create</button>
   </div>
 </div>
 </template>
@@ -76,20 +83,35 @@ export default class QuickEntryCreator extends Vue {
     this.clear()
   }
 
+  onCreateAndEdit () {
+    this.save((body) => {
+      this.$emit('closeAndEdit', true, this.id)
+      this.clear()
+    }, () => {
+      alert('Saving failed.')
+      this.$emit('close', false)
+      this.clear()
+    })
+  }
+
   onCreate () {
+    this.save((body) => {
+      this.$emit('close', true)
+      this.clear()
+    }, () => {
+      alert('Saving failed.')
+      this.$emit('close', false)
+      this.clear()
+    })
+  }
+
+  save (success: ((res: any) => void), fail: (() => void)) {
     let attr: Attribute[] = []
     attr.push(new Attribute('text', '', false, false, false))
     attr.push(new Attribute('name', this.name, false, false, false))
     attr.push(new Attribute('description', this.description, true, false, false))
     attr.push(new Attribute('parent', this.parent, false, false, false))
-    $.post('/wiki/save/' + this.id, JSON.stringify(attr), (body) => {
-      this.$emit('close', true)
-      this.clear()
-    }).fail(() => {
-      alert('Saving failed.')
-      this.$emit('close', true)
-      this.clear()
-    })
+    $.post('/wiki/save/' + this.id, JSON.stringify(attr), success).fail(fail)
   }
 
   clear () {
@@ -126,16 +148,20 @@ div.quickentry-popup {
   position: absolute;
   border-radius: 12px;
   z-index: 100;
-  left: 20px;
-  right: 20px;
-  top: 20px;
-  bottom: 20px;
-  padding: 7px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 25px;
   overflow: auto;
+  box-shadow: black 0px 0px 5px;
 }
 
-div.quickentry-row {
+.quickentry-row {
   padding-bottom: 12px;
+}
+
+.quickentry-divider {
+  margin-top: 14px;
 }
 
 body.light-mode div.quickentry-popup {
@@ -144,5 +170,9 @@ body.light-mode div.quickentry-popup {
 
 body.dark-mode div.quickentry-popup {
   background-color: #333333;
+}
+
+button {
+  margin-right: 20px;
 }
 </style>

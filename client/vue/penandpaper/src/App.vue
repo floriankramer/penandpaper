@@ -40,7 +40,7 @@ import CriticalError from './components/CriticalError.vue'
 import Server from './components/server'
 import PlayerList from './components/PlayerList.vue'
 import Wiki from './components/Wiki.vue'
-import Menu, { MenuGroup, MenuItem } from './components/Menu.vue'
+import Menu, { MenuGroup, MenuItem, MenuKeyShortcut } from './components/Menu.vue'
 
 import { MutationPayload } from 'vuex'
 
@@ -91,27 +91,61 @@ export default class App extends Vue {
 
   menus: MenuGroup[] = [
     {
-      text: 'view',
+      text: 'window',
       items: [
         {
-          id: 'wiki',
+          id: 'window-wiki',
           text: 'wiki'
         },
         {
-          id: 'map',
+          id: 'window-map',
           text: 'map'
         },
         {
-          id: 'chat',
+          id: 'window-chat',
           text: 'chat'
         },
         {
-          id: 'toolbar',
+          id: 'window-toolbar',
           text: 'toolbar'
         },
         {
-          id: 'playerlist',
+          id: 'window-playerlist',
           text: 'playerlist'
+        }
+      ]
+    },
+    {
+      text: 'view',
+      items: [
+        {
+          id: 'view-colorscheme',
+          text: 'darker mode'
+        },
+        {
+          id: 'view-wikionly',
+          text: 'wiki only'
+        }
+      ]
+    },
+    {
+      text: 'wiki',
+      items: [
+        {
+          id: 'wiki-save',
+          text: 'save [ctrl+s]',
+          shortcut: {
+            key: 's',
+            ctrl: true
+          }
+        },
+        {
+          id: 'wiki-quickcreate',
+          text: 'quickcreate [alt+z]',
+          shortcut: {
+            key: 'z',
+            alt: true
+          }
         }
       ]
     }
@@ -235,17 +269,16 @@ export default class App extends Vue {
 
     // Dark mode
     $('body').addClass('light-mode')
-    document.addEventListener('keyup', (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === ' ') {
-        GlobalSettings.darkMode = !GlobalSettings.darkMode
-        if (GlobalSettings.darkMode) {
-          $('body').removeClass('light-mode').addClass('dark-mode')
-        } else {
-          $('body').addClass('light-mode').removeClass('dark-mode')
-        }
-        eventbus.$emit('/client/colorscheme/changed')
-      }
-    })
+  }
+
+  toggleDarkerMode () {
+    GlobalSettings.darkMode = !GlobalSettings.darkMode
+    if (GlobalSettings.darkMode) {
+      $('body').removeClass('light-mode').addClass('dark-mode')
+    } else {
+      $('body').addClass('light-mode').removeClass('dark-mode')
+    }
+    eventbus.$emit('/client/colorscheme/changed')
   }
 
   onConnectError () {
@@ -263,30 +296,58 @@ export default class App extends Vue {
     }
   }
 
+  showWikiOnly () {
+    if (this.dockManager === undefined) {
+      return
+    }
+    let docnode = this.dockManager.context.model.documentManagerNode
+    if (this.wikiPanel !== null) {
+      this.dockManager.dockFill(docnode, this.wikiPanel)
+    }
+    if (this.mapPanel !== null) {
+      this.mapPanel.close()
+    }
+    if (this.chatPanel !== null) {
+      this.chatPanel.close()
+    }
+    if (this.playerListPanel !== null) {
+      this.playerListPanel.close()
+    }
+    if (this.toolbarPanel !== null) {
+      this.toolbarPanel.close()
+    }
+  }
+
   onMenuSelected (id: string) {
     console.log(id)
-    if (id === 'wiki') {
+    if (id === 'window-wiki') {
       if (this.isGamemaster) {
         if (this.wikiPanel !== null) {
           this.togglePanel(this.wikiPanel)
         }
       }
-    } else if (id === 'map') {
+    } else if (id === 'window-map') {
       if (this.mapPanel !== null) {
         this.togglePanel(this.mapPanel)
       }
-    } else if (id === 'chat') {
+    } else if (id === 'window-chat') {
       if (this.chatPanel !== null) {
         this.togglePanel(this.chatPanel)
       }
-    } else if (id === 'playerlist') {
+    } else if (id === 'window-playerlist') {
       if (this.playerListPanel !== null) {
         this.togglePanel(this.playerListPanel)
       }
-    } else if (id === 'toolbar') {
+    } else if (id === 'window-toolbar') {
       if (this.toolbarPanel !== null) {
         this.togglePanel(this.toolbarPanel)
       }
+    } else if (id === 'view-colorscheme') {
+      this.toggleDarkerMode()
+    } else if (id === 'view-wikionly') {
+      this.showWikiOnly()
+    } else {
+      eventbus.$emit('/menu/' + id)
     }
   }
 }

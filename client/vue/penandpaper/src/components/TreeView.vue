@@ -47,6 +47,9 @@ export default class TreeView extends Vue {
   @Prop()
   tree: TreeItem | null = null
 
+  @Prop()
+  current: string = ''
+
   treeStates: Map<string, boolean> = new Map<string, boolean>()
 
   onClick (event: MouseEvent) {
@@ -84,6 +87,11 @@ export default class TreeView extends Vue {
     }
   }
 
+  @Watch('current')
+  onCurrentChanged () {
+    this.onRebuildTree()
+  }
+
   @Watch('tree')
   onRebuildTree () {
     console.log('Rebuilding the tree view')
@@ -113,8 +121,6 @@ export default class TreeView extends Vue {
           break
         }
         let parent = stack[stack.length - 2]
-        // todo add the list
-        // parent.j["children"].push_back(l.j)
         if (parent.childIndex === 1) {
           parent.html += '<ul class="tree-view">'
         }
@@ -133,7 +139,11 @@ export default class TreeView extends Vue {
         if (this.treeStates.has(child.id) && !this.treeStates.get(child.id)) {
           visiblity = 'tree-view-hidden'
         }
-        let html = '<li data-id="' + child.id + '" class="tree-view ' + visiblity + '"><div class="tree-view-item">' + child.html + '</div>'
+        let highlighted = ''
+        if (child.id === this.current) {
+          highlighted = ' tree-view-active'
+        }
+        let html = '<li data-id="' + child.id + '" class="tree-view ' + visiblity + highlighted + '"><div class="tree-view-item">' + child.html + '</div>'
         let cl = new DfsLevel(child)
         cl.html = html
         stack.push(cl)
@@ -171,7 +181,7 @@ li.tree-view {
   content: "- ";
 }
 
-.tree-view-active {
+.tree-view-active>div {
   color: #55a8a8;
 }
 

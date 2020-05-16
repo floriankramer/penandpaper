@@ -18,19 +18,21 @@
   <div class="wiki-container">
     <div class="wiki-sidebar">
       <span v-on:click="showFind">Find</span><br/>
-      <span v-on:click="showTimeline">Timeline</span><br/>
-      <span v-on:click="openQuickEntryCreator" title="alt+z">Quickcreate</span>
+      <span v-on:click="showTimeline">Timeline</span>
       <hr/>
       <input type="text" placeholder="quicksearch" v-model="quicksearchWord"/>
-      <TreeView v-show="quicksearchWord.length == 0" v-bind:tree="indexTree" v-on:show="onIndexLoadPage" v-on:new="newPage" v-on:edit="editPage" v-on:delete="deletePage" v-on:autoLink="autoLink" v-on:autoLinkAll="autoLinkAll"/>
+      <TreeView v-show="quicksearchWord.length == 0" v-bind:current="highlightedId" v-bind:tree="indexTree" v-on:show="onIndexLoadPage" v-on:new="newPage" v-on:edit="editPage" v-on:delete="deletePage" v-on:autoLink="autoLink" v-on:autoLinkAll="autoLinkAll"/>
       <ListView v-show="quicksearchWord.length != 0" v-bind:list="quicksearchResults" v-on:show="loadPage" v-on:new="newPage" v-on:edit="editPage" v-on:delete="deletePage" v-on:autoLink="autoLink" v-on:autoLinkAll="autoLinkAll"/>
     </div>
     <div class="wiki-center">
       <div class="wiki-popup" v-show="showPopup" v-on:click="interceptLinkPopup">
-        <span v-on:click="closePopup">Close</span>
-        <WikiContentView ref="popupContent" v-bind:id="popupVisibleId"/>
+        <span class="wiki-popup-close" v-on:click="closePopup">X</span>
+        <hr/>
+        <div class="wiki-popup-content">
+          <WikiContentView ref="popupContent" v-bind:id="popupVisibleId"/>
+        </div>
       </div>
-      <QuickEntryCreator ref="quickEntryCreator" v-show="showQuickEntryCreator" v-on:close="onQuickEntryCreated"/>
+      <QuickEntryCreator ref="quickEntryCreator" v-show="showQuickEntryCreator" v-on:close="onQuickEntryCreated" v-on:closeAndEdit="onQuickEntryCreatedAndEdit"/>
       <div id="wiki-content" v-on:click="interceptLink" v-show="currentPage == 0" >
         <WikiContentView ref="mainContent" v-bind:id="visibleId" />
       </div>
@@ -69,7 +71,7 @@
             </select>
           </div>
           <div>
-            <input type="submit" value="save" v-on:click.prevent="savePage"/>
+            <input type="submit" value="save" v-on:click.prevent="savePageAndQuit"/>
           </div>
         </form>
       </div>
@@ -131,6 +133,8 @@ import 'codemirror/theme/lesser-dark.css'
 import 'codemirror/theme/darcula.css'
 import { DockNode } from 'dock-spawn-ts/lib/js/DockNode'
 
+import eventbus from '../eventbus'
+
 class IndexTreeItem {
   id: string = ''
   html: string = ''
@@ -179,6 +183,7 @@ export default class Wiki extends Vue {
 
   visibleId: string = ''
   popupVisibleId: string = ''
+  highlightedId: string = ''
 
   id: string = ''
   contextEntries: ContextEntry[] = []
@@ -227,6 +232,7 @@ export default class Wiki extends Vue {
 
   editPage (id: string) {
     this.id = id
+    this.highlightedId = id
     this.currentPage = CurrentPage.EDIT
     $.get('/wiki/raw/' + this.id, (body) => {
       this.initCodeMirror()
@@ -295,17 +301,35 @@ export default class Wiki extends Vue {
   }
 
   savePage () {
-    let req = this.parseAttributes()
-    if (this.cmEditor !== null) {
-      this.rawContent = this.cmEditor.getValue()
+    if (this.currentPage === CurrentPage.EDIT) {
+      let req = this.parseAttributes()
+      if (this.cmEditor !== null) {
+        this.rawContent = this.cmEditor.getValue()
+      }
+      req.push(new Attribute('text', this.rawContent, false, false, false))
+      $.post('/wiki/save/' + this.id, JSON.stringify(req), (body) => {
+        // TODO: send a done message
+        console.log('Saved')
+      }).fail(() => {
+        alert('Saving failed.')
+      })
     }
-    req.push(new Attribute('text', this.rawContent, false, false, false))
-    $.post('/wiki/save/' + this.id, JSON.stringify(req), (body) => {
-      this.loadIndex()
-      this.loadPage(this.id)
-    }).fail(() => {
-      alert('Saving failed.')
-    })
+  }
+
+  savePageAndQuit () {
+    if (this.currentPage === CurrentPage.EDIT) {
+      let req = this.parseAttributes()
+      if (this.cmEditor !== null) {
+        this.rawContent = this.cmEditor.getValue()
+      }
+      req.push(new Attribute('text', this.rawContent, false, false, false))
+      $.post('/wiki/save/' + this.id, JSON.stringify(req), (body) => {
+        this.loadIndex()
+        this.loadPage(this.id)
+      }).fail(() => {
+        alert('Saving failed.')
+      })
+    }
   }
 
   parseAttributes () : Attribute[] {
@@ -390,6 +414,7 @@ export default class Wiki extends Vue {
     this.closePopup()
     this.currentPage = CurrentPage.VIEW
     this.id = id
+    this.highlightedId = id
     // Ensure we reload the page
     if (this.visibleId === id) {
       let c = this.$refs.mainContent as WikiContentView
@@ -610,7 +635,8 @@ export default class Wiki extends Vue {
   }
 
   mounted () {
-    document.addEventListener('keyup', this.onGlobalKey)
+    eventbus.$on('/menu/wiki-save', this.savePage)
+    eventbus.$on('/menu/wiki-quickcreate', this.openQuickEntryCreator)
     this.loadIndex()
   }
 
@@ -891,9 +917,12 @@ export default class Wiki extends Vue {
     this.showQuickEntryCreator = false
   }
 
-  onGlobalKey (event: KeyboardEvent) {
-    if (event.altKey && event.key === 'z') {
-      this.openQuickEntryCreator()
+  onQuickEntryCreatedAndEdit (success: boolean, id: string) {
+    this.showQuickEntryCreator = false
+    if (success) {
+      this.savePage()
+      this.editPage(id)
+      this.loadIndex()
     }
   }
 
@@ -1052,6 +1081,18 @@ td {
   top: 20px;
   bottom: 20px;
   padding: 7px;
+  box-shadow: black 0px 0px 5px;
+}
+
+.wiki-popup-content {
+  height: calc(100% - 40px);
+  width: 100%;
+  overflow: auto;
+}
+
+.wiki-popup-close {
+  cursor: pointer;
+  display: block;
 }
 
 </style>
