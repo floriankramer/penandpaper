@@ -94,14 +94,11 @@ export default class App extends Vue {
 
   notificationText: string = ''
 
+  // The non gm menu
   menus: MenuGroup[] = [
     {
       text: 'window',
       items: [
-        {
-          id: 'window-wiki',
-          text: 'wiki'
-        },
         {
           id: 'window-map',
           text: 'map'
@@ -109,10 +106,6 @@ export default class App extends Vue {
         {
           id: 'window-chat',
           text: 'chat'
-        },
-        {
-          id: 'window-toolbar',
-          text: 'toolbar'
         },
         {
           id: 'window-playerlist',
@@ -126,31 +119,6 @@ export default class App extends Vue {
         {
           id: 'view-colorscheme',
           text: 'darker mode'
-        },
-        {
-          id: 'view-wikionly',
-          text: 'wiki only'
-        }
-      ]
-    },
-    {
-      text: 'wiki',
-      items: [
-        {
-          id: 'wiki-save',
-          text: 'save [ctrl+s]',
-          shortcut: {
-            key: 's',
-            ctrl: true
-          }
-        },
-        {
-          id: 'wiki-quickcreate',
-          text: 'quickcreate [alt+z]',
-          shortcut: {
-            key: 'z',
-            alt: true
-          }
         }
       ]
     }
@@ -243,32 +211,7 @@ export default class App extends Vue {
       }
       if (mutation.type === 'setPermissions') {
         app.isGamemaster = state.permissions > 0
-        if (this.dockManager !== undefined) {
-          if (this.toolbarPanel !== null) {
-            if (this.isGamemaster) {
-              let documentNode = this.dockManager.context.model.documentManagerNode
-              if (this.mapDockNode !== null) {
-                this.dockManager.dockUp(this.mapDockNode, this.toolbarPanel, 0.15)
-              } else {
-                this.dockManager.dockUp(documentNode, this.toolbarPanel, 0.15)
-              }
-            } else {
-              this.toolbarPanel.close()
-            }
-          }
-          if (this.wikiPanel !== null) {
-            if (this.isGamemaster) {
-              let documentNode = this.dockManager.context.model.documentManagerNode
-              this.dockManager.dockFill(documentNode, this.wikiPanel)
-            } else {
-              this.wikiPanel.close()
-            }
-          }
-
-          // Trigger a round of resizes by firing the dock library's custom resize event
-          let dockSpawnResizedEvent = new CustomEvent('DockSpawnResizedEvent', { composed: true, bubbles: true })
-          document.dispatchEvent(dockSpawnResizedEvent)
-        }
+        this.onGameMasterChange()
       }
     })
 
@@ -280,6 +223,102 @@ export default class App extends Vue {
       let n = this.$refs.notification as Notification
       n.show()
     })
+
+    this.onGameMasterChange()
+  }
+
+  onGameMasterChange () {
+    if (this.dockManager !== undefined) {
+      if (this.toolbarPanel !== null) {
+        if (this.isGamemaster) {
+          let documentNode = this.dockManager.context.model.documentManagerNode
+          if (this.mapDockNode !== null) {
+            this.dockManager.dockUp(this.mapDockNode, this.toolbarPanel, 0.15)
+          } else {
+            this.dockManager.dockUp(documentNode, this.toolbarPanel, 0.15)
+          }
+        } else {
+          this.toolbarPanel.close()
+        }
+      }
+      if (this.wikiPanel !== null) {
+        if (this.isGamemaster) {
+          let documentNode = this.dockManager.context.model.documentManagerNode
+          this.dockManager.dockFill(documentNode, this.wikiPanel)
+        } else {
+          this.wikiPanel.close()
+        }
+      }
+
+      // Trigger a round of resizes by firing the dock library's custom resize event
+      let dockSpawnResizedEvent = new CustomEvent('DockSpawnResizedEvent', { composed: true, bubbles: true })
+      document.dispatchEvent(dockSpawnResizedEvent)
+    }
+
+    // replace the menu
+    if (this.isGamemaster) {
+      this.menus = [
+        {
+          text: 'window',
+          items: [
+            {
+              id: 'window-wiki',
+              text: 'wiki'
+            },
+            {
+              id: 'window-map',
+              text: 'map'
+            },
+            {
+              id: 'window-chat',
+              text: 'chat'
+            },
+            {
+              id: 'window-toolbar',
+              text: 'toolbar'
+            },
+            {
+              id: 'window-playerlist',
+              text: 'playerlist'
+            }
+          ]
+        },
+        {
+          text: 'view',
+          items: [
+            {
+              id: 'view-colorscheme',
+              text: 'darker mode'
+            },
+            {
+              id: 'view-wikionly',
+              text: 'wiki only'
+            }
+          ]
+        },
+        {
+          text: 'wiki',
+          items: [
+            {
+              id: 'wiki-save',
+              text: 'save [ctrl+s]',
+              shortcut: {
+                key: 's',
+                ctrl: true
+              }
+            },
+            {
+              id: 'wiki-quickcreate',
+              text: 'quickcreate [alt+z]',
+              shortcut: {
+                key: 'z',
+                alt: true
+              }
+            }
+          ]
+        }
+      ]
+    }
   }
 
   toggleDarkerMode () {
