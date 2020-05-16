@@ -22,17 +22,17 @@
       <span v-on:click="openQuickEntryCreator" title="alt+z">Quickcreate</span>
       <hr/>
       <input type="text" placeholder="quicksearch" v-model="quicksearchWord"/>
-      <TreeView v-show="quicksearchWord.length == 0" v-bind:tree="indexTree" v-on:show="loadPage" v-on:new="newPage" v-on:edit="editPage" v-on:delete="deletePage" v-on:autoLink="autoLink" v-on:autoLinkAll="autoLinkAll"/>
+      <TreeView v-show="quicksearchWord.length == 0" v-bind:tree="indexTree" v-on:show="onIndexLoadPage" v-on:new="newPage" v-on:edit="editPage" v-on:delete="deletePage" v-on:autoLink="autoLink" v-on:autoLinkAll="autoLinkAll"/>
       <ListView v-show="quicksearchWord.length != 0" v-bind:list="quicksearchResults" v-on:show="loadPage" v-on:new="newPage" v-on:edit="editPage" v-on:delete="deletePage" v-on:autoLink="autoLink" v-on:autoLinkAll="autoLinkAll"/>
     </div>
     <div class="wiki-center">
       <div class="wiki-popup" v-show="showPopup" v-on:click="interceptLinkPopup">
         <span v-on:click="closePopup">Close</span>
-        <WikiContentView v-bind:id="popupVisibleId"/>
+        <WikiContentView ref="popupContent" v-bind:id="popupVisibleId"/>
       </div>
       <QuickEntryCreator ref="quickEntryCreator" v-show="showQuickEntryCreator" v-on:close="onQuickEntryCreated"/>
       <div id="wiki-content" v-on:click="interceptLink" v-show="currentPage == 0" >
-        <WikiContentView v-bind:id="visibleId" />
+        <WikiContentView ref="mainContent" v-bind:id="visibleId" />
       </div>
       <div id="wiki-edit" v-show="currentPage == 1">
         <form>
@@ -392,9 +392,11 @@ export default class Wiki extends Vue {
     this.id = id
     // Ensure we reload the page
     if (this.visibleId === id) {
-      this.visibleId = ''
+      let c = this.$refs.mainContent as WikiContentView
+      c.reload()
+    } else {
+      this.visibleId = id
     }
-    this.visibleId = id
     this.loadContext(id)
   }
 
@@ -402,9 +404,11 @@ export default class Wiki extends Vue {
     this.showPopup = true
     // Ensure we reload the page
     if (this.popupVisibleId === id) {
-      this.popupVisibleId = ''
+      let c = this.$refs.popupContent as WikiContentView
+      c.reload()
+    } else {
+      this.popupVisibleId = id
     }
-    this.popupVisibleId = id
   }
 
   closePopup () {
@@ -847,15 +851,15 @@ export default class Wiki extends Vue {
   }
 
   buildIndexTreeEntryHtml (id: string, name: string) : string {
-    let html = '<span data-event="show" data-payload="' + id + '">' + name + '</span>'
+    let html = '<span class="wiki-index-link" data-event="show" data-payload="' + id + '">' + name + '</span>'
     html += '<span style="width: 25px; display: inline-block"></span>'
-    html += '<span data-event="new" data-payload="' + id + '">' + '+' + '</span>'
+    html += '<span class="wiki-index-link" data-event="new" data-payload="' + id + '">' + '+' + '</span>'
     html += '<span style="width: 7px; display: inline-block"></span>'
-    html += '<span data-event="edit" data-payload="' + id + '">' + 'e' + '</span>'
+    html += '<span class="wiki-index-link" data-event="edit" data-payload="' + id + '">' + 'e' + '</span>'
     html += '<span style="width: 7px; display: inline-block"></span>'
-    html += '<span data-event="delete" data-payload="' + id + '">' + '-' + '</span>'
+    html += '<span class="wiki-index-link" data-event="delete" data-payload="' + id + '">' + '-' + '</span>'
     html += '<span style="width: 7px; display: inline-block"></span>'
-    html += '<span data-event="autoLink" data-payload="' + id + '">' + 'L' + '</span>'
+    html += '<span class="wiki-index-link" data-event="autoLink" data-payload="' + id + '">' + 'L' + '</span>'
     return html
   }
 
@@ -902,6 +906,14 @@ export default class Wiki extends Vue {
       }
     }
     this.showQuickEntryCreator = true
+  }
+
+  onIndexLoadPage (id: string, event: MouseEvent) {
+    if (event.shiftKey) {
+      this.loadPopup(id)
+    } else {
+      this.loadPage(id)
+    }
   }
 }
 </script>
@@ -1051,5 +1063,14 @@ table p {
 
 .CodeMirror {
   font-family: Avenir,Helvetica,Arial,sans-serif !important;
+}
+
+.wiki-index-link {
+  user-select: none;
+  cursor: pointer;
+}
+
+.wiki-index-other {
+  user-select: none;
 }
 </style>

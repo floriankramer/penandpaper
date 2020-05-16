@@ -130,7 +130,7 @@ export default class App extends Vue {
       this.dockManager = new DockManager(this.dockManagerDiv)
       this.dockManager.initialize()
       this.dockManager.resize(this.$el.clientWidth,
-        this.$el.clientHeight)
+        this.$el.clientHeight - 25)
 
       // dock the elements
       let documentNode = this.dockManager.context.model.documentManagerNode
@@ -192,7 +192,7 @@ export default class App extends Vue {
     window.onresize = () => {
       if (this.dockManager !== undefined && this.dockManagerDiv !== null) {
         this.dockManager.resize(this.$el.clientWidth,
-          this.$el.clientHeight)
+          this.$el.clientHeight - 25)
       }
     }
 

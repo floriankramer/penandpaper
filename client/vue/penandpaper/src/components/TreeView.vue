@@ -16,7 +16,7 @@
 
 <template>
 <div>
-<div class="tree-view-container" v-html="html" v-on:click="onClick">
+<div class="tree-view-container" v-html="html" v-on:click.prevent="onClick">
 </div>
 </div>
 </template>
@@ -74,10 +74,10 @@ export default class TreeView extends Vue {
         if (el.dataset.event !== undefined) {
           if (el.dataset.payload !== undefined) {
             console.log('emitting', el.dataset.event, el.dataset.payload)
-            this.$emit(el.dataset.event, el.dataset.payload)
+            this.$emit(el.dataset.event, el.dataset.payload, event)
           } else {
             console.log('emitting', el.dataset.event)
-            this.$emit(el.dataset.event)
+            this.$emit(el.dataset.event, event)
           }
         }
       }

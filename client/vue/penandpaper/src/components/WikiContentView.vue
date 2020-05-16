@@ -88,6 +88,10 @@ export default class WikiContentView extends Vue {
       this.content = 'Unable to load the specified page'
     })
   }
+
+  reload () {
+    this.onIdChange(this.id, this.id)
+  }
 }
 </script>
 
