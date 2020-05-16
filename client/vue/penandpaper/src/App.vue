@@ -16,6 +16,7 @@
 
 <template>
   <div id="app">
+    <Notification ref="notification" v-bind:text="notificationText" />
     <Menu v-bind:menus="menus" v-on:selected="onMenuSelected" id="menu"/>
     <CriticalError v-if="hasCriticalError">{{criticalErrorString}}</CriticalError>
     <div id="dock-container"></div>
@@ -41,6 +42,7 @@ import Server from './components/server'
 import PlayerList from './components/PlayerList.vue'
 import Wiki from './components/Wiki.vue'
 import Menu, { MenuGroup, MenuItem, MenuKeyShortcut } from './components/Menu.vue'
+import Notification from './components/Notification.vue'
 
 import { MutationPayload } from 'vuex'
 
@@ -66,7 +68,8 @@ import eventbus from './eventbus'
     Map,
     PlayerList,
     Wiki,
-    Menu
+    Menu,
+    Notification
   }
 })
 export default class App extends Vue {
@@ -88,6 +91,8 @@ export default class App extends Vue {
   playerListPanel: PanelContainer | null = null
 
   mapDockNode: DockNode | null = null
+
+  notificationText: string = ''
 
   menus: MenuGroup[] = [
     {
@@ -269,6 +274,12 @@ export default class App extends Vue {
 
     // Dark mode
     $('body').addClass('light-mode')
+
+    eventbus.$on('/notification', (text: string) => {
+      this.notificationText = text
+      let n = this.$refs.notification as Notification
+      n.show()
+    })
   }
 
   toggleDarkerMode () {

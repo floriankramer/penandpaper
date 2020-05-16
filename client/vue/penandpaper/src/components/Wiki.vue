@@ -310,6 +310,7 @@ export default class Wiki extends Vue {
       $.post('/wiki/save/' + this.id, JSON.stringify(req), (body) => {
         // TODO: send a done message
         console.log('Saved')
+        eventbus.$emit('/notification', 'Saved')
       }).fail(() => {
         alert('Saving failed.')
       })
@@ -596,7 +597,7 @@ export default class Wiki extends Vue {
     let didConfirm = false
     if (this.currentPage === CurrentPage.VIEW) {
       if (confirm('Do you wish to save and close this article and apply autolinking?')) {
-        this.savePage()
+        this.savePageAndQuit()
         didConfirm = true
       } else {
         return
@@ -619,7 +620,7 @@ export default class Wiki extends Vue {
     let didConfirm = false
     if (this.currentPage === CurrentPage.VIEW) {
       if (confirm('Do you wish to save and close this article and apply autolinking?')) {
-        this.savePage()
+        this.savePageAndQuit()
         didConfirm = true
       } else {
         return
