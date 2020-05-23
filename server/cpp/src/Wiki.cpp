@@ -893,10 +893,12 @@ void Wiki::removeFromSearchIndex(Entry *e) {
 
 void Wiki::addToSearchIndex(Entry *e) {
   // Add to the entry search index
+  bool has_name = false;
   const auto *names = e->getAttribute("name");
   if (names != nullptr) {
     for (const IndexedAttributeData &name : *names) {
       _ids_search_index.add(name.data.value, e->id());
+      has_name = true;
     }
   }
   const auto *aliases = e->getAttribute("alias");
@@ -905,7 +907,9 @@ void Wiki::addToSearchIndex(Entry *e) {
       _ids_search_index.add(alias.data.value, e->id());
     }
   }
-  _ids_search_index.add(e->id(), e->id());
+  if (!has_name) {
+    _ids_search_index.add(e->id(), e->id());
+  }
 
   // Add it to the attribute ref search index
   for (const auto &a : e->attributes()) {

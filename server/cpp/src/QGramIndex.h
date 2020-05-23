@@ -47,6 +47,11 @@ class QGramIndex {
 
   std::vector<Match> query(const std::string &word);
   void add(const std::string &alias, const ValueType &value);
+  /**
+   * @brief Removes all refernces from the aliases grams to the value. If
+   * another alias references the value that aliases entries may also be deleted.
+   * Always erase all aliases of a given value.
+   */
   void remove(const std::string &alias, const ValueType &value);
 
  private:
