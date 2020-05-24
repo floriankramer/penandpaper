@@ -37,43 +37,37 @@
         <WikiContentView ref="mainContent" v-bind:id="visibleId" />
       </div>
       <div id="wiki-edit" v-show="currentPage == 1">
-        <form>
-          <div class="with-tooltip">
-            <label for="id">id: </label>
-            <input name="id" v-model="id" pattern="[a-zA-Z0-9_-]*"/>
-            <span class="tooltip">The unique identifier of this article.</span>
-          </div>
-          <div>
-            <textarea id="wiki-structured" name="structured" v-model="structured" rows="7"/>
-            <span style="font-size: 9pt;">
-              Attribute modifiers: ! : interesting, + : inheritable, - : date
-            </span>
-            <details>
-              <summary>Inherited Attributes</summary>
-              <table>
-                <tr v-for="attr in inheritedAttributes" v-bind:key="attr.idx">
-                  <td v-bind:class="{ 'interesting-attr': attr.data.isInteresting, 'inheritable-attr': attr.data.isInheritable }">{{attr.data.predicate}}</td><td v-html="attr.data.value"></td>
-                </tr>
-              </table>
-            </details>
-          </div>
-          <hr/>
-          <div>
-            <textarea id="wiki-raw-content" name="content" rows="36" cols="80"/>
-            <select id="wiki-theme" v-model="cmTheme">
-              <option disabled value="">Please select one</option>
-              <option value="railscasts">railscasts</option>
-              <option value="pastel-on-dark">pastel-on-dark</option>
-              <option value="panda-syntax">panda-syntax</option>
-              <option value="mbo">mbo</option>
-              <option value="lesser-dark">lesser-dark</option>
-              <option value="darcula">darcula</option>
-            </select>
-          </div>
-          <div>
-            <input type="submit" value="save" v-on:click.prevent="savePageAndQuit"/>
-          </div>
-        </form>
+        <div class="with-tooltip flexchild-fixed">
+          <label for="id">id: </label>
+          <input name="id" v-model="id" pattern="[a-zA-Z0-9_-]*"/>
+          <span class="tooltip">The unique identifier of this article.</span>
+        </div>
+        <div class="flexchild-fixed">
+          <textarea id="wiki-structured" name="structured" v-model="structured" rows="7"/>
+          <span style="font-size: 9pt;">
+            Attribute modifiers: ! : interesting, + : inheritable, - : date
+          </span>
+          <details>
+            <summary>Inherited Attributes</summary>
+            <table>
+              <tr v-for="attr in inheritedAttributes" v-bind:key="attr.idx">
+                <td v-bind:class="{ 'interesting-attr': attr.data.isInteresting, 'inheritable-attr': attr.data.isInheritable }">{{attr.data.predicate}}</td><td v-html="attr.data.value"></td>
+              </tr>
+            </table>
+          </details>
+        </div>
+        <hr/>
+        <textarea class="flexchild-fill" id="wiki-raw-content" name="content" rows="36" cols="80"/>
+        <select id="wiki-theme" v-model="cmTheme" class="flexchild-fixed">
+          <option disabled value="">Please select one</option>
+          <option value="railscasts">railscasts</option>
+          <option value="pastel-on-dark">pastel-on-dark</option>
+          <option value="panda-syntax">panda-syntax</option>
+          <option value="mbo">mbo</option>
+          <option value="lesser-dark">lesser-dark</option>
+          <option value="darcula">darcula</option>
+        </select>
+        <button v-on:click.prevent="savePageAndQuit" class="flexchild-fixed">save</button>
       </div>
       <div id="wiki-timeline" v-on:click="interceptLink" v-show="currentPage == 2">
         <h2>Timeline</h2>
@@ -308,9 +302,10 @@ export default class Wiki extends Vue {
       }
       req.push(new Attribute('text', this.rawContent, false, false, false))
       $.post('/wiki/save/' + this.id, JSON.stringify(req), (body) => {
-        // TODO: send a done message
         console.log('Saved')
         eventbus.$emit('/notification', 'Saved')
+        // the context might have changed
+        this.loadContext(this.id)
       }).fail(() => {
         alert('Saving failed.')
       })
@@ -595,7 +590,7 @@ export default class Wiki extends Vue {
 
   autoLink (id: string) {
     let didConfirm = false
-    if (this.currentPage === CurrentPage.VIEW) {
+    if (this.currentPage === CurrentPage.EDIT) {
       if (confirm('Do you wish to save and close this article and apply autolinking?')) {
         this.savePageAndQuit()
         didConfirm = true
@@ -605,10 +600,10 @@ export default class Wiki extends Vue {
     }
     if (didConfirm || confirm('Are you sure you want to automatically create links in this entry?')) {
       $.get('/wiki/autolink/' + id, (body) => {
-        if (this.currentPage !== CurrentPage.VIEW) {
-          this.loadPage(id)
-        } else {
+        if (this.currentPage === CurrentPage.EDIT) {
           alert('Unable to show the autolink results: you are currently editing an article.')
+        } else {
+          this.loadPage(id)
         }
       }).fail(() => {
         alert('Unable to autolink ' + id)
@@ -618,7 +613,7 @@ export default class Wiki extends Vue {
 
   autoLinkAll () {
     let didConfirm = false
-    if (this.currentPage === CurrentPage.VIEW) {
+    if (this.currentPage === CurrentPage.EDIT) {
       if (confirm('Do you wish to save and close this article and apply autolinking?')) {
         this.savePageAndQuit()
         didConfirm = true
@@ -628,6 +623,10 @@ export default class Wiki extends Vue {
     }
     if (didConfirm || confirm('Are you sure you want to automatically create links in all entries?')) {
       $.get('/wiki/autolink', (body) => {
+        if (this.currentPage === CurrentPage.VIEW) {
+          // Reload the page
+          this.loadPage(this.visibleId)
+        }
         alert('Autolinked all articles.')
       }).fail(() => {
         alert('An error occured while autolinking.')
@@ -845,10 +844,10 @@ export default class Wiki extends Vue {
       let nIdxTree = new IndexTreeItem()
       nIdxTree.id = 'root'
       nIdxTree.html = idxItems.name
-      nIdxTree.html += '<span style="width: 25px; display: inline-block"></span>'
-      nIdxTree.html += '<span data-event="new" data-payload="">' + '+' + '</span>'
-      nIdxTree.html += '<span style="width: 7px; display: inline-block"></span>'
-      nIdxTree.html += '<span data-event="autoLinkAll" data-payload="">' + 'L' + '</span>'
+      nIdxTree.html += '<span style="width: 25px; display: inline-block;"></span>'
+      nIdxTree.html += '<span style="cursor: pointer;" data-event="new" data-payload="">' + '+' + '</span>'
+      nIdxTree.html += '<span style="width: 7px; display: inline-block;"></span>'
+      nIdxTree.html += '<span style="cursor: pointer;" data-event="autoLinkAll" data-payload="">' + 'L' + '</span>'
       // Dfs on the tree
       let stack : DfsLevel[] = [new DfsLevel(idxItems, nIdxTree)]
       while (stack.length > 0) {
@@ -1009,7 +1008,6 @@ div .wiki-sidebar-right {
 
 #wiki-edit textarea {
   width: 100%;
-  height: 100%;
   border: 3px solid black;
 }
 
@@ -1096,6 +1094,24 @@ td {
   display: block;
 }
 
+#wiki-edit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  height: 100%;
+}
+
+.flexchild-fixed {
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: auto;
+}
+
+.flexchild-fill {
+  flex-grow: 1;
+  flex-shrink: 1;
+  height: auto;
+}
 </style>
 
 <style>
@@ -1105,6 +1121,13 @@ table p {
 
 .CodeMirror {
   font-family: Avenir,Helvetica,Arial,sans-serif !important;
+}
+
+#wiki-edit div.CodeMirror {
+  flex-grow: 1;
+  flex-shrink: 1;
+  height: auto;
+  width: 100%;
 }
 
 .wiki-index-link {

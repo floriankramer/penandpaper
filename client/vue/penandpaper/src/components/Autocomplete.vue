@@ -35,7 +35,9 @@ export class Completion {
 
 @Component
 export default class Autocomplete extends Vue {
+  @Prop()
   value: string = ''
+
   target: string | null = null
 
   selected: number = -1
