@@ -16,9 +16,15 @@
 
 <template>
 <div>
-<input type="text" v-model="value" v-on:keyup.enter="acceptCompletion" v-on:keyup.down="onDown" v-on:keyup.up="onUp" />
-<div class="autocomplete-floating">
-  <ul v-show="showCompletions" v-on:click.prevent="onClick" class="autocomplete-list">
+<input ref="input"
+       type="text"
+       v-model="value"
+       v-on:keyup.enter="acceptCompletion"
+       v-on:keyup.down="onDown"
+       v-on:keyup.up="onUp"
+       v-on:blur="onBlur" />
+<div class="autocomplete-floating" v-show="showCompletions">
+  <ul v-on:click.prevent="onClick" class="autocomplete-list">
     <li v-for="(sg, index) in completions" v-bind:key="sg" v-bind:data-value="sg.value"><div v-bind:class="{selected: index == selected}">{{sg.text}}</div></li>
   </ul>
 </div>
@@ -47,13 +53,33 @@ export default class Autocomplete extends Vue {
 
   showCompletions: boolean = false
 
+  focus () {
+    var e = this.$refs.input as HTMLElement
+    e.focus()
+  }
+
+  setValue (v: string) {
+    this.value = v
+  }
+
   @Watch('value')
   onValueChanged (v: string, old: string) {
-    if (this.target === null || v !== this.target) {
+    if ((this.target === null || v !== this.target) && v.length > 0) {
       this.$emit('autocomplete', v)
-      this.showCompletions = true
+    } else if (v.length === 0) {
+      this.showCompletions = false
     }
     this.$emit('input', v)
+  }
+
+  @Watch('completions')
+  onCompletionsChanged (v: Completion[]) {
+    var input = this.$refs.input as HTMLInputElement
+    this.showCompletions = v !== undefined && v.length > 0 && input === document.activeElement
+  }
+
+  setCompletions (completions: Completion[]) {
+    this.completions = completions
   }
 
   acceptCompletion () {
@@ -74,13 +100,20 @@ export default class Autocomplete extends Vue {
     this.selected = Math.max(-1, this.selected - 1)
   }
 
+  onBlur () {
+    this.showCompletions = false
+  }
+
   onClick (event: MouseEvent) {
     let target = event.target || event.srcElement
+    console.log(target)
 
     if (target !== null) {
       var el = target as HTMLElement
+      console.log('Clicked on', el.tagName)
       if (el.tagName === 'LI') {
         if (el.dataset.value !== undefined) {
+          console.log('selected ', el.dataset.value)
           this.target = el.dataset.value
           this.value = el.dataset.value
           this.showCompletions = false
@@ -88,7 +121,9 @@ export default class Autocomplete extends Vue {
         }
       } else if (el.tagName === 'DIV') {
         var pel = el.parentElement
+        console.log('target parent', pel)
         if (pel !== null && pel.dataset.value !== undefined) {
+          console.log('selected ', pel.dataset.value)
           this.target = pel.dataset.value
           this.value = pel.dataset.value
           this.showCompletions = false
@@ -103,6 +138,7 @@ export default class Autocomplete extends Vue {
 <style scoped>
 div.autocomplete-floating {
   position: absolute;
+  display: block;
   background-color: #101010;
   border-radius: 7px;
   padding-left: 4px;
@@ -110,6 +146,7 @@ div.autocomplete-floating {
   max-height: 130px;
   overflow-y: auto;
   overflow-x: hidden;
+  z-index: 999;
 }
 
 ul.autocomplete-list {

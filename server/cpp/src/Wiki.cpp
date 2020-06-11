@@ -130,8 +130,9 @@ Wiki::Wiki(Database *db)
     if (p.second->parent() == nullptr) {
       p.second->reparent(&_root);
     }
-    addToSearchIndex(p.second);
-    addToDateIndex(p.second);
+//    addToSearchIndex(p.second);
+//    addToDateIndex(p.second);
+    addToPredicateIndex(p.second);
   }
 }
 
@@ -155,6 +156,9 @@ void Wiki::onRequest(const httplib::Request &req, httplib::Response &resp) {
       return;
     } else if (parts[2] == "reference") {
       handleCompleteAttrRef(req, resp);
+      return;
+    } else if (parts[2] == "predicate") {
+      handleCompletePredicate(req, resp);
       return;
     }
   }
@@ -291,6 +295,44 @@ void Wiki::handleCompleteAttrRef(const httplib::Request &req,
     std::string context = jreq.at("context");
     std::vector<QGramIndex::Match> results =
         _attr_ref_search_index.query(context);
+
+    json j = std::vector<json>();
+    for (size_t i = 0; i < results.size(); ++i) {
+      json completion;
+      const QGramIndex::Match &m = results[i];
+      // append the replacement to the unused part of the context
+      completion["value"] = m.value.value;
+      completion["name"] = m.value.alias;
+      completion["replaces"] = context;
+      j.push_back(completion);
+    }
+
+    resp.status = 200;
+    resp.set_header("Content-Type", "application/json");
+    resp.body = j.dump();
+  } catch (const std::exception &e) {
+    LOG_WARN << "Wiki: Error while handling a completion request: " << e.what()
+             << LOG_END;
+    resp.status = 400;
+    resp.body = "Malformed completion request.";
+  }
+}
+
+void Wiki::handleCompletePredicate(const httplib::Request &req,
+                                 httplib::Response &resp) {
+  using nlohmann::json;
+  struct Completion {
+    QGramIndex::Match match;
+    size_t num_words_used;
+    std::string replaces;
+
+    bool operator<(const Completion &other) { return match < other.match; }
+  };
+  try {
+    json jreq = json::parse(req.body);
+    std::string context = jreq.at("context");
+    std::vector<QGramIndex::Match> results =
+        _predicate_index.query(context);
 
     json j = std::vector<json>();
     for (size_t i = 0; i < results.size(); ++i) {
@@ -487,12 +529,14 @@ void Wiki::handleSave(const std::string &id, const httplib::Request &req,
       }
       addToSearchIndex(it->second);
       addToDateIndex(it->second);
+      addToPredicateIndex(it->second);
     } else {
       Entry *e = parent->addChild(id);
       e->setAttributes(attributes);
       _entry_map[id] = e;
       addToSearchIndex(e);
       addToDateIndex(e);
+      addToPredicateIndex(e);
     }
     resp.status = 200;
     resp.body = "Save succesfull";
@@ -956,6 +1000,12 @@ void Wiki::removeFromDateIndex(Entry *e) {
         }
       }
     }
+  }
+}
+
+void Wiki::addToPredicateIndex(Entry *e) {
+  for (auto ait : e->attributes()) {
+    _predicate_index.add(ait.first, ait.first);
   }
 }
 

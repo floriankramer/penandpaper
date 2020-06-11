@@ -114,12 +114,10 @@ void QGramIndex::add(const std::string &alias, const ValueType &value) {
   std::vector<std::string> grams = split(alias);
 
   size_t id;
-  auto vit = _reverse_vocab.find(value);
+  auto vit = _reverse_vocab.find(computeVocabKey(alias, value));
   if (vit == _reverse_vocab.end()) {
     id = _vocabulary.size();
     _vocabulary.push_back({alias, value});
-    // TODO: It might make a lot more sense to not differentaite between alias
-    // and value but instead do the alias mapping later on.
     _vocab_num_qgrams.push_back(grams.size());
     _reverse_vocab[computeVocabKey(alias, value)] = id;
   } else {
@@ -128,7 +126,7 @@ void QGramIndex::add(const std::string &alias, const ValueType &value) {
 
   for (const std::string &gram : grams) {
     std::vector<size_t> &v = _gram_map[gram];
-    // Dont map a gram twice to the same value. When matching inputs
+    // Don't map a gram to the same value twice. When matching inputs
     // we will still match both grams in the input with the single occurrence
     // in this list.
     if (std::find(v.begin(), v.end(), id) == v.end()) {
@@ -140,7 +138,6 @@ void QGramIndex::add(const std::string &alias, const ValueType &value) {
 }
 
 void QGramIndex::remove(const std::string &alias, const ValueType &value) {
-
   auto vocab_it = _reverse_vocab.find(computeVocabKey(alias, value));
   if (vocab_it == _reverse_vocab.end()) {
     // The value isn't known
@@ -155,7 +152,8 @@ void QGramIndex::remove(const std::string &alias, const ValueType &value) {
     if (it != _gram_map.end()) {
       std::vector<uint64_t> &values = it->second;
       // If the vector contains the value
-      values.erase(std::remove(values.begin(), values.end(), v_id), values.end());
+      values.erase(std::remove(values.begin(), values.end(), v_id),
+                   values.end());
       if (values.empty()) {
         _gram_map.erase(gram);
       }

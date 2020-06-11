@@ -215,6 +215,8 @@ class Wiki : public HttpServer::RequestHandler {
                             httplib::Response &resp);
   void handleCompleteAttrRef(const httplib::Request &req,
                              httplib::Response &resp);
+  void handleCompletePredicate(const httplib::Request &req,
+                             httplib::Response &resp);
   void handleAutolink(const std::string &id, const httplib::Request &req,
                       httplib::Response &resp);
   void handleAutolinkAll(const httplib::Request &req, httplib::Response &resp);
@@ -236,6 +238,8 @@ class Wiki : public HttpServer::RequestHandler {
   void addToDateIndex(Entry *e);
   void removeFromDateIndex(Entry *e);
 
+  void addToPredicateIndex(Entry *e);
+
   Database *_db;
   Table _pages_table;
   std::unordered_map<std::string, Entry *> _entry_map;
@@ -243,6 +247,7 @@ class Wiki : public HttpServer::RequestHandler {
 
   QGramIndex _ids_search_index;
   QGramIndex _attr_ref_search_index;
+  QGramIndex _predicate_index;
 
   Entry _root;
 

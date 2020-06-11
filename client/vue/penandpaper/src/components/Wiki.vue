@@ -43,10 +43,10 @@
           <span class="tooltip">The unique identifier of this article.</span>
         </div>
         <div class="flexchild-fixed">
-          <textarea id="wiki-structured" name="structured" v-model="structured" rows="7"/>
-          <span style="font-size: 9pt;">
-            Attribute modifiers: ! : interesting, + : inheritable, - : date
-          </span>
+          <details open="true">
+            <summary>Attributes</summary>
+            <Attributes v-model="editAttributes"/>
+          </details>
           <details>
             <summary>Inherited Attributes</summary>
             <table>
@@ -108,6 +108,7 @@ import TreeView, { TreeItem } from './TreeView.vue'
 import ListView, { ListItem } from './ListView.vue'
 import WikiContentView from './WikiContentView.vue'
 import QuickEntryCreator from './QuickEntryCreator.vue'
+import Attributes from './Attributes.vue'
 
 import { Attribute, DisplayedAttribute } from './WikiTypes'
 
@@ -168,7 +169,8 @@ enum CurrentPage {
     TreeView,
     ListView,
     WikiContentView,
-    QuickEntryCreator
+    QuickEntryCreator,
+    Attributes
   }
 })
 export default class Wiki extends Vue {
@@ -191,8 +193,7 @@ export default class Wiki extends Vue {
 
   cmEditor: CodeMirror.EditorFromTextArea | null = null
 
-  structured: string = ''
-  structuredElem: HTMLTextAreaElement | null = null
+  editAttributes: Attribute[] = []
 
   indexTree: IndexTreeItem = new IndexTreeItem()
 
@@ -207,10 +208,11 @@ export default class Wiki extends Vue {
     this.currentPage = CurrentPage.EDIT
     this.id = ''
     this.rawContent = ''
+    this.editAttributes = []
     if (parent.length > 0) {
-      this.structured = 'parent    ' + parent
+      this.editAttributes.push(new Attribute('parent', parent, false, false, false))
     } else {
-      this.structured = 'parent    root'
+      this.editAttributes.push(new Attribute('parent', 'root', false, false, false))
     }
     this.inheritedAttributes = []
     this.initCodeMirror()
@@ -231,7 +233,7 @@ export default class Wiki extends Vue {
     $.get('/wiki/raw/' + this.id, (body) => {
       this.initCodeMirror()
       let msg = JSON.parse(body)
-      let structured = ''
+      let attributes: Attribute[] = []
       let regexWs = new RegExp('\\s')
       msg.direct.forEach((attr: any) => {
         if (attr.predicate === 'text') {
@@ -242,34 +244,11 @@ export default class Wiki extends Vue {
             console.log('The cm editor is null on wiki/raw response')
           }
         } else {
-          let predWs = regexWs.test(attr.predicate)
-          if (predWs) {
-            structured += '"'
-          }
-          if (attr.isInteresting) {
-            structured += '!'
-          }
-          if (attr.isInheritable) {
-            structured += '+'
-          }
-          if (attr.isDate) {
-            structured += '-'
-          }
-          structured += attr.predicate
-          if (predWs) {
-            structured += '"'
-          }
-          structured += '    '
-          if (regexWs.test(attr.value)) {
-            structured += '"' + attr.value + '"'
-          } else {
-            structured += attr.value
-          }
-          structured += '\n'
+          attributes.push(attr as Attribute)
         }
       })
-      this.structured = structured
-      this.relayoutAttributes()
+      attributes.sort((a: Attribute, b: Attribute) => a.predicate.localeCompare(b.predicate))
+      this.editAttributes = attributes
 
       let nDAttr : DisplayedAttribute[] = []
       msg.inherited.forEach((attr: Attribute) => {
@@ -296,7 +275,8 @@ export default class Wiki extends Vue {
 
   savePage () {
     if (this.currentPage === CurrentPage.EDIT) {
-      let req = this.parseAttributes()
+      let req: Attribute[] = this.editAttributes.slice()
+      req.filter((a : Attribute) => a.predicate.trim().length > 0)
       if (this.cmEditor !== null) {
         this.rawContent = this.cmEditor.getValue()
       }
@@ -314,7 +294,8 @@ export default class Wiki extends Vue {
 
   savePageAndQuit () {
     if (this.currentPage === CurrentPage.EDIT) {
-      let req = this.parseAttributes()
+      let req: Attribute[] = this.editAttributes.slice()
+      req.filter((a : Attribute) => a.predicate.trim().length > 0)
       if (this.cmEditor !== null) {
         this.rawContent = this.cmEditor.getValue()
       }
@@ -326,84 +307,6 @@ export default class Wiki extends Vue {
         alert('Saving failed.')
       })
     }
-  }
-
-  parseAttributes () : Attribute[] {
-    let attr: Attribute[] = []
-
-    let inString = false
-    let pos = 0
-    while (pos < this.structured.length) {
-      // skip leading whitespace
-      while (pos < this.structured.length && (this.structured[pos] === ' ' || this.structured[pos] === '\n' || this.structured[pos] === '\t')) {
-        pos++
-      }
-
-      // parse the predicate
-      if (this.structured[pos] === '"') {
-        inString = true
-        ++pos
-      }
-      let start = pos
-      while (pos < this.structured.length) {
-        // Check if the word has ended (we reached non escaped whitespace)
-        if (!inString && (this.structured[pos] === ' ' || this.structured[pos] === '\n' || this.structured[pos] === '\t')) {
-          break
-        }
-        // Check if there is a string ending
-        if (inString && this.structured[pos] === '"') {
-          inString = false
-          break
-        }
-        pos++
-      }
-      let pred = this.structured.substring(start, pos)
-
-      // Advanve past a closing quotation mark
-      if (pos < this.structured.length && this.structured[pos] === '"') {
-        ++pos
-      }
-
-      // skip whitespace
-      while (pos < this.structured.length && (this.structured[pos] === ' ' || this.structured[pos] === '\n' || this.structured[pos] === '\t')) {
-        pos++
-      }
-
-      // parse the value
-      if (this.structured[pos] === '"') {
-        inString = true
-        ++pos
-      }
-      start = pos
-      while (pos < this.structured.length) {
-        // Check if the word has ended (we reached non escaped whitespace)
-        if (!inString && (this.structured[pos] === ' ' || this.structured[pos] === '\n' || this.structured[pos] === '\t')) {
-          break
-        }
-        // Check if there is a string ending
-        if (inString && this.structured[pos] === '"') {
-          inString = false
-          break
-        }
-        pos++
-      }
-      let value = this.structured.substring(start, pos)
-      // Advanve past a closing quotation mark
-      if (pos < this.structured.length && this.structured[pos] === '"') {
-        ++pos
-      }
-      let prefix = pred.substr(0, 3)
-      let isInteresting = prefix.includes('!')
-      let isInheritable = prefix.includes('+')
-      let isDate = prefix.includes('-')
-      let prefixSize = 0
-      prefixSize += isInteresting ? 1 : 0
-      prefixSize += isInheritable ? 1 : 0
-      prefixSize += isDate ? 1 : 0
-      pred = pred.substr(prefixSize)
-      attr.push(new Attribute(pred, value, isInteresting, isInheritable, isDate))
-    }
-    return attr
   }
 
   loadPage (id: string) {
@@ -689,100 +592,11 @@ export default class Wiki extends Vue {
     }
   }
 
-  relayoutAttributes (allowTrailing: boolean = false) {
-    let val = this.structured
-    if (val.length > 0) {
-      let words = []
-      let start = 0
-      let inString = false
-      let firstNonWs = 0
-      // find the first non whitespace character
-      while (firstNonWs < val.length) {
-        let c = val[firstNonWs]
-        let isWs = c === ' ' || c === '\r' || c === '\n'
-        if (!isWs) {
-          break
-        }
-        firstNonWs++
-      }
-      let insideWs = false
-      // Split the input into words
-      for (let pos = firstNonWs; pos < val.length; ++pos) {
-        let c = val[pos]
-        // If the character is a " we want to toggle the string state and also
-        // process the " as a normal character
-        if (c === '"') {
-          inString = !inString
-        }
-        let isWs = c === ' ' || c === '\r' || c === '\n'
-        if (!insideWs && !inString && isWs) {
-          // Insert the word into the list
-          words.push(val.substring(start, pos))
-          insideWs = true
-        } else if (insideWs && (inString || !isWs)) {
-          // We transitioned from whitespace to non whitespace
-          insideWs = false
-          start = pos
-        }
-      }
-      if (!insideWs) {
-        words.push(val.substring(start))
-      }
-      let newVal = ''
-      let maxlen = 0
-      for (let pos = 0; pos < words.length; pos += 2) {
-        maxlen = Math.max(words[pos].length, maxlen)
-      }
-
-      // determine wether we want trailing whitespace
-      let end = val[val.length - 1]
-      let endIsWs = end === ' ' || end === '\r' || end === '\n'
-      let endMatches = (words.length % 2 === 0) && end === '\n'
-
-      for (let pos = 0; pos < words.length; ++pos) {
-        newVal += words[pos]
-        if (pos + 1 < words.length || (allowTrailing && !inString && endIsWs && !endMatches)) {
-          if (pos % 2 === 0) {
-            newVal += ' '.repeat(maxlen - words[pos].length + 2)
-          } else {
-            newVal += '\n'
-          }
-        }
-      }
-      if (inString) {
-        newVal += '"'
-      }
-      this.structured = newVal
-    }
-  }
-
   @Watch('cmTheme')
   onThemeChange (value: string, old: string) {
     if (this.cmEditor) {
       this.cmEditor.setOption('theme', value)
     }
-  }
-
-  @Watch('structured')
-  onStructuredChanged (value: string, old: string) {
-    if (this.structuredElem === null) {
-      this.structuredElem = document.getElementById('wiki-structured') as (HTMLTextAreaElement | null)
-    }
-    if (this.structuredElem !== null) {
-      let pos = this.structuredElem.selectionStart
-      let input = ''
-      if (pos >= 0 && pos - 1 < value.length) {
-        input = value[pos - 1]
-      }
-      if (value.length < old.length) {
-        this.relayoutAttributes()
-      } else if (input === ' ' || input === '\t') {
-        this.relayoutAttributes(true)
-      }
-    } else {
-      console.log('Unable to find the wiki-structured element')
-    }
-    // TODO: Autocomplete (switch over to code mirror)
   }
 
   @Watch('id')
