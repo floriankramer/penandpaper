@@ -130,8 +130,8 @@ Wiki::Wiki(Database *db)
     if (p.second->parent() == nullptr) {
       p.second->reparent(&_root);
     }
-//    addToSearchIndex(p.second);
-//    addToDateIndex(p.second);
+    addToSearchIndex(p.second);
+    addToDateIndex(p.second);
     addToPredicateIndex(p.second);
   }
 }
@@ -178,6 +178,11 @@ void Wiki::onRequest(const httplib::Request &req, httplib::Response &resp) {
   }
   if (action == "quicksearch" && parts.size() == 2 && req.method == "POST") {
     handleQuicksearch(req, resp);
+    return;
+  }
+
+  if (action == "search" && parts.size() == 2 && req.method == "POST") {
+    handleSearch(req, resp);
     return;
   }
 
@@ -319,7 +324,7 @@ void Wiki::handleCompleteAttrRef(const httplib::Request &req,
 }
 
 void Wiki::handleCompletePredicate(const httplib::Request &req,
-                                 httplib::Response &resp) {
+                                   httplib::Response &resp) {
   using nlohmann::json;
   struct Completion {
     QGramIndex::Match match;
@@ -331,8 +336,7 @@ void Wiki::handleCompletePredicate(const httplib::Request &req,
   try {
     json jreq = json::parse(req.body);
     std::string context = jreq.at("context");
-    std::vector<QGramIndex::Match> results =
-        _predicate_index.query(context);
+    std::vector<QGramIndex::Match> results = _predicate_index.query(context);
 
     json j = std::vector<json>();
     for (size_t i = 0; i < results.size(); ++i) {
@@ -698,6 +702,107 @@ void Wiki::handleQuicksearch(const httplib::Request &req,
     }
   }
   resp.body = j.dump();
+  resp.status = 200;
+}
+
+void Wiki::handleSearch(const httplib::Request &req, httplib::Response &resp) {
+  struct Filter {
+    std::string predicate;
+    std::string value;
+  };
+
+  using nlohmann::json;
+  json json_res = json::array();
+
+  json query = json::parse(req.body);
+  std::string search_term;
+  if (query.contains("search-term")) {
+    search_term = query["search-term"];
+  }
+  LOG_DEBUG << "Searching for " << search_term << LOG_END;
+
+  // Extract the requested filters
+  std::vector<Filter> filters;
+  if (query.contains("filters")) {
+    LOG_DEBUG << "Parsing filters" << LOG_END;
+    json json_filters = query["filters"];
+    for (json jfilter : json_filters) {
+      Filter f;
+      f.predicate = jfilter.at("predicate");
+      LOG_DEBUG << "Got a filter with predicate " << f.predicate << LOG_END;
+      if (jfilter.contains("value")) {
+        f.value = jfilter["value"];
+      }
+      filters.push_back(f);
+    }
+  } else {
+    LOG_DEBUG << "No filters." << LOG_END;
+  }
+
+  // Find all candidates based upon the search team
+  std::vector<Entry *> candidates;
+  if (!search_term.empty()) {
+    std::vector<QGramIndex::Match> matches =
+        _ids_search_index.query(search_term);
+    candidates.reserve(matches.size());
+    for (const QGramIndex::Match &m : matches) {
+      std::string id = m.value.value;
+      auto eit = _entry_map.find(id);
+      if (eit != _entry_map.end()) {
+        candidates.push_back(eit->second);
+      } else {
+        LOG_WARN << "No entry with id " << id
+                 << " was found in the entry map. The id was returned by the "
+                    "id_search_index though."
+                 << LOG_END;
+      }
+    }
+  } else {
+    candidates.reserve(_entry_map.size());
+    for (auto it : _entry_map) {
+      candidates.push_back(it.second);
+    }
+  }
+  LOG_DEBUG << "Found " << candidates.size() << " candidates" << LOG_END;
+  std::vector<Entry *>::iterator it = candidates.begin();
+  while (json_res.size() < 64 && it != candidates.end()) {
+    Entry *e = *it;
+
+    bool matches_filters = true;
+    for (const Filter &f : filters) {
+      auto attrs = e->getAttribute(f.predicate);
+      if (attrs == nullptr) {
+        matches_filters = false;
+        break;
+      }
+      if (!f.value.empty()) {
+        bool has_value = false;
+        for (const IndexedAttributeData &d : *attrs) {
+          if (d.data.value == f.value) {
+            has_value = true;
+            break;
+          }
+        }
+        if (!has_value) {
+          matches_filters = false;
+          break;
+        }
+      }
+    }
+    if (matches_filters) {
+      LOG_DEBUG << "The entry matches all filters." << LOG_END;
+      json res;
+      res["name"] = e->name();
+      res["id"] = e->id();
+      json_res.push_back(res);
+    } else {
+      LOG_DEBUG << "The entry doesn't match all filters." << LOG_END;
+    }
+    ++it;
+  }
+
+  resp.body = json_res.dump();
+  resp.set_header("Content-Type", "application/json");
   resp.status = 200;
 }
 

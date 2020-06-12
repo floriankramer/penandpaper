@@ -17,8 +17,8 @@
 <template>
   <div class="wiki-container">
     <div class="wiki-sidebar">
-      <span v-on:click="showFind">Find</span><br/>
-      <span v-on:click="showTimeline">Timeline</span>
+      <span v-on:click="showFind" style="cusor: pointer;">Find</span><br/>
+      <span v-on:click="showTimeline" style="cusor: pointer;">Timeline</span>
       <hr/>
       <input type="text" placeholder="quicksearch" v-model="quicksearchWord"/>
       <TreeView v-show="quicksearchWord.length == 0" v-bind:current="highlightedId" v-bind:tree="indexTree" v-on:show="onIndexLoadPage" v-on:new="newPage" v-on:edit="editPage" v-on:delete="deletePage" v-on:autoLink="autoLink" v-on:autoLinkAll="autoLinkAll"/>
@@ -84,6 +84,7 @@
       </div>
       <div id="wiki-find" v-show="currentPage == 3">
         <h2>Find Entries</h2>
+        <WikiSearch v-on:show="loadPage"/>
       </div>
     </div>
     <div class="wiki-sidebar-right" v-on:click="interceptLink">
@@ -109,6 +110,7 @@ import ListView, { ListItem } from './ListView.vue'
 import WikiContentView from './WikiContentView.vue'
 import QuickEntryCreator from './QuickEntryCreator.vue'
 import Attributes from './Attributes.vue'
+import WikiSearch from './WikiSearch.vue'
 
 import { Attribute, DisplayedAttribute } from './WikiTypes'
 
@@ -170,7 +172,8 @@ enum CurrentPage {
     ListView,
     WikiContentView,
     QuickEntryCreator,
-    Attributes
+    Attributes,
+    WikiSearch
   }
 })
 export default class Wiki extends Vue {

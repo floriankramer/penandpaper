@@ -223,6 +223,7 @@ class Wiki : public HttpServer::RequestHandler {
   void handleContext(const std::string &id, httplib::Response &resp);
   void handleTimeline(const httplib::Request &req, httplib::Response &resp);
   void handleQuicksearch(const httplib::Request &req, httplib::Response &resp);
+  void handleSearch(const httplib::Request &req, httplib::Response &resp);
 
   // This scans the given entry and automatically references other entries
   // it finds in the entries text using entry autocompletion.
