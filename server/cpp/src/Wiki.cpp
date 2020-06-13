@@ -719,24 +719,19 @@ void Wiki::handleSearch(const httplib::Request &req, httplib::Response &resp) {
   if (query.contains("search-term")) {
     search_term = query["search-term"];
   }
-  LOG_DEBUG << "Searching for " << search_term << LOG_END;
 
   // Extract the requested filters
   std::vector<Filter> filters;
   if (query.contains("filters")) {
-    LOG_DEBUG << "Parsing filters" << LOG_END;
     json json_filters = query["filters"];
     for (json jfilter : json_filters) {
       Filter f;
       f.predicate = jfilter.at("predicate");
-      LOG_DEBUG << "Got a filter with predicate " << f.predicate << LOG_END;
       if (jfilter.contains("value")) {
         f.value = jfilter["value"];
       }
       filters.push_back(f);
     }
-  } else {
-    LOG_DEBUG << "No filters." << LOG_END;
   }
 
   // Find all candidates based upon the search team
@@ -763,7 +758,6 @@ void Wiki::handleSearch(const httplib::Request &req, httplib::Response &resp) {
       candidates.push_back(it.second);
     }
   }
-  LOG_DEBUG << "Found " << candidates.size() << " candidates" << LOG_END;
   std::vector<Entry *>::iterator it = candidates.begin();
   while (json_res.size() < 64 && it != candidates.end()) {
     Entry *e = *it;
@@ -790,13 +784,10 @@ void Wiki::handleSearch(const httplib::Request &req, httplib::Response &resp) {
       }
     }
     if (matches_filters) {
-      LOG_DEBUG << "The entry matches all filters." << LOG_END;
       json res;
       res["name"] = e->name();
       res["id"] = e->id();
       json_res.push_back(res);
-    } else {
-      LOG_DEBUG << "The entry doesn't match all filters." << LOG_END;
     }
     ++it;
   }
