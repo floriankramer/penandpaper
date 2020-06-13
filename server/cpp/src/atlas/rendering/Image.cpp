@@ -5,6 +5,15 @@
 namespace atlas {
 
 Image::Image() {}
+
+Image::Image(uint32_t width, uint32_t height)
+    : _width(width), _height(height), _pixels(width * height) {
+  ;
+}
+
+Image::Image(uint32_t width, uint32_t height, Pixel color)
+    : _width(width), _height(height), _pixels(width * height, color) {}
+
 Image::~Image() {}
 
 void Image::load(const std::string &path) {

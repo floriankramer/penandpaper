@@ -12,6 +12,8 @@ class Image {
   };
 
   Image();
+  Image(uint32_t width, uint32_t height);
+  Image(uint32_t width, uint32_t height, Pixel color);
   virtual ~Image();
 
   Pixel &operator()(uint32_t x, uint32_t y);
