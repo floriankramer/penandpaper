@@ -47,6 +47,11 @@ export default class Camera {
     this.updateMatrix()
   }
 
+  multiplyZoom (factor: number) {
+    this.height /= factor
+    this.updateMatrix()
+  }
+
   pan (dx: number, dy: number) {
     this.x -= dx * this.height * this.aspectRatio
     this.y -= dy * this.height
