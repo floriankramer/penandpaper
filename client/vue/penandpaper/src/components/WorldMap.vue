@@ -59,7 +59,7 @@ enum MouseAction {
 }
 
 @Component
-export default class World extends Vue {
+export default class WorldMap extends Vue {
   tokens: Sim.Token[] = []
   movingTokens: Sim.Token[] = []
   lines: Sim.Line[] = []

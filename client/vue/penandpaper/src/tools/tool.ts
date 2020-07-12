@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import Map from '../components/Map.vue'
+import WorldMap from '../components/WorldMap.vue'
 import * as Sim from '../simulation/simulation'
 import eventbus from '../eventbus'
 
@@ -24,7 +24,7 @@ import Renderer from '../rendering/renderer'
 import RenderLayers from '../components/renderlayers'
 
 export default class Tool {
-  map: Map
+  map: WorldMap
 
   isDragging: boolean = false
   isMovingToken: boolean = false
@@ -46,7 +46,9 @@ export default class Tool {
 
   lastTouch: TouchEvent = new TouchEvent('start')
 
-  constructor (map: Map) {
+  timeTouchStart: Map<number, Date> = new Map()
+
+  constructor (map: WorldMap) {
     this.map = map
   }
 
@@ -191,31 +193,52 @@ export default class Tool {
   }
 
   onTouchStart (event: TouchEvent) {
+    for (let i = 0; i < event.changedTouches.length; i++) {
+      this.timeTouchStart.set(event.changedTouches[i].identifier, new Date())
+    }
     if (event.targetTouches.length === 1) {
       let touch = event.targetTouches[0]
       let offset = this.getTouchOffset(touch)
       let worldPos = this.map.screenToWorldPos(new Sim.Point(offset.x, offset.y))
-      let didSelect = this.map.selectTokenAt(worldPos.x, worldPos.y)
+
+      let selectedToken = this.map.getSelection()
+      if (selectedToken !== undefined) {
+        let a = Math.atan2(worldPos.y - selectedToken.y, worldPos.x - selectedToken.x)
+        this.map.clientMoveSelectedTo(selectedToken.x, selectedToken.y, a)
+      }
+      this.map.selectTokenAt(worldPos.x, worldPos.y)
       this.shouldDrawText = this.map.hasSelection()
     } else if (event.targetTouches.length === 2 && this.map.hasSelection()) {
       this.map.setSelectedToken(undefined)
       this.shouldDrawText = this.map.hasSelection()
     }
+    this.map.requestRedraw()
     this.lastTouch = event
   }
 
   onTouchEnd (event: TouchEvent) {
     if (event.targetTouches.length === 0) {
-      if (this.map.hasSelection()) {
+      let now = new Date()
+      let startDate = this.timeTouchStart.get(event.changedTouches[0].identifier)
+      if (startDate === undefined) {
+        startDate = new Date()
+        console.log('Tool.onTouchEnd: touch start time undefined')
+      }
+      if (this.map.hasSelection() && now.getTime() - startDate.getTime() > 500) {
+        // Move and deselect the token.
         let touch = event.changedTouches[0]
         let offset = this.getTouchOffset(touch)
         let worldPos = this.map.screenToWorldPos(new Sim.Point(offset.x, offset.y))
         this.map.clientMoveSelectedTo(worldPos.x, worldPos.y)
+        this.map.setSelectedToken(undefined)
       }
-      this.map.setSelectedToken(undefined)
-      this.shouldDrawText = this.map.hasSelection()
+      this.shouldDrawText = false
     }
+    this.map.requestRedraw()
     this.lastTouch = event
+    for (let i = 0; i < event.changedTouches.length; i++) {
+      this.timeTouchStart.delete(event.changedTouches[i].identifier)
+    }
   }
 
   onTouchMove (event: TouchEvent) {

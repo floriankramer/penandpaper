@@ -15,7 +15,7 @@
  */
 
 import Tool from './tool'
-import Map from '../components/Map.vue'
+import WorldMap from '../components/WorldMap.vue'
 import * as Sim from '../simulation/simulation'
 import eventBus from '../eventbus'
 import * as B from '../simulation/building'
@@ -46,7 +46,7 @@ export default class ToolFurniture extends Tool {
   fontActor = new FontActor()
   isActorVisible: boolean = false
 
-  constructor (map: Map) {
+  constructor (map: WorldMap) {
     super(map)
     this.currentFurniture.isVisible = true
     this.furnitureActor.addFurniture(this.currentFurniture)

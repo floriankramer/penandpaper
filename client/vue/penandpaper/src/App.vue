@@ -22,7 +22,7 @@
     <div id="dock-container"></div>
     <Toolbar id="toolbar"></Toolbar>
     <Chat id="chat"></Chat>
-    <Map id="map" class="content-area"/>
+    <WorldMap id="map" class="content-area"/>
     <PlayerList id="playerlist"/>
     <Wiki id="wiki"/>
     <template v-if="noUsername">
@@ -36,7 +36,7 @@ import { Component, Vue } from 'vue-property-decorator'
 import Login from './components/Login.vue'
 import Chat from './components/Chat.vue'
 import Toolbar from './components/Toolbar.vue'
-import Map from './components/Map.vue'
+import WorldMap from './components/WorldMap.vue'
 import CriticalError from './components/CriticalError.vue'
 import Server from './components/server'
 import PlayerList from './components/PlayerList.vue'
@@ -65,7 +65,7 @@ import eventbus from './eventbus'
     CriticalError,
     Chat,
     Toolbar,
-    Map,
+    WorldMap,
     PlayerList,
     Wiki,
     Menu,

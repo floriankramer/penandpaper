@@ -15,7 +15,7 @@
  */
 
 import Tool from './tool'
-import Map from '../components/Map.vue'
+import WorldMap from '../components/WorldMap.vue'
 import * as Sim from '../simulation/simulation'
 import eventBus from '../eventbus'
 import * as B from '../simulation/building'
@@ -39,7 +39,7 @@ export default class ToolDoor extends Tool {
   doorActor = new DoorActor()
   isActorVisible: boolean = false
 
-  constructor (map: Map) {
+  constructor (map: WorldMap) {
     super(map)
     this.currentDoor.isVisible = true
     this.doorActor.addDoor(this.currentDoor)
