@@ -15,7 +15,7 @@
  */
 
 import Tool from './tool'
-import Map from '../components/Map.vue'
+import WorldMap from '../components/WorldMap.vue'
 import * as Sim from '../simulation/simulation'
 import eventBus from '../eventbus'
 import * as B from '../simulation/building'
@@ -37,7 +37,7 @@ export default class ToolRoom extends Tool {
   roomActor: RoomActor = new RoomActor()
   isActorVisible: boolean = false
 
-  constructor (map: Map) {
+  constructor (map: WorldMap) {
     super(map)
     this.currentRoom.isVisible = true
     this.roomActor.addRoom(this.currentRoom)

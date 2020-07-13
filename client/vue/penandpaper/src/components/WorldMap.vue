@@ -19,6 +19,8 @@
     <canvas v-on:mousedown="onMouseDown" v-on:mouseup="onMouseUp"
             v-on:mousemove="onMouseMove" v-on:wheel="onMouseWheel"
             v-on:contextmenu.prevent v-on:keydown="onKeyDown"
+            v-on:touchstart.prevent="onTouchStart" v-on:touchmove.prevent="onTouchMove"
+            v-on:touchend.prevent="onTouchEnd" v-on:touchcancel.prevent="onTochCancel"
             tabindex="0"/>
   </div>
 </template>
@@ -57,7 +59,7 @@ enum MouseAction {
 }
 
 @Component
-export default class World extends Vue {
+export default class WorldMap extends Vue {
   tokens: Sim.Token[] = []
   movingTokens: Sim.Token[] = []
   lines: Sim.Line[] = []
@@ -77,9 +79,6 @@ export default class World extends Vue {
   tileRenderer : TileRenderer = new TileRenderer()
 
   mouseAction: MouseAction = MouseAction.NONE
-
-  lastMouseX: number = 0
-  lastMouseY: number = 0
 
   pixelPerMeter: number = 1
 
@@ -190,15 +189,6 @@ export default class World extends Vue {
   resetCamera () {
     this.renderer.camera.reset()
     this.requestRedraw()
-  }
-
-  setLastMousePos (sx: number, sy: number) {
-    this.lastMouseX = sx
-    this.lastMouseY = sy
-  }
-
-  getLastMousePos () : Sim.Point {
-    return new Sim.Point(this.lastMouseX, this.lastMouseY)
   }
 
   addFurniture (f: B.Furniture) {
@@ -317,13 +307,33 @@ export default class World extends Vue {
     this.tool.onMouseDown(event)
   }
 
-  clientMoveSelectedTo (x: number, y: number, a: number) {
+  onTouchStart (event: TouchEvent) {
+    this.tool.onTouchStart(event)
+  }
+
+  onTouchEnd (event: TouchEvent) {
+    this.tool.onTouchEnd(event)
+  }
+
+  onTouchMove (event: TouchEvent) {
+    this.tool.onTouchMove(event)
+  }
+
+  onTouchCancel (event: TouchEvent) {
+    this.tool.onTouchCancel(event)
+  }
+
+  clientMoveSelectedTo (x: number, y: number, a: number | undefined = undefined) {
     if (this.selected !== undefined) {
       // move the selected token
       let move = new Sim.TokenMoveOrder()
       move.x = x
       move.y = y
-      move.rotation = a
+      if (a === undefined) {
+        move.rotation = this.selected.rotation
+      } else {
+        move.rotation = a
+      }
       move.token = this.selected
       eventBus.$emit('/client/token/move', move)
     }
@@ -356,6 +366,14 @@ export default class World extends Vue {
   onMouseWheel (event: WheelEvent) {
     this.renderer.camera.zoom(event.deltaY)
     this.requestRedraw()
+  }
+
+  zoom (delta: number) {
+    this.renderer.camera.zoom(delta)
+  }
+
+  multiplyZoom (factor: number) {
+    this.renderer.camera.multiplyZoom(factor)
   }
 
   mounted () {

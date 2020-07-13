@@ -15,7 +15,6 @@
  */
 
 import Tool from './tool'
-import Map from '../components/Map.vue'
 import * as Sim from '../simulation/simulation'
 import eventBus from '../eventbus'
 import Renderer from '../rendering/renderer'
