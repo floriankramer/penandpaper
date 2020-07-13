@@ -29,5 +29,5 @@ else
   mkdir cert
   cd cert
   openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout key.pem -out certificate.pem -batch
-  openssl dhparam 1024 -out dh1024.pem
+  openssl dhparam -out dh1024.pem 2048 
 fi
