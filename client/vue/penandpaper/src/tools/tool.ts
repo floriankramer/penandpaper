@@ -193,22 +193,32 @@ export default class Tool {
   }
 
   onTouchStart (event: TouchEvent) {
+    // Store the current time for every new touch.
     for (let i = 0; i < event.changedTouches.length; i++) {
       this.timeTouchStart.set(event.changedTouches[i].identifier, new Date())
     }
+    // Check if this is the first finger or a subsequent one
     if (event.targetTouches.length === 1) {
+      // Transform the screen to a world position
       let touch = event.targetTouches[0]
       let offset = this.getTouchOffset(touch)
       let worldPos = this.map.screenToWorldPos(new Sim.Point(offset.x, offset.y))
 
+      // If we already have a token selected we are in the middle of a rotation.
+      // Compute the tokens new angle and rotate it
       let selectedToken = this.map.getSelection()
       if (selectedToken !== undefined) {
         let a = Math.atan2(worldPos.y - selectedToken.y, worldPos.x - selectedToken.x)
+        // Currently, there is no dedicated rotate command so we use a full move
         this.map.clientMoveSelectedTo(selectedToken.x, selectedToken.y, a)
+        this.map.setSelectedToken(undefined)
+      } else {
+        // This is not a rotation, try to select a token at the touched position
+        this.map.selectTokenAt(worldPos.x, worldPos.y)
       }
-      this.map.selectTokenAt(worldPos.x, worldPos.y)
       this.shouldDrawText = this.map.hasSelection()
     } else if (event.targetTouches.length === 2 && this.map.hasSelection()) {
+      // Cancel the current move
       this.map.setSelectedToken(undefined)
       this.shouldDrawText = this.map.hasSelection()
     }
@@ -218,12 +228,15 @@ export default class Tool {
 
   onTouchEnd (event: TouchEvent) {
     if (event.targetTouches.length === 0) {
+      // The last finger left the screen
       let now = new Date()
+      // Acquire the time at which the touch started
       let startDate = this.timeTouchStart.get(event.changedTouches[0].identifier)
       if (startDate === undefined) {
         startDate = new Date()
         console.log('Tool.onTouchEnd: touch start time undefined')
       }
+      // Check if we have a selection and the current action is not a tap.
       if (this.map.hasSelection() && now.getTime() - startDate.getTime() > 500) {
         // Move and deselect the token.
         let touch = event.changedTouches[0]
@@ -236,6 +249,8 @@ export default class Tool {
     }
     this.map.requestRedraw()
     this.lastTouch = event
+    // Clean up the timeTouchStart map by removing the start times of all
+    // removed fingers
     for (let i = 0; i < event.changedTouches.length; i++) {
       this.timeTouchStart.delete(event.changedTouches[i].identifier)
     }
@@ -244,19 +259,22 @@ export default class Tool {
   onTouchMove (event: TouchEvent) {
     if (event.targetTouches.length === 1) {
       if (this.map.hasSelection()) {
+        // Draw the measurement line to the current finger position
         let offset = this.getTouchOffset(event.targetTouches[0])
         this.measureToX = offset.x
         this.measureToY = offset.y
         this.map.requestRedraw()
       } else {
+        // Move the camera by the given finger motion
         let deltaX = event.targetTouches[0].clientX - this.lastTouch.targetTouches[0].clientX
         let deltaY = event.targetTouches[0].clientY - this.lastTouch.targetTouches[0].clientY
-        console.log(deltaX, ' ', deltaY)
         this.map.moveByScreenDelta(deltaX, deltaY)
         this.map.requestRedraw()
       }
     } else if (event.targetTouches.length === 2) {
       if (this.lastTouch.targetTouches.length === 2) {
+        // Zoom the camera. Maintain the world space distance between the two
+        // fingers for intuitive zooming.
         let lastD = this.getTwoFingerDistance(this.lastTouch)
         let d = this.getTwoFingerDistance(event)
         this.map.multiplyZoom(d / lastD)
@@ -268,8 +286,11 @@ export default class Tool {
   }
 
   onTouchCancel (event: TouchEvent) {
+    // The touches were canceled. Clean up any state we store about the current
+    // touches.
     this.map.setSelectedToken(undefined)
     this.shouldDrawText = this.map.hasSelection()
+    this.timeTouchStart.clear()
   }
 
   getTwoFingerDistance (event: TouchEvent): number {
@@ -281,6 +302,11 @@ export default class Tool {
     return Math.hypot(deltaX, deltaY)
   }
 
+  /**
+   * @brief Returns the offset of the touch to its target element. In the case
+   *        of a tool that is the distance in pixels from the top left corner
+   *        of the map.
+   */
   getTouchOffset (touch: Touch): Sim.Point {
     if (touch.target === null) {
       return new Sim.Point(touch.pageX, touch.pageY)
