@@ -16,16 +16,14 @@ MainWindow::MainWindow() {
 }
 
 void MainWindow::buildUi() {
-  Map map;
+  _map = std::make_shared<Map>();
   // initialize a 500x500m map
-  map.initialize(10, 10, 50);
-  TileRenderer renderer;
-  Image img = renderer.renderTile(&map, 0, 0, 0, 512, 512);
-  QImage qimg = Conversions::qImageFromImage(img);
+  _map->initialize(1000, 1000, 25);
 
-  QLabel *label = new QLabel("Hello There");
-  label->setPixmap(QPixmap::fromImage(qimg));
-  setCentralWidget(label);
+  _map_widget = new MapWidget();
+  _map_widget->setMap(_map);
+
+  setCentralWidget(_map_widget);
 }
 
 void MainWindow::buildMenu() {

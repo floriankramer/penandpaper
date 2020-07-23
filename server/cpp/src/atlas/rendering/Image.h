@@ -20,6 +20,7 @@ class Image {
   const Pixel &operator()(uint32_t x, uint32_t y) const;
 
   void load(const std::string &path);
+  void save(const std::string &path) const;
 
   Pixel *pixels();
   const Pixel *pixels() const;

@@ -1,7 +1,7 @@
 #pragma once
 
 namespace atlas {
-enum class Biome {
+enum class Material {
   VOID,
   GRASSLAND,
   WOODS,

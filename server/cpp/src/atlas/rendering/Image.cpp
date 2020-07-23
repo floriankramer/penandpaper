@@ -18,7 +18,7 @@ Image::~Image() {}
 
 void Image::load(const std::string &path) {
   // Based upon https://gist.github.com/niw/5963798
-  FILE *fp = fopen(path.c_str(), "rb");
+  FILE *fp = fopen(path.c_str(), "r");
 
   png_structp png =
       png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
@@ -85,6 +85,54 @@ void Image::load(const std::string &path) {
   png_destroy_read_struct(&png, &info, NULL);
 
   for (int y = 0; y < _height; y++) {
+    free(rows[y]);
+  }
+  free(rows);
+}
+
+void Image::save(const std::string &path) const {
+  FILE *fp = fopen(path.c_str(), "w");
+
+  png_structp png =
+      png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+  if (!png) return;
+
+  png_infop info = png_create_info_struct(png);
+  if (!info) return;
+
+  if (setjmp(png_jmpbuf(png))) return;
+
+  png_init_io(png, fp);
+
+  png_set_IHDR(png, info, _width, _height, 8, PNG_COLOR_TYPE_RGBA,
+               PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT,
+               PNG_FILTER_TYPE_DEFAULT);
+
+  png_write_info(png, info);
+
+  png_bytepp rows = (png_bytepp)png_malloc(png, sizeof(png_bytep) * _height);
+  for (uint32_t y = 0; y < _height; y++) {
+    rows[y] = (png_bytep)malloc(png_get_rowbytes(png, info));
+  }
+
+  for (uint32_t y = 0; y < _height; ++y) {
+    png_bytep row = rows[y];
+    for (uint32_t x = 0; x < _width; ++x) {
+      const Pixel &p = _pixels[y * _width + x];
+      *(row++) = p.r;
+      *(row++) = p.g;
+      *(row++) = p.b;
+      *(row++) = p.a;
+    }
+  }
+
+  png_write_image(png, rows);
+  png_write_end(png, info);
+
+  fclose(fp);
+  png_destroy_write_struct(&png, &info);
+
+  for (uint32_t y = 0; y < _height; y++) {
     free(rows[y]);
   }
   free(rows);

@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.7)
 project(penandpaper)
 
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(BUILD_ATLAS_MODULE OFF CACHE BOOL "Build the atlas module")
 set(BUILD_FONTRENDERER ON CACHE BOOL "Build the font renderer used to pregenerate sdf font.")
