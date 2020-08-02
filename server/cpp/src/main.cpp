@@ -25,6 +25,7 @@
 #include "Database.h"
 #include "HttpServer.h"
 #include "Logger.h"
+#include "PluginManager.h"
 #include "Simulation.h"
 #include "WebSocketServer.h"
 #include "Wiki.h"
@@ -75,6 +76,8 @@ Settings parseSettings(int argc, char **argv) {
 int main(int argc, char **argv) {
   Settings settings = parseSettings(argc, argv);
 
+  PluginManager plugins;
+
   std::shared_ptr<Authenticator> authenticator =
       std::make_shared<Authenticator>();
 
@@ -86,6 +89,7 @@ int main(int argc, char **argv) {
       std::bind(&Simulation::onMessage, &sim, std::placeholders::_1),
       std::bind(&Simulation::onNewClient, &sim), settings.base_dir);
   sim.setWebSocketServer(&wss);
+  sim.setPluginManager(&plugins);
   if (!settings.do_keycheck) {
     wss.disableKeyCheck();
   }

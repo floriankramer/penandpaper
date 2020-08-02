@@ -29,6 +29,8 @@
 #include "WebSocketServer.h"
 #include "building/BuildingManager.h"
 
+#include "PluginManager.h"
+
 class Simulation {
   using MemberMsgHandler_t =
       std::function<WebSocketServer::Response(const Packet &)>;
@@ -42,6 +44,7 @@ class Simulation {
   Simulation();
 
   void setWebSocketServer(WebSocketServer *wss);
+  void setPluginManager(PluginManager *pm);
 
   WebSocketServer::Response onNewClient();
   WebSocketServer::Response onMessage(const std::string &msg);
@@ -91,15 +94,17 @@ class Simulation {
 
   std::mutex _simulation_mutex;
 
-  std::string tiles_path_;
-
-  static const int NUM_COLORS = 11;
-  static const Color COLORS[NUM_COLORS];
+  std::string _tiles_path;
 
   std::unordered_map<std::string, MemberMsgHandler_t> _msg_handlers;
 
-  WebSocketServer *web_socket_server_;
+  WebSocketServer *_web_socket_server;
 
   BuildingManager _building_manager;
   IdGenerator _id_generator;
+
+  PluginManager *_plugin_manager;
+
+  static const int NUM_COLORS = 11;
+  static const Color COLORS[NUM_COLORS];
 };

@@ -107,6 +107,10 @@ add_executable(penandpaper-server main.cpp
   QGramIndex.cpp QGramIndex.h
   BTree.cpp BTree.h
   Os.cpp Os.h
+  Plugin.cpp Plugin.h
+  PluginManager.cpp PluginManager.h
+  File.cpp File.h
+  LuaScript.cpp LuaScript.h
   ${SQLITE_SRC_FILES})
 
 
@@ -117,7 +121,7 @@ add_executable(markdown markdown_main.cpp
   Markdown.cpp Markdown.h
   MarkdownNode.cpp MarkdownNode.h)
 
-target_link_libraries(penandpaper-server building geometry OpenSSL::SSL ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(penandpaper-server building geometry lua OpenSSL::SSL ${CMAKE_THREAD_LIBS_INIT})
 if (NOT WIN32) 
     target_link_libraries(penandpaper-server sqlite3)
 else()

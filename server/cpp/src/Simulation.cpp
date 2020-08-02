@@ -17,9 +17,9 @@
 #ifdef WIN32
 #define _CRT_RAND_S
 #endif
-#include <cstdlib>
-
 #include "Simulation.h"
+
+#include <cstdlib>
 #include <unordered_map>
 
 #include "Logger.h"
@@ -41,7 +41,8 @@ const Simulation::Color Simulation::COLORS[Simulation::NUM_COLORS] = {
 Simulation::Simulation()
     : _next_color(0),
       _building_manager(&_id_generator),
-      web_socket_server_(nullptr) {
+      _web_socket_server(nullptr),
+      _plugin_manager(nullptr) {
   _rand_seed = time(NULL);
   using std::placeholders::_1;
   _msg_handlers = {
@@ -60,8 +61,10 @@ Simulation::Simulation()
 }
 
 void Simulation::setWebSocketServer(WebSocketServer *wss) {
-  web_socket_server_ = wss;
+  _web_socket_server = wss;
 }
+
+void Simulation::setPluginManager(PluginManager *pm) { _plugin_manager = pm; }
 
 Token *Simulation::tokenById(uint64_t id) {
   for (Token &t : _tokens) {
@@ -99,7 +102,7 @@ WebSocketServer::Response Simulation::onNewClient() {
 
     data["nextColor"] = _next_color;
 
-    data["tiles"] = tiles_path_;
+    data["tiles"] = _tiles_path;
     answer["data"] = data;
     answer_str = answer.dump();
   } catch (const std::exception &e) {
@@ -112,7 +115,7 @@ WebSocketServer::Response Simulation::onNewClient() {
 
 void Simulation::broadcastClients() {
   using nlohmann::json;
-  if (web_socket_server_ == nullptr) {
+  if (_web_socket_server == nullptr) {
     return;
   }
   json r;
@@ -126,7 +129,7 @@ void Simulation::broadcastClients() {
     data.push_back(player);
   }
   r["data"] = data;
-  web_socket_server_->broadcast(r.dump());
+  _web_socket_server->broadcast(r.dump());
 }
 
 WebSocketServer::Response Simulation::onMessage(const std::string &msg) {
@@ -246,48 +249,60 @@ WebSocketServer::Response Simulation::onChat(const Packet &j) {
 
     // The message is a command
     std::vector<std::string> parts = splitWs(msg);
-    const std::string &cmd = parts[0];
-    if (cmd == "/roll") {
-      resp_json["data"]["message"] = cmdRollDice(sender, parts);
-    } else if (cmd == "/rollp") {
-      resp_json["data"]["message"] = cmdRollDice("You", parts);
-      resp.type = WebSocketServer::ResponseType::RETURN;
-    } else if (cmd == "/setname") {
-      resp_json["data"]["message"] = cmdSetname(sender, uid, parts);
-    } else if (cmd == "/help") {
-      resp_json["data"]["message"] = cmdHelp(sender, uid, parts);
-      resp.type = WebSocketServer::ResponseType::RETURN;
-    } else if (cmd == "/gm") {
-      if (player) {
-        player->permissions = Permissions::GAMEMASTER;
+
+    bool handled_by_plugin = false;
+    if (_plugin_manager != nullptr) {
+      std::string cmd = parts[0].substr(1);
+      if (_plugin_manager->hasCommand(cmd)) {
+        handled_by_plugin = true;
+        resp_json["data"]["message"] = _plugin_manager->handleCommand(parts);
       }
-      resp.type = WebSocketServer::ResponseType::SILENCE;
-    } else if (cmd == "/settiles") {
-      if (!j.checkPermissions(Permissions::GAMEMASTER)) {
-        return j.makeMissingPermissionsResponse();
-      }
-      if (parts.size() == 2) {
-        const std::string &path = parts[1];
-        tiles_path_ = path;
+    }
+
+    if (!handled_by_plugin) {
+      const std::string &cmd = parts[0];
+      if (cmd == "/roll") {
+        resp_json["data"]["message"] = cmdRollDice(sender, parts);
+      } else if (cmd == "/rollp") {
+        resp_json["data"]["message"] = cmdRollDice("You", parts);
+        resp.type = WebSocketServer::ResponseType::RETURN;
+      } else if (cmd == "/setname") {
+        resp_json["data"]["message"] = cmdSetname(sender, uid, parts);
+      } else if (cmd == "/help") {
+        resp_json["data"]["message"] = cmdHelp(sender, uid, parts);
+        resp.type = WebSocketServer::ResponseType::RETURN;
+      } else if (cmd == "/gm") {
+        if (player) {
+          player->permissions = Permissions::GAMEMASTER;
+        }
+        resp.type = WebSocketServer::ResponseType::SILENCE;
+      } else if (cmd == "/settiles") {
+        if (!j.checkPermissions(Permissions::GAMEMASTER)) {
+          return j.makeMissingPermissionsResponse();
+        }
+        if (parts.size() == 2) {
+          const std::string &path = parts[1];
+          _tiles_path = path;
+          json r;
+          r["type"] = "SetTiles";
+          r["data"]["path"] = path;
+          return {r.dump(), WebSocketServer::ResponseType::BROADCAST};
+        }
+        resp_json["data"]["message"] = "Expected exactly one argument: <path>";
+        resp.type = WebSocketServer::ResponseType::RETURN;
+      } else if (cmd == "/cleartiles") {
+        if (!j.checkPermissions(Permissions::GAMEMASTER)) {
+          return j.makeMissingPermissionsResponse();
+        }
+        _tiles_path = "";
         json r;
-        r["type"] = "SetTiles";
-        r["data"]["path"] = path;
+        r["type"] = "ClearTiles";
+        r["data"] = {};
         return {r.dump(), WebSocketServer::ResponseType::BROADCAST};
+      } else {
+        resp_json["data"]["message"] = "Unknown command '" + parts[0] + "'";
+        resp.type = WebSocketServer::ResponseType::RETURN;
       }
-      resp_json["data"]["message"] = "Expected exactly one argument: <path>";
-      resp.type = WebSocketServer::ResponseType::RETURN;
-    } else if (cmd == "/cleartiles") {
-      if (!j.checkPermissions(Permissions::GAMEMASTER)) {
-        return j.makeMissingPermissionsResponse();
-      }
-      tiles_path_ = "";
-      json r;
-      r["type"] = "ClearTiles";
-      r["data"] = {};
-      return {r.dump(), WebSocketServer::ResponseType::BROADCAST};
-    } else {
-      resp_json["data"]["message"] = "Unknown command '" + parts[0] + "'";
-      resp.type = WebSocketServer::ResponseType::RETURN;
     }
 
     if (resp.type == WebSocketServer::ResponseType::RETURN) {
