@@ -1,18 +1,19 @@
 #pragma once
 
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 #include "Plugin.h"
 
 class PluginManager {
-public:
+ public:
   PluginManager();
 
   bool hasCommand(const std::string &cmd);
-  std::string handleCommand(const std::vector<std::string> &args);
+  std::pair<WebSocketServer::ResponseType, std::string> handleCommand(
+      const std::vector<std::string> &args);
 
-private:
+ private:
   void loadPlugins();
 
   std::vector<Plugin> _plugins;

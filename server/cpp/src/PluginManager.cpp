@@ -23,7 +23,8 @@ bool PluginManager::hasCommand(const std::string &cmd) {
   return _commands.count(cmd) > 0;
 }
 
-std::string PluginManager::handleCommand(const std::vector<std::string> &args) {
+std::pair<WebSocketServer::ResponseType, std::string>
+PluginManager::handleCommand(const std::vector<std::string> &args) {
   std::string cmd = args[0].substr(1);
   auto it = _commands.find(cmd);
   if (it == _commands.end()) {

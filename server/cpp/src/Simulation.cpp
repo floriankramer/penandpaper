@@ -255,7 +255,10 @@ WebSocketServer::Response Simulation::onChat(const Packet &j) {
       std::string cmd = parts[0].substr(1);
       if (_plugin_manager->hasCommand(cmd)) {
         handled_by_plugin = true;
-        resp_json["data"]["message"] = _plugin_manager->handleCommand(parts);
+        std::pair<WebSocketServer::ResponseType, std::string> plugin_response =
+            _plugin_manager->handleCommand(parts);
+        resp_json["data"]["message"] = plugin_response.second;
+        resp.type = plugin_response.first;
       }
     }
 

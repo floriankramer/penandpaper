@@ -101,10 +101,7 @@ void LuaScript::registerFunction(
   lua_setglobal(_lua_state, name.c_str());
 }
 
-
-void LuaScript::loadStandardLibs() {
-  luaL_openlibs(_lua_state);
-}
+void LuaScript::loadStandardLibs() { luaL_openlibs(_lua_state); }
 
 LuaScript::Variant LuaScript::global(const std::string &s) const {
   lua_checkstack(_lua_state, 1);
@@ -112,6 +109,11 @@ LuaScript::Variant LuaScript::global(const std::string &s) const {
   Variant v(_lua_state, -1);
   lua_pop(_lua_state, 1);
   return v;
+}
+
+void LuaScript::setGlobal(const std::string &s, Variant value) {
+  value.push(_lua_state);
+  lua_setglobal(_lua_state, s.c_str());
 }
 
 std::vector<LuaScript::Variant> LuaScript::call(
@@ -135,8 +137,40 @@ std::vector<LuaScript::Variant> LuaScript::call(
     lua_pop(_lua_state, 1);
     return {};
   }
-  for (int i = 0; i < numret; ++i) {
-    ret.emplace_back(_lua_state, -(i + 1));
+  for (int i = numret; i > 0; --i) {
+    ret.emplace_back(_lua_state, -i);
+  }
+  // pop the results
+  lua_pop(_lua_state, numret);
+  return ret;
+}
+
+std::vector<LuaScript::Variant> LuaScript::callVarArg(
+    const std::string &function, int numret, const std::vector<Variant> &args) {
+  std::vector<LuaScript::Variant> ret;
+  ret.reserve(numret);
+  // load the function
+  lua_getglobal(_lua_state, function.c_str());
+
+  // load the arguments
+  lua_createtable(_lua_state, args.size(), 0);
+  for (size_t i = 0; i < args.size(); ++i) {
+    const Variant &arg = args[i];
+    arg.push(_lua_state);
+    lua_seti(_lua_state, -2, i + 1);
+  }
+
+  // now call the function
+  int r = lua_pcall(_lua_state, 1, numret, 0);
+  if (r) {
+    // print and pop the error
+    LOG_ERROR << "LuaScript::call : " << function << " : "
+              << lua_tostring(_lua_state, -1) << LOG_END;
+    lua_pop(_lua_state, 1);
+    return {};
+  }
+  for (int i = numret; i > 0; --i) {
+    ret.emplace_back(_lua_state, -i);
   }
   // pop the results
   lua_pop(_lua_state, numret);
@@ -255,12 +289,13 @@ LuaScript::Variant::Variant(const Variant &other) : _type(other._type) {
       new (&_table) decltype(_table)(other._table);
       break;
     default:
-      throw std::runtime_error("Unsupported variant type: " +
-                               std::to_string(int(_type)));
+      throw std::runtime_error(
+          "LuaScript::Variant::Variant : Unsupported variant type: " +
+          std::to_string(int(_type)));
   }
 }
 
-LuaScript::Variant::Variant(Variant &&other) {
+LuaScript::Variant::Variant(Variant &&other) : _type(other._type) {
   switch (_type) {
     case Type::NIL:
       // do nothing
@@ -302,6 +337,7 @@ LuaScript::Variant::~Variant() {
 }
 
 void LuaScript::Variant::push(lua_State *state) const {
+  lua_checkstack(state, 1);
   switch (_type) {
     case Type::NIL:
       lua_pushnil(state);
@@ -331,7 +367,11 @@ void LuaScript::Variant::push(lua_State *state) const {
   }
 }
 
-LuaScript::Type LuaScript::Variant::type() { return _type; }
+LuaScript::Type LuaScript::Variant::type() const { return _type; }
+
+const char *LuaScript::Variant::typeName() const {
+  return TYPE_NAMES[int(_type)];
+}
 
 double LuaScript::Variant::number() const { return _number; }
 double &LuaScript::Variant::number() { return _number; }

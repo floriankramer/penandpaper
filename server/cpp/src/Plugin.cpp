@@ -6,22 +6,35 @@ Plugin::Plugin() {}
 
 Plugin::Plugin(const std::string &path) { load(path); }
 
-std::string Plugin::onCommand(const std::vector<std::string> &parts) {
+std::pair<WebSocketServer::ResponseType, std::string> Plugin::onCommand(
+    const std::vector<std::string> &parts) {
   std::string cmd = parts[0].substr(1);
   for (size_t i = 0; i < _commands.size(); ++i) {
     if (_commands[i].name == cmd) {
+      std::vector<LuaScript::Variant> args;
+      args.reserve(parts.size());
+      for (const std::string &s : parts) {
+        args.push_back(s);
+      }
+
       std::vector<LuaScript::Variant> res =
-          _script.call(_commands[i].handler, 1);
-      if (res[0].type() == LuaScript::Type::STRING) {
-        return res[0].string();
+          _script.callVarArg(_commands[i].handler, 2, args);
+      if (res[0].type() == LuaScript::Type::NUMBER &&
+          res[1].type() == LuaScript::Type::STRING) {
+        return {WebSocketServer::ResponseType(res[0].number()),
+                res[1].string()};
       } else {
         LOG_ERROR << "The command function handler for " << cmd << " : "
-                  << _commands[i].handler << " does not return a string.";
-        return "Internal error";
+                  << _commands[i].handler
+                  << " does not return a number and a string." << LOG_END;
+        LOG_ERROR << "Expected: (number, string), got (" << res[0].typeName()
+                  << ", " << res[1].typeName() << ")" << LOG_END;
+        return {WebSocketServer::ResponseType::RETURN, "Internal error"};
       }
     }
   }
-  return "The plugin " + _name + " doesn't implement command " + cmd;
+  return {WebSocketServer::ResponseType::RETURN,
+          "The plugin " + _name + " doesn't implement command " + cmd};
 }
 
 std::vector<std::string> Plugin::commands() const {
@@ -46,13 +59,20 @@ void Plugin::load(const std::string &path) {
     _name = path;
   }
 
-//  _script.registerFunction("print",
-//                           [this](std::vector<LuaScript::Variant> args) {
-//                             LOG_INFO << "Plugin " << _name << ": "
-//                                      << args[0].string() << LOG_END;
-//                             return LuaScript::Variant();
-//                           },
-//                           {LuaScript::Type::STRING});
+  _script.setGlobal("SEND_TO_ALL",
+                    double(WebSocketServer::ResponseType::BROADCAST));
+  _script.setGlobal("SEND_TO_SENDER",
+                    double(WebSocketServer::ResponseType::RETURN));
+  _script.setGlobal("SEND_TO_NOBODY",
+                    double(WebSocketServer::ResponseType::SILENCE));
+
+  //  _script.registerFunction("print",
+  //                           [this](std::vector<LuaScript::Variant> args) {
+  //                             LOG_INFO << "Plugin " << _name << ": "
+  //                                      << args[0].string() << LOG_END;
+  //                             return LuaScript::Variant();
+  //                           },
+  //                           {LuaScript::Type::STRING});
 
   _script.registerFunction(
       "addCommand",

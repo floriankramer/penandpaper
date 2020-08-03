@@ -50,7 +50,8 @@ class LuaScript {
      */
     void push(lua_State *state) const;
 
-    Type type();
+    Type type() const;
+    const char *typeName() const;
 
     double number() const;
     double &number();
@@ -110,9 +111,21 @@ class LuaScript {
   /** @brief Returns the global or NIL if the global doesn't exist. */
   Variant global(const std::string &s) const;
 
-  /** Calls the given function. Returns the functions return value. */
+  /** @brief Adds the value into the global context with name s. */
+  void setGlobal(const std::string &s, Variant value);
+
+  /** @brief Calls the given function. Returns the functions return value. */
   std::vector<Variant> call(const std::string &function, int numret = 0,
                             const std::vector<Variant> args = {});
+
+  /**
+   * @brief Calls the given function. Returns the functions return value.
+   * The arguments are converted into a table and given to the function as a
+   * single argument
+   * // TODO: Remove this function once tables are properly supported
+   */
+  std::vector<Variant> callVarArg(const std::string &function, int numret,
+                                  const std::vector<Variant> &args);
 
   /**
    * @brief Can be called from within functions called from lua to trigger a

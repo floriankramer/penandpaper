@@ -2,8 +2,12 @@
 
 #include <string>
 #include <vector>
+#include <utility>
 
 #include "LuaScript.h"
+
+// TODO: Think about this from an architecture point of view
+#include "WebSocketServer.h"
 
 /**
  * @brief A lua plugin that canbe used to add ruleset specific functionality
@@ -25,7 +29,8 @@ class Plugin {
   /**
    * @brief Passes the command handling on to the plugin.
    */
-  std::string onCommand(const std::vector<std::string> &parts);
+  std::pair<WebSocketServer::ResponseType, std::string> onCommand(
+      const std::vector<std::string> &parts);
 
   /**
    * @brief Returns a list of commands this plugin would like to handle
