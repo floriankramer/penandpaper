@@ -16,6 +16,10 @@ void PluginManager::loadPlugins() {
     for (const std::string &cmd : _plugins.back().commands()) {
       _commands[cmd] = _plugins.size() - 1;
     }
+
+    for (const std::string &cmd : _plugins.back().packets()) {
+      _packet_handlers[cmd] = _plugins.size() - 1;
+    }
   }
 }
 
@@ -32,4 +36,19 @@ PluginManager::handleCommand(const std::vector<std::string> &args) {
                              " is not handled by any plugin.");
   }
   return _plugins[it->second].onCommand(args);
+}
+
+bool PluginManager::hasPacketHandler(const std::string &cmd) {
+  return _packet_handlers.count(cmd) > 0;
+}
+
+std::pair<WebSocketServer::ResponseType, std::string>
+PluginManager::handlePacket(const std::string &name,
+                            const nlohmann::json &packet) {
+  auto it = _packet_handlers.find(name);
+  if (it == _packet_handlers.end()) {
+    throw std::runtime_error("PluginManager::handlePacket : packet " + name +
+                             " is not handled by any plugin.");
+  }
+  return _plugins[it->second].onPacket(name, packet);
 }

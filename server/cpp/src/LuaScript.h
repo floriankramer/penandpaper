@@ -6,6 +6,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+
 struct lua_State;
 
 class LuaScript {
@@ -40,10 +42,14 @@ class LuaScript {
     Variant(const Variant &other);
     Variant(Variant &&other);
 
+    Variant(const nlohmann::json &json);
+
     virtual ~Variant();
 
     void operator=(const Variant &other);
     void operator=(Variant &&other);
+
+    nlohmann::json toJson() const;
 
     /**
      * @brief Pushes this variant onto the stack

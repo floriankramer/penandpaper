@@ -15,6 +15,23 @@ const char *LuaScript::TYPE_NAMES[8] = {"NIL",      "BOOLEAN",  "NUMBER",
                                         "STRING",   "FUNCTION", "CFUNCTION",
                                         "USERDATA", "TABLE"};
 
+// This is the error handler that is called every time a lua_pcall function
+// catches an error. It simply adds a stacktrace and converts the error to a
+// string.
+int luaOnError(lua_State *state) {
+  // This error handler is based upon the one in lua.c
+  const char *msg = lua_tostring(state, 1);
+  if (msg == NULL) {
+    luaL_traceback(state, state, "Error object is not a string", 1);
+    // We can't convert the object to a string, simply reuse it
+    return 1;
+  } else {
+    // generate a traceback that includes the msg
+    luaL_traceback(state, state, msg, 1);
+    return 1;
+  }
+}
+
 int luaFunction(lua_State *state) {
   // Read the script pointer
   LuaScript *script = (LuaScript *)lua_touserdata(state, lua_upvalueindex(1));
@@ -57,7 +74,6 @@ void LuaScript::operator=(LuaScript &&other) {
 
 LuaScript::Variant LuaScript::onFunctionCall(int index,
                                              std::vector<Variant> arguments) {
-  LOG_DEBUG << "A function was called" << LOG_END;
   if (index >= 0 && size_t(index) < _function_handlers.size()) {
     LuaFunction &f = _function_handlers[index];
     for (size_t i = 0; i < std::min(arguments.size(), f.arguments.size());
@@ -120,6 +136,11 @@ std::vector<LuaScript::Variant> LuaScript::call(
     const std::string &function, int numret, const std::vector<Variant> args) {
   std::vector<LuaScript::Variant> ret;
   ret.reserve(numret);
+
+  // load the error handler
+  lua_pushcfunction(_lua_state, luaOnError);
+  int error_handler = lua_gettop(_lua_state);
+
   // load the function
   lua_getglobal(_lua_state, function.c_str());
 
@@ -129,7 +150,7 @@ std::vector<LuaScript::Variant> LuaScript::call(
   }
 
   // now call the function
-  int r = lua_pcall(_lua_state, args.size(), numret, 0);
+  int r = lua_pcall(_lua_state, args.size(), numret, error_handler);
   if (r) {
     // print and pop the error
     LOG_ERROR << "LuaScript::call : " << function << " : "
@@ -141,7 +162,7 @@ std::vector<LuaScript::Variant> LuaScript::call(
     ret.emplace_back(_lua_state, -i);
   }
   // pop the results
-  lua_pop(_lua_state, numret);
+  lua_pop(_lua_state, numret + 1);
   return ret;
 }
 
@@ -149,6 +170,11 @@ std::vector<LuaScript::Variant> LuaScript::callVarArg(
     const std::string &function, int numret, const std::vector<Variant> &args) {
   std::vector<LuaScript::Variant> ret;
   ret.reserve(numret);
+
+  // Load the error handler
+  lua_pushcfunction(_lua_state, luaOnError);
+  int error_handler = lua_gettop(_lua_state);
+
   // load the function
   lua_getglobal(_lua_state, function.c_str());
 
@@ -161,10 +187,10 @@ std::vector<LuaScript::Variant> LuaScript::callVarArg(
   }
 
   // now call the function
-  int r = lua_pcall(_lua_state, 1, numret, 0);
+  int r = lua_pcall(_lua_state, 1, numret, error_handler);
   if (r) {
     // print and pop the error
-    LOG_ERROR << "LuaScript::call : " << function << " : "
+    LOG_ERROR << "LuaScript::callVarArg : " << function << " : "
               << lua_tostring(_lua_state, -1) << LOG_END;
     lua_pop(_lua_state, 1);
     return {};
@@ -172,8 +198,8 @@ std::vector<LuaScript::Variant> LuaScript::callVarArg(
   for (int i = numret; i > 0; --i) {
     ret.emplace_back(_lua_state, -i);
   }
-  // pop the results
-  lua_pop(_lua_state, numret);
+  // pop the results and the error handler
+  lua_pop(_lua_state, numret + 1);
   return ret;
 }
 
@@ -183,28 +209,23 @@ void LuaScript::error(const std::string &text) {
 }
 
 void LuaScript::load(const std::string &path) {
+  lua_pushcfunction(_lua_state, luaOnError);
+  int error_handler = lua_gettop(_lua_state);
   if (luaL_loadfile(_lua_state, path.c_str())) {
     throw std::runtime_error(
         "LuaScript::load : Unable to load the lua script at " + path);
   }
-  if (lua_pcall(_lua_state, 0, 0, 0)) {
+  if (lua_pcall(_lua_state, 0, 0, error_handler)) {
     throw std::runtime_error(
-        "LuaScript::load : Unable to evaluate the lua script at " + path);
+        "LuaScript::load : Unable to evaluate the lua script at " + path +
+        " : " + lua_tostring(_lua_state, -1));
   }
+  // pop the error handler
+  lua_pop(_lua_state, 1);
+
   // Add a new entry to the registry
   lua_pushlightuserdata(_lua_state, this);
   lua_setfield(_lua_state, LUA_REGISTRYINDEX, REGISTRY_THIS.c_str());
-
-  // Debug code
-  LOG_DEBUG << "Enumerating the global table" << LOG_END;
-  lua_pushglobaltable(_lua_state);
-  lua_pushnil(_lua_state);
-  while (lua_next(_lua_state, -2)) {
-    LOG_DEBUG << "Global table contains: " << lua_tostring(_lua_state, -2)
-              << " of type " << lua_typename(_lua_state, -1) << LOG_END;
-    lua_pop(_lua_state, 1);
-  }
-  lua_pop(_lua_state, 2);
 }
 
 // VARIANT
@@ -323,6 +344,31 @@ LuaScript::Variant::Variant(Variant &&other) : _type(other._type) {
   }
 }
 
+LuaScript::Variant::Variant(const nlohmann::json &json) {
+  if (json.is_number()) {
+    _type = Type::NUMBER;
+    _number = json.get<double>();
+  } else if (json.is_string()) {
+    _type = Type::STRING;
+    new (&_string) std::string(json.get<std::string>());
+  } else if (json.is_boolean()) {
+    _type = Type::BOOLEAN;
+    _boolean = json.get<bool>();
+  } else if (json.is_null()) {
+    _type = Type::NIL;
+  } else if (json.is_object()) {
+    _type = Type::TABLE;
+    new (&_table) decltype(_table)();
+    for (auto it : json.items()) {
+      _table[it.key()] = std::make_shared<Variant>(it.value());
+    }
+  } else {
+    throw std::runtime_error(
+        "LuaScript::Variant::Variant : unsupported json type." +
+        std::string(json.type_name()));
+  }
+}
+
 LuaScript::Variant::~Variant() {
   // destroy the initialized child
   if (_type == Type::STRING) {
@@ -334,6 +380,34 @@ LuaScript::Variant::~Variant() {
   } else if (_type == Type::TABLE) {
     _table.~unordered_map();
   }
+}
+
+nlohmann::json LuaScript::Variant::toJson() const {
+  nlohmann::json json;
+  switch (_type) {
+    case Type::NIL:
+      json = nullptr;
+      break;
+    case Type::BOOLEAN:
+      json = _boolean;
+      break;
+    case Type::NUMBER:
+      json = _number;
+      break;
+    case Type::STRING:
+      json = _string;
+      break;
+    case Type::TABLE:
+      for (auto it : _table) {
+        json[it.first] = it.second->toJson();
+      }
+      break;
+    default:
+      throw std::runtime_error(
+          "LuaScript::Variant::toJson : Unable to convert type " +
+          std::string(typeName()) + " to json.");
+  }
+  return json;
 }
 
 void LuaScript::Variant::push(lua_State *state) const {

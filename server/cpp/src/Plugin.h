@@ -1,8 +1,9 @@
 #pragma once
 
+#include <nlohmann/json.hpp>
 #include <string>
-#include <vector>
 #include <utility>
+#include <vector>
 
 #include "LuaScript.h"
 
@@ -14,6 +15,15 @@
  */
 class Plugin {
   struct Command {
+    std::string name;
+    std::string handler;
+  };
+
+  /**
+   * @brief Contains all data required to inform the simulation about packets
+   *        we want to handle.
+   */
+  struct PacketTrap {
     std::string name;
     std::string handler;
   };
@@ -33,9 +43,21 @@ class Plugin {
       const std::vector<std::string> &parts);
 
   /**
+   * @brief Passes the packet handling on to the plugin.
+   */
+  std::pair<WebSocketServer::ResponseType, std::string> onPacket(
+      const std::string &name,
+      const nlohmann::json &packet);
+
+  /**
    * @brief Returns a list of commands this plugin would like to handle
    */
   std::vector<std::string> commands() const;
+
+  /**
+   * @brief Returns a list of packets this plugin would like to handle
+   */
+  std::vector<std::string> packets() const;
 
  private:
   /** @brief Load the plugin from a folder at path */
@@ -46,6 +68,9 @@ class Plugin {
 
   /** @brief A list of chat commands this plugin handles */
   std::vector<Command> _commands;
+
+  /** @brief A list of packets this plugin handles */
+  std::vector<PacketTrap> _packets;
 
   /** @brief A human readable name */
   std::string _name;

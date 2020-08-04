@@ -37,6 +37,34 @@ std::pair<WebSocketServer::ResponseType, std::string> Plugin::onCommand(
           "The plugin " + _name + " doesn't implement command " + cmd};
 }
 
+std::pair<WebSocketServer::ResponseType, std::string> Plugin::onPacket(
+    const std::string &name, const nlohmann::json &packet) {
+  for (size_t i = 0; i < _packets.size(); ++i) {
+    if (_packets[i].name == name) {
+      // Transform the json into a lua table
+      LuaScript::Variant arg(packet);
+
+      std::vector<LuaScript::Variant> res =
+          _script.call(_commands[i].handler, 2, {arg});
+      if (res[0].type() == LuaScript::Type::NUMBER &&
+          res[1].type() == LuaScript::Type::STRING) {
+        return {WebSocketServer::ResponseType(res[0].number()),
+                res[1].string()};
+      } else {
+        LOG_ERROR << "The packet handler for " << name << " : "
+                  << _packets[i].handler
+                  << " does not return a number and a string." << LOG_END;
+        LOG_ERROR << "Expected: (number, string), got (" << res[0].typeName()
+                  << ", " << res[1].typeName() << ")" << LOG_END;
+        return {WebSocketServer::ResponseType::RETURN, "Internal error"};
+      }
+    }
+  }
+  return {WebSocketServer::ResponseType::RETURN,
+          "The plugin " + _name + " doesn't implement a packet handler for " +
+              name};
+}
+
 std::vector<std::string> Plugin::commands() const {
   std::vector<std::string> command_names;
   command_names.reserve(_commands.size());
@@ -44,6 +72,15 @@ std::vector<std::string> Plugin::commands() const {
     command_names.push_back(_commands[i].name);
   }
   return command_names;
+}
+
+std::vector<std::string> Plugin::packets() const {
+  std::vector<std::string> packet_names;
+  packet_names.reserve(_packets.size());
+  for (size_t i = 0; i < _packets.size(); ++i) {
+    packet_names.push_back(_packets[i].name);
+  }
+  return packet_names;
 }
 
 void Plugin::load(const std::string &path) {
@@ -58,6 +95,10 @@ void Plugin::load(const std::string &path) {
   } else {
     _name = path;
   }
+
+  // The LUA_PATH global is used to find files loaded via require.
+  // Each ? is replaced by the required name.
+  _script.setGlobal("LUA_PATH", "?;?.lua");
 
   _script.setGlobal("SEND_TO_ALL",
                     double(WebSocketServer::ResponseType::BROADCAST));
@@ -78,12 +119,30 @@ void Plugin::load(const std::string &path) {
       "addCommand",
       [this](std::vector<LuaScript::Variant> args) {
         if (args.size() != 2) {
-          _script.error("addCommand: Expected exactly two arguments.");
+          _script.error("addCommand: Expected exactly two arguments but got " +
+                        std::to_string(args.size()));
         }
         Command cmd;
         cmd.name = args[0].string();
         cmd.handler = args[1].string();
         _commands.push_back(cmd);
+        return LuaScript::Variant();
+      },
+      {LuaScript::Type::STRING, LuaScript::Type::STRING});
+
+  _script.registerFunction(
+      "listenToPacket",
+      [this](std::vector<LuaScript::Variant> args) {
+        if (args.size() != 2) {
+          _script.error(
+              "listenToPacket: Expected exactly two arguments but got " +
+              std::to_string(args.size()));
+        }
+        PacketTrap pt;
+        // prefix the requested name with the plugin name
+        pt.name = _name + "::" + args[0].string();
+        pt.handler = args[1].string();
+        _packets.push_back(pt);
         return LuaScript::Variant();
       },
       {LuaScript::Type::STRING, LuaScript::Type::STRING});
