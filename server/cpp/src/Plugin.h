@@ -59,9 +59,15 @@ class Plugin {
    */
   std::vector<std::string> packets() const;
 
+  /** @brief The plugin name. A string of [a-zA-Z_]. */
+  const std::string &name() const;
+
  private:
   /** @brief Load the plugin from a folder at path */
   void load(const std::string &path);
+
+  /** @brief Replaces anything not in [a-zA-Z_] by _*/
+  std::string cleanName(const std::string &name) const;
 
   /** @brief The lua script that handles server sided logic */
   LuaScript _script;

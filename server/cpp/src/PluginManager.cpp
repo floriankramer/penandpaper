@@ -38,7 +38,7 @@ PluginManager::handleCommand(const std::vector<std::string> &args) {
   return _plugins[it->second].onCommand(args);
 }
 
-bool PluginManager::hasPacketHandler(const std::string &cmd) {
+bool PluginManager::hasPacketHandler(const std::string &cmd) const {
   return _packet_handlers.count(cmd) > 0;
 }
 
@@ -51,4 +51,14 @@ PluginManager::handlePacket(const std::string &name,
                              " is not handled by any plugin.");
   }
   return _plugins[it->second].onPacket(name, packet);
+}
+
+
+std::vector<std::string> PluginManager::pluginNames() const {
+  std::vector<std::string> names;
+  names.reserve(_plugins.size());
+  for (const Plugin & p : _plugins) {
+    names.push_back(p.name());
+  }
+  return names;
 }

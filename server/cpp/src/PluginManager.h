@@ -14,10 +14,12 @@ class PluginManager {
       const std::vector<std::string> &args);
 
 
-  bool hasPacketHandler(const std::string &cmd);
+  bool hasPacketHandler(const std::string &cmd) const;
   std::pair<WebSocketServer::ResponseType, std::string> handlePacket(
       const std::string &name,
       const nlohmann::json &packet);
+
+  std::vector<std::string> pluginNames() const;
 
  private:
   void loadPlugins();

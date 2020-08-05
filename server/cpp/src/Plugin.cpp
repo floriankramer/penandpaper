@@ -47,9 +47,9 @@ std::pair<WebSocketServer::ResponseType, std::string> Plugin::onPacket(
       std::vector<LuaScript::Variant> res =
           _script.call(_commands[i].handler, 2, {arg});
       if (res[0].type() == LuaScript::Type::NUMBER &&
-          res[1].type() == LuaScript::Type::STRING) {
+          res[1].type() == LuaScript::Type::TABLE) {
         return {WebSocketServer::ResponseType(res[0].number()),
-                res[1].string()};
+                res[1].toJson()};
       } else {
         LOG_ERROR << "The packet handler for " << name << " : "
                   << _packets[i].handler
@@ -83,6 +83,8 @@ std::vector<std::string> Plugin::packets() const {
   return packet_names;
 }
 
+const std::string &Plugin::name() const { return _name; }
+
 void Plugin::load(const std::string &path) {
   std::string srcfile = path + "/plugin.lua";
   _script = std::move(LuaScript(srcfile));
@@ -93,8 +95,15 @@ void Plugin::load(const std::string &path) {
   if (lua_name.type() == LuaScript::Type::STRING) {
     _name = lua_name.string();
   } else {
-    _name = path;
+    size_t idx = path.rfind('/');
+    if (idx != std::string::npos) {
+      _name = path.substr(idx);
+    } else {
+      _name = path;
+    }
   }
+  // remove forbidden characters from the name
+  _name = cleanName(_name);
 
   // The LUA_PATH global is used to find files loaded via require.
   // Each ? is replaced by the required name.
@@ -149,4 +158,20 @@ void Plugin::load(const std::string &path) {
 
   // Tell the script to initialize
   _script.call("init");
+}
+
+std::string Plugin::cleanName(const std::string &name) const {
+  std::vector<char> buf;
+  buf.reserve(name.size() + 1);
+  for (size_t i = 0; i < name.size(); ++i) {
+    if (std::isalpha(name[i]) || name[i] == '_') {
+      buf.push_back(name[i]);
+    } else {
+      LOG_WARN << "Character '" << name[i]
+               << "' is not allowed in a plugin name" << LOG_END;
+      buf.push_back('_');
+    }
+  }
+  buf.push_back(0);
+  return std::string(buf.data());
 }

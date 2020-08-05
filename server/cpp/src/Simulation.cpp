@@ -103,6 +103,9 @@ WebSocketServer::Response Simulation::onNewClient() {
     data["nextColor"] = _next_color;
 
     data["tiles"] = _tiles_path;
+
+    data["plugins"] = _plugin_manager->pluginNames();
+
     answer["data"] = data;
     answer_str = answer.dump();
   } catch (const std::exception &e) {
@@ -145,6 +148,14 @@ WebSocketServer::Response Simulation::onMessage(const std::string &msg) {
     if (handler_it != _msg_handlers.end()) {
       // call the handler
       return (handler_it->second)(Packet(j, this));
+    } else if (_plugin_manager->hasPacketHandler(type)) {
+      // Let the plugin handle the packet
+      std::pair<WebSocketServer::ResponseType, std::string> p =
+          _plugin_manager->handlePacket(type, j);
+      WebSocketServer::Response r;
+      r.type = p.first;
+      r.text = p.second;
+      return r;
     }
 
     WebSocketServer::Response r;
