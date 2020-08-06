@@ -21,6 +21,8 @@
 #define CPPHTTPLIB_OPENSSL_SUPPORT
 #include <httplib.h>
 
+#include <regex>
+
 #include "Authenticator.h"
 
 class HttpServer {
@@ -39,10 +41,20 @@ class HttpServer {
                               std::shared_ptr<RequestHandler> handler);
 
   void run();
-  static std::string guessMimeType(const std::string &path);
+
+  /**
+   * @brief Tries to guess the mime type based upon the file extension. Returns
+   * def if the file does not have an extension. Returns
+   * "application/octet-stream" for an unknown file ending.
+   **/
+  static std::string guessMimeType(const std::string &path,
+                                   const std::string &def = "text/html");
 
  private:
-  std::vector<std::shared_ptr<RequestHandler>> _request_handlers;
+  std::vector<std::pair<std::regex, std::shared_ptr<RequestHandler>>>
+      _get_request_handlers;
+  std::vector<std::pair<std::regex, std::shared_ptr<RequestHandler>>>
+      _post_request_handlers;
   std::shared_ptr<Authenticator> _authenticator;
   std::unique_ptr<httplib::SSLServer> _server;
   bool _do_keycheck;

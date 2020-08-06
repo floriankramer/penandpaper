@@ -16,8 +16,6 @@
 
 #include "HttpServer.h"
 
-#include "Os.h"
-
 #include <chrono>
 #include <cstdlib>
 #include <ctime>
@@ -25,6 +23,7 @@
 #include <thread>
 
 #include "Logger.h"
+#include "Os.h"
 #include "Random.h"
 
 HttpServer::HttpServer(std::shared_ptr<Authenticator> authenticator,
@@ -41,13 +40,10 @@ HttpServer::HttpServer(std::shared_ptr<Authenticator> authenticator,
 void HttpServer::registerRequestHandler(
     const std::string &path, RequestType type,
     std::shared_ptr<RequestHandler> handler) {
-  httplib::Server::Handler callback =
-      std::bind(&RequestHandler::onRequest, handler.get(),
-                std::placeholders::_1, std::placeholders::_2);
   if (type == RequestType::GET) {
-    _server->Get(path.c_str(), callback);
+    _get_request_handlers.push_back({std::regex(path), handler});
   } else {
-    _server->Post(path.c_str(), callback);
+    _post_request_handlers.push_back({std::regex(path), handler});
   }
 }
 
@@ -55,7 +51,7 @@ void HttpServer::run() {
   std::string key = Random::secureRandomString(32);
   std::string basepath;
   if (_base_dir == ".") {
-      _base_dir = os::getcwd();
+    _base_dir = os::getcwd();
   }
   basepath = _base_dir;
   basepath += "/html";
@@ -77,6 +73,16 @@ void HttpServer::run() {
       }
     }
     std::string realpath = req.path;
+
+    // Call any registered request handlers
+    for (std::pair<std::regex, std::shared_ptr<RequestHandler>> &r :
+         _get_request_handlers) {
+      if (std::regex_match(realpath, r.first)) {
+        r.second->onRequest(req, resp);
+        return;
+      }
+    }
+
     if (realpath == "/") {
       realpath = "/index.html";
     }
@@ -149,6 +155,19 @@ void HttpServer::run() {
     resp.set_content(buffer.data(), buffer.size(), mimetype.c_str());
   });
 
+  _server->Post(
+      ".*", [this](const httplib::Request &req, httplib::Response &resp) {
+        std::string realpath = req.path;
+        // Call any registered request handlers
+        for (std::pair<std::regex, std::shared_ptr<RequestHandler>> &r :
+             _post_request_handlers) {
+          if (std::regex_match(realpath, r.first)) {
+            r.second->onRequest(req, resp);
+            return;
+          }
+        }
+      });
+
   while (true) {
     try {
       LOG_INFO << "Starting the http server on 8082..." << LOG_END;
@@ -161,10 +180,11 @@ void HttpServer::run() {
   }
 }
 
-std::string HttpServer::guessMimeType(const std::string &path) {
+std::string HttpServer::guessMimeType(const std::string &path,
+                                      const std::string &def) {
   size_t pos = path.rfind('.');
   if (pos == std::string::npos) {
-    return "text/html";
+    return def;
   }
   std::string ending = path.substr(pos + 1);
 

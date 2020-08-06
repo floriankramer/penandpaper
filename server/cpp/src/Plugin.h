@@ -62,6 +62,18 @@ class Plugin {
   /** @brief The plugin name. A string of [a-zA-Z_]. */
   const std::string &name() const;
 
+  /** @brief Returns the plugins client html code or the empty string.*/
+  const std::string &html() const;
+
+  /** @brief Returns the plugins client css code or the empty string.*/
+  const std::string &css() const;
+
+  /** @brief Returns the plugins client js code or the empty string.*/
+  const std::string &js() const;
+
+  /** @brief Loads the given file from the plugins data folder. */
+  const std::vector<char> data(const std::string &filename) const;
+
  private:
   /** @brief Load the plugin from a folder at path */
   void load(const std::string &path);
@@ -80,4 +92,11 @@ class Plugin {
 
   /** @brief A human readable name */
   std::string _name;
+
+  /** @brief The plugins location on the filesystem. */
+  std::string _path;
+
+  std::string _html;
+  std::string _css;
+  std::string _js;
 };

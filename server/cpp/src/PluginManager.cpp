@@ -2,6 +2,7 @@
 
 #include "File.h"
 #include "Logger.h"
+#include "Util.h"
 
 PluginManager::PluginManager() { loadPlugins(); }
 
@@ -53,12 +54,54 @@ PluginManager::handlePacket(const std::string &name,
   return _plugins[it->second].onPacket(name, packet);
 }
 
-
 std::vector<std::string> PluginManager::pluginNames() const {
   std::vector<std::string> names;
   names.reserve(_plugins.size());
-  for (const Plugin & p : _plugins) {
+  for (const Plugin &p : _plugins) {
     names.push_back(p.name());
   }
   return names;
+}
+
+void PluginManager::onRequest(const httplib::Request &req,
+                              httplib::Response &resp) {
+  std::vector<std::string> parts = util::splitString(req.path, '/');
+  // All requests need to be of the form '/plugin/<name>/file
+  // or '/plugin/<name>/data/file'
+  if (parts.size() != 3 && parts.size() != 4) {
+    resp.body = "404 Not Found";
+    resp.status = 404;
+    return;
+  }
+
+  resp.body = "404 Not Found";
+  resp.status = 404;
+
+  std::string name = parts[1];
+  for (const Plugin &p : _plugins) {
+    if (p.name() == name) {
+      if (parts[2] == "html") {
+        resp.status = 200;
+        resp.set_header("Content-Type", "text/html");
+        resp.body = p.html();
+      } else if (parts[2] == "css") {
+        resp.status = 200;
+        resp.set_header("Content-Type", "text/css");
+        resp.body = p.css();
+      } else if (parts[2] == "js") {
+        resp.status = 200;
+        resp.set_header("Content-Type", "text/javascript");
+        resp.body = p.js();
+      } else if (parts[2] == "data") {
+        resp.status = 200;
+        std::string filename = parts[3];
+        std::vector<char> data = p.data(filename);
+        // We need to guess the mime type to allow for proper loading of images.
+        std::string mime_type =
+            HttpServer::guessMimeType(filename, "application/octet-stream");
+        resp.set_content(data.data(), data.size(), mime_type.c_str());
+      }
+      return;
+    }
+  }
 }

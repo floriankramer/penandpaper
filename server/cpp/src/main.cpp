@@ -76,7 +76,7 @@ Settings parseSettings(int argc, char **argv) {
 int main(int argc, char **argv) {
   Settings settings = parseSettings(argc, argv);
 
-  PluginManager plugins;
+  std::shared_ptr<PluginManager> plugins = std::make_shared<PluginManager>();
 
   std::shared_ptr<Authenticator> authenticator =
       std::make_shared<Authenticator>();
@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
       std::bind(&Simulation::onMessage, &sim, std::placeholders::_1),
       std::bind(&Simulation::onNewClient, &sim), settings.base_dir);
   sim.setWebSocketServer(&wss);
-  sim.setPluginManager(&plugins);
+  sim.setPluginManager(plugins.get());
   if (!settings.do_keycheck) {
     wss.disableKeyCheck();
   }
@@ -98,6 +98,8 @@ int main(int argc, char **argv) {
   server.registerRequestHandler("/wiki/.*", HttpServer::RequestType::GET, wiki);
   server.registerRequestHandler("/wiki/.*", HttpServer::RequestType::POST,
                                 wiki);
+  server.registerRequestHandler("/plugin/.*", HttpServer::RequestType::POST,
+                                plugins);
   server.run();
   return 0;
 }

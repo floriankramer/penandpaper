@@ -1,5 +1,7 @@
 #include "Plugin.h"
 
+#include <fstream>
+
 #include "Logger.h"
 
 Plugin::Plugin() {}
@@ -85,7 +87,30 @@ std::vector<std::string> Plugin::packets() const {
 
 const std::string &Plugin::name() const { return _name; }
 
+const std::string &Plugin::html() const { return _html; }
+
+const std::string &Plugin::css() const { return _css; }
+
+const std::string &Plugin::js() const { return _js; }
+
+const std::vector<char> Plugin::data(const std::string &filename) const {
+  std::ifstream css_in(_path + "/data/" + filename);
+  std::vector<char> buffer;
+  if (css_in.is_open()) {
+    // determine the file size
+    css_in.seekg(0, std::ios::end);
+    size_t size = css_in.tellg();
+    // allocate space for the data
+    buffer.resize(size);
+    // read the entire file
+    css_in.read(buffer.data(), size);
+  }
+  return buffer;
+}
+
 void Plugin::load(const std::string &path) {
+  _path = path;
+  // Load the server sided lua plugin
   std::string srcfile = path + "/plugin.lua";
   _script = std::move(LuaScript(srcfile));
 
@@ -158,6 +183,56 @@ void Plugin::load(const std::string &path) {
 
   // Tell the script to initialize
   _script.call("init");
+
+  // Load the client sided plugin data
+  {
+    std::ifstream html_in(path + "/plugin.html");
+    if (html_in.is_open()) {
+      // determine the file size
+      html_in.seekg(0, std::ios::end);
+      size_t size = html_in.tellg();
+      // allocate space for the data
+      std::vector<char> buffer;
+      buffer.resize(size + 1);
+      // read the entire file
+      html_in.read(buffer.data(), size);
+      // add a delimiting 0
+      buffer.back() = 0;
+      _html = buffer.data();
+    }
+  }
+  {
+    std::ifstream css_in(path + "/plugin.css");
+    if (css_in.is_open()) {
+      // determine the file size
+      css_in.seekg(0, std::ios::end);
+      size_t size = css_in.tellg();
+      // allocate space for the data
+      std::vector<char> buffer;
+      buffer.resize(size + 1);
+      // read the entire file
+      css_in.read(buffer.data(), size);
+      // add a delimiting 0
+      buffer.back() = 0;
+      _html = buffer.data();
+    }
+  }
+  {
+    std::ifstream js_in(path + "/plugin.js");
+    if (js_in.is_open()) {
+      // determine the file size
+      js_in.seekg(0, std::ios::end);
+      size_t size = js_in.tellg();
+      // allocate space for the data
+      std::vector<char> buffer;
+      buffer.resize(size + 1);
+      // read the entire file
+      js_in.read(buffer.data(), size);
+      // add a delimiting 0
+      buffer.back() = 0;
+      _html = buffer.data();
+    }
+  }
 }
 
 std::string Plugin::cleanName(const std::string &name) const {

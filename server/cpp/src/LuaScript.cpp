@@ -213,7 +213,8 @@ void LuaScript::load(const std::string &path) {
   int error_handler = lua_gettop(_lua_state);
   if (luaL_loadfile(_lua_state, path.c_str())) {
     throw std::runtime_error(
-        "LuaScript::load : Unable to load the lua script at " + path);
+        "LuaScript::load : Unable to load the lua script at " + path + " : " +
+        lua_tostring(_lua_state, -1));
   }
   if (lua_pcall(_lua_state, 0, 0, error_handler)) {
     throw std::runtime_error(
