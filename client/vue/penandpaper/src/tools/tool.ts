@@ -44,7 +44,7 @@ export default class Tool {
   measureToX: number = 0
   measureToY: number = 0
 
-  lastTouch: TouchEvent = new TouchEvent('start')
+  lastTouch: TouchEvent | undefined = undefined
 
   timeTouchStart: Map<number, Date> = new Map()
 
@@ -264,7 +264,7 @@ export default class Tool {
         this.measureToX = offset.x
         this.measureToY = offset.y
         this.map.requestRedraw()
-      } else {
+      } else if (this.lastTouch !== undefined) {
         // Move the camera by the given finger motion
         let deltaX = event.targetTouches[0].clientX - this.lastTouch.targetTouches[0].clientX
         let deltaY = event.targetTouches[0].clientY - this.lastTouch.targetTouches[0].clientY
@@ -272,7 +272,7 @@ export default class Tool {
         this.map.requestRedraw()
       }
     } else if (event.targetTouches.length === 2) {
-      if (this.lastTouch.targetTouches.length === 2) {
+      if (this.lastTouch !== undefined && this.lastTouch.targetTouches.length === 2) {
         // Zoom the camera. Maintain the world space distance between the two
         // fingers for intuitive zooming.
         let lastD = this.getTwoFingerDistance(this.lastTouch)

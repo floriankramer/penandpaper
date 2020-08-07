@@ -25,6 +25,10 @@
     <WorldMap id="map" class="content-area"/>
     <PlayerList id="playerlist"/>
     <Wiki id="wiki"/>
+    <div v-for="plugin in plugins" v-bind:key="plugin.idx">
+      <style>{{plugin.css}}</style>
+      <div v-html="plugin.html" v-bind:id="'container-' + plugin.name"></div>
+    </div>
     <template v-if="noUsername">
       <Login v-bind:server="server"></Login>
     </template>
@@ -38,7 +42,7 @@ import Chat from './components/Chat.vue'
 import Toolbar from './components/Toolbar.vue'
 import WorldMap from './components/WorldMap.vue'
 import CriticalError from './components/CriticalError.vue'
-import Server from './components/server'
+import Server, { ServerState } from './components/server'
 import PlayerList from './components/PlayerList.vue'
 import Wiki from './components/Wiki.vue'
 import Menu, { MenuGroup, MenuItem, MenuKeyShortcut } from './components/Menu.vue'
@@ -59,6 +63,31 @@ import GlobalSettings from './global'
 import $ from 'jquery'
 import eventbus from './eventbus'
 
+// An instance of this class is given to every plugin for interfacing
+// with the host application.
+class PluginHost {
+  // The plugins name
+  name: string = ''
+
+  sendPacket (name: string, data: any) {
+    eventbus.$emit('/client/plugin/send', this.name + '::' + name, data)
+  }
+
+  listenToPacket (name: string, handler: (data: object) => void) {
+    eventbus.$emit('/client/plugin/listen', this.name + '::' + name, handler)
+  }
+}
+
+class Plugin {
+  idx: number = 0
+  html: string = ''
+  css: string = ''
+  js: string = ''
+  name: string = ''
+
+  instance: any = {}
+}
+
 @Component({
   components: {
     Login,
@@ -73,10 +102,10 @@ import eventbus from './eventbus'
   }
 })
 export default class App extends Vue {
-  server:Server = new Server(this.$store);
+  server: Server = new Server(this.$store);
 
-  hasCriticalError:boolean = false;
-  criticalErrorString:string = '';
+  hasCriticalError: boolean = false;
+  criticalErrorString: string = '';
 
   noUsername: boolean = true;
   isGamemaster: boolean = false;
@@ -93,6 +122,8 @@ export default class App extends Vue {
   mapDockNode: DockNode | null = null
 
   notificationText: string = ''
+
+  plugins: Plugin[] = []
 
   // The non gm menu
   menus: MenuGroup[] = [
@@ -125,6 +156,8 @@ export default class App extends Vue {
   ]
 
   mounted () {
+    eventbus.$on('/server/state', this.onServerState)
+
     console.log('The app has been mounted')
     this.server.setErrorHandler(this.onConnectError)
     this.server.connect()
@@ -225,6 +258,75 @@ export default class App extends Vue {
     })
 
     this.onGameMasterChange()
+  }
+
+  onServerState (state: ServerState) {
+    // Load plugins
+    state.pluginNames.forEach((name) => {
+      this.loadPlugin(name)
+    })
+  }
+
+  loadPlugin (name: string) {
+    let onfail = (a : any, error: string) => {
+      eventbus.$emit('/notification', 'Unable to load plugin ' + name)
+      console.log('Unable to load plugin ' + name + ' : ' + error)
+    }
+
+    // load the html
+    let plugin = new Plugin()
+    plugin.name = name
+    $.get('/plugin/' + name + '/html', (data) => {
+      plugin.html = data
+      $.get('/plugin/' + name + '/js', (data) => {
+        plugin.js = data
+        plugin.idx = this.plugins.length
+        // load the css
+        let css = document.createElement('link')
+        css.rel = 'stylesheet'
+        css.href = '/plugin/' + name + '/css'
+        document.head.appendChild(css)
+
+        // Add the html containers
+        this.plugins.push(plugin)
+
+        // Create a dock from the plugin
+        this.$nextTick(() => {
+          this.createPluginDock(plugin)
+          // Run the js. Given the js code is loaded from the filesystem on
+          // the server, this is equivalent to, but more conventient than
+          // creating a new script tag. That justifies the use of new Function
+          // here.
+          // eslint-disable-next-line
+          let func = new Function(plugin.js = '\nreturn ' + plugin.name)
+          // Call the function, which will return the plugin instance
+          plugin.instance = func()
+          let host = new PluginHost()
+          host.name = plugin.name
+          if (plugin.instance.init !== undefined) {
+            plugin.instance.init(host)
+          } else {
+            console.log('The plugin ' + plugin.name + ' does not define an init function: ' + plugin)
+          }
+        })
+      }).fail(onfail)
+    }).fail(onfail)
+  }
+
+  createPluginDock (plugin: Plugin) {
+    if (this.dockManager !== undefined) {
+      let documentNode = this.dockManager.context.model.documentManagerNode
+
+      let pluginDiv = document.getElementById('container-' + plugin.name)
+      if (pluginDiv) {
+        let pluginPanel = new PanelContainer(pluginDiv, this.dockManager)
+        pluginPanel.setTitle(plugin.name)
+        this.mapDockNode = this.dockManager.dockFill(documentNode, pluginPanel)
+      } else {
+        console.log('App.createPluginDock: unable to find the plugin ' +
+                    'container for ' + plugin.name)
+      }
+    }
   }
 
   onGameMasterChange () {

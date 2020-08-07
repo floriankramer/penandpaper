@@ -130,7 +130,8 @@ void HttpServer::run() {
     LOG_DEBUG << "GET: " << realpath << LOG_END;
 
     if (realpath.substr(0, basepath.size()) != basepath) {
-      LOG_DEBUG << "Forbidden" << LOG_END;
+      LOG_WARN << "Got a request for a file outside the basepath " << realpath
+               << LOG_END;
       resp.body = "403 forbidden";
       resp.status = 403;
       return;
@@ -140,7 +141,8 @@ void HttpServer::run() {
     LOG_DEBUG << realpath << " has mimetype " << mimetype << LOG_END;
     std::ifstream in(realpath);
     if (!in.is_open()) {
-      LOG_DEBUG << "Not found" << LOG_END;
+      LOG_WARN << "HttpServer::get : Got a request for " << realpath
+               << " but the file doesn't exist." << LOG_END;
       resp.body = "404 not found";
       resp.status = 404;
       return;

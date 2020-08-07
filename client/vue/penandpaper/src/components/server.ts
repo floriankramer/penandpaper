@@ -39,6 +39,7 @@ export class ServerState {
   isStateLoaded = false
   tilesPath: string = ''
   players: Player[] = []
+  pluginNames: string[] = []
 }
 
 export default class Server implements PacketDispatcher {
@@ -56,6 +57,10 @@ export default class Server implements PacketDispatcher {
     tilesPaths: string = ''
 
     players: Player[] = []
+
+    pluginNames: string[] = []
+
+    pluginListeners: Map<string, (data: object) => void> = new Map()
 
     errorhandler?: () => void;
 
@@ -76,6 +81,12 @@ export default class Server implements PacketDispatcher {
       eventBus.$on('/client/token/delete', (data: Sim.Token) => { this.onClientDeleteToken(data) })
       eventBus.$on('/client/line/create', (data: Sim.Line) => { this.onClientCreateLine(data) })
       eventBus.$on('/client/line/clear', () => { this.onClientClearLines() })
+      eventBus.$on('/client/plugin/send', (name: string, data: any) => {
+        this.onClientPluginSend(name, data)
+      })
+      eventBus.$on('/client/plugin/listen', (name: string, handler: (data: object) => void) => {
+        this.pluginListeners.set(name, handler)
+      })
       eventBus.$on('/server/request_state', () => { this.onStateRequest() })
     }
 
@@ -136,6 +147,11 @@ export default class Server implements PacketDispatcher {
         this.onServerPlayerList(data)
       } else if (this.buildingServer.onmessage(type, data)) {
         // the message was handled by the buildingServer
+      } else if (this.pluginListeners.has(type)) {
+        let h = this.pluginListeners.get(type)
+        if (h !== undefined) {
+          h(data)
+        }
       }
     }
 
@@ -165,6 +181,8 @@ export default class Server implements PacketDispatcher {
         line.stop.y = rawLine.ey
         this.lines.push(line)
       }
+      this.pluginNames = data.plugins
+
       this.buildingServer.onServerInit(data)
       this.tilesPaths = data['tiles']
       // Broadcast our initialized state
@@ -311,6 +329,15 @@ export default class Server implements PacketDispatcher {
       this.send(JSON.stringify(packet))
     }
 
+    onClientPluginSend (name: string, data: any) {
+      let packet = {
+        type: name,
+        uid: this.uid,
+        data: data
+      }
+      this.send(JSON.stringify(packet))
+    }
+
     onServerToggleDoor (data: any) {
       eventBus.$emit('/server/building/toggle_door', data.ids)
     }
@@ -328,6 +355,7 @@ export default class Server implements PacketDispatcher {
       state.isStateLoaded = this.isStateLoaded
       state.tilesPath = this.tilesPaths
       state.players = this.players
+      state.pluginNames = this.pluginNames
       eventBus.$emit('/server/state', state)
     }
 

@@ -191,6 +191,7 @@ void Plugin::load(const std::string &path) {
       // determine the file size
       html_in.seekg(0, std::ios::end);
       size_t size = html_in.tellg();
+      html_in.seekg(0);
       // allocate space for the data
       std::vector<char> buffer;
       buffer.resize(size + 1);
@@ -199,6 +200,9 @@ void Plugin::load(const std::string &path) {
       // add a delimiting 0
       buffer.back() = 0;
       _html = buffer.data();
+    } else {
+      LOG_DEBUG << "Plugin " << _name << " does not define a plugin.html"
+                << LOG_END;
     }
   }
   {
@@ -207,6 +211,7 @@ void Plugin::load(const std::string &path) {
       // determine the file size
       css_in.seekg(0, std::ios::end);
       size_t size = css_in.tellg();
+      css_in.seekg(0);
       // allocate space for the data
       std::vector<char> buffer;
       buffer.resize(size + 1);
@@ -214,7 +219,10 @@ void Plugin::load(const std::string &path) {
       css_in.read(buffer.data(), size);
       // add a delimiting 0
       buffer.back() = 0;
-      _html = buffer.data();
+      _css = buffer.data();
+    } else {
+      LOG_DEBUG << "Plugin " << _name << " does not define a plugin.css"
+                << LOG_END;
     }
   }
   {
@@ -223,6 +231,7 @@ void Plugin::load(const std::string &path) {
       // determine the file size
       js_in.seekg(0, std::ios::end);
       size_t size = js_in.tellg();
+      js_in.seekg(0);
       // allocate space for the data
       std::vector<char> buffer;
       buffer.resize(size + 1);
@@ -230,7 +239,10 @@ void Plugin::load(const std::string &path) {
       js_in.read(buffer.data(), size);
       // add a delimiting 0
       buffer.back() = 0;
-      _html = buffer.data();
+      _js = buffer.data();
+    } else {
+      LOG_DEBUG << "Plugin " << _name << " does not define a plugin.js"
+                << LOG_END;
     }
   }
 }

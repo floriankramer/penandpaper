@@ -98,7 +98,7 @@ int main(int argc, char **argv) {
   server.registerRequestHandler("/wiki/.*", HttpServer::RequestType::GET, wiki);
   server.registerRequestHandler("/wiki/.*", HttpServer::RequestType::POST,
                                 wiki);
-  server.registerRequestHandler("/plugin/.*", HttpServer::RequestType::POST,
+  server.registerRequestHandler("/plugin/.*", HttpServer::RequestType::GET,
                                 plugins);
   server.run();
   return 0;

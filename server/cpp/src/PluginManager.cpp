@@ -68,7 +68,12 @@ void PluginManager::onRequest(const httplib::Request &req,
   std::vector<std::string> parts = util::splitString(req.path, '/');
   // All requests need to be of the form '/plugin/<name>/file
   // or '/plugin/<name>/data/file'
+  LOG_DEBUG << "PluginManager::onRequest : got a request for " << req.path
+            << LOG_END;
   if (parts.size() != 3 && parts.size() != 4) {
+    LOG_WARN << "PluginManager::onRequest : Rejected a malformed plugin "
+                "request for path "
+             << req.path << LOG_END;
     resp.body = "404 Not Found";
     resp.status = 404;
     return;
@@ -80,6 +85,9 @@ void PluginManager::onRequest(const httplib::Request &req,
   std::string name = parts[1];
   for (const Plugin &p : _plugins) {
     if (p.name() == name) {
+      LOG_DEBUG
+          << "PluginManager::onRequest : Found a plugin to handle the request: "
+          << p.name() << LOG_END;
       if (parts[2] == "html") {
         resp.status = 200;
         resp.set_header("Content-Type", "text/html");
@@ -100,6 +108,10 @@ void PluginManager::onRequest(const httplib::Request &req,
         std::string mime_type =
             HttpServer::guessMimeType(filename, "application/octet-stream");
         resp.set_content(data.data(), data.size(), mime_type.c_str());
+      } else {
+        LOG_WARN << "PluginManager::onRequest : Got a request for " << parts[2]
+                 << " in plugin " << name << " but the datatype is not known."
+                 << LOG_END;
       }
       return;
     }
