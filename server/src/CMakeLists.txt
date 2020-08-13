@@ -21,14 +21,14 @@ find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
 include_directories(${OPENSSL_INCLUDE_DIR})
 
-#============================================================================== 
+#==============================================================================
 # httplib
-#============================================================================== 
+#==============================================================================
 include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/cpp-httplib/")
 
-#============================================================================== 
-# websocket-hpp 
-#============================================================================== 
+#==============================================================================
+# websocket-hpp
+#==============================================================================
 include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/websocketpp/")
 if (WIN32)
  add_definitions(-D_WEBSOCKETPP_CPP11_STL_)
@@ -59,7 +59,7 @@ endif ()
 # lua
 #==============================================================================
 find_package(Lua REQUIRED)
-include_directories(SYSTEM ${LUA_INCLDUDE_DIR})
+include_directories(SYSTEM ${LUA_INCLUDE_DIR})
 
 
 #==============================================================================
@@ -77,9 +77,9 @@ if (BUILD_ATLAS_MODULE)
   include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/simple2d/include/")
 endif ()
 
-#============================================================================== 
+#==============================================================================
 # penandpaper
-#============================================================================== 
+#==============================================================================
 
 if (BUILD_ATLAS_MODULE)
   add_subdirectory(atlas)
@@ -129,7 +129,7 @@ add_executable(markdown markdown_main.cpp
   MarkdownNode.cpp MarkdownNode.h)
 
 target_link_libraries(penandpaper-server building geometry ${LUA_LIBRARIES} OpenSSL::SSL ${CMAKE_THREAD_LIBS_INIT})
-if (NOT WIN32) 
+if (NOT WIN32)
     target_link_libraries(penandpaper-server sqlite3)
 else()
     target_link_libraries(penandpaper-server bcrypt)
