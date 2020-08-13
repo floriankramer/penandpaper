@@ -72,8 +72,11 @@ void LuaScript::operator=(LuaScript &&other) {
   other._lua_state = nullptr;
 }
 
+int LuaScript::stackSize() const { return lua_gettop(_lua_state); }
+
 LuaScript::Variant LuaScript::onFunctionCall(int index,
                                              std::vector<Variant> arguments) {
+  StackGuard stack_guard(this, "LuaScript::onFunctionCall");
   if (index >= 0 && size_t(index) < _function_handlers.size()) {
     LuaFunction &f = _function_handlers[index];
     for (size_t i = 0; i < std::min(arguments.size(), f.arguments.size());
@@ -105,6 +108,7 @@ void LuaScript::registerFunction(
     const std::string name,
     std::function<Variant(std::vector<Variant>)> handler,
     const std::vector<Type> &arguments) {
+  StackGuard stack_guard(this, "LuaScript::registerFunction");
   // Store a reference to this script in the closure
   lua_pushlightuserdata(_lua_state, this);
 
@@ -120,6 +124,7 @@ void LuaScript::registerFunction(
 void LuaScript::loadStandardLibs() { luaL_openlibs(_lua_state); }
 
 LuaScript::Variant LuaScript::global(const std::string &s) const {
+  StackGuard stack_guard(this, "LuaScript::global");
   lua_checkstack(_lua_state, 1);
   lua_getglobal(_lua_state, s.c_str());
   Variant v(_lua_state, -1);
@@ -128,14 +133,16 @@ LuaScript::Variant LuaScript::global(const std::string &s) const {
 }
 
 void LuaScript::setGlobal(const std::string &s, Variant value) {
+  StackGuard stack_guard(this, "LuaScript::setGlobal");
   value.push(_lua_state);
   lua_setglobal(_lua_state, s.c_str());
 }
 
 std::vector<LuaScript::Variant> LuaScript::call(
-    const std::string &function, int numret, const std::vector<Variant> args) {
+    const std::string &function, const std::vector<Variant> args) {
+  StackGuard stack_guard(this, "LuaScript::call");
+
   std::vector<LuaScript::Variant> ret;
-  ret.reserve(numret);
 
   // load the error handler
   lua_pushcfunction(_lua_state, luaOnError);
@@ -150,7 +157,7 @@ std::vector<LuaScript::Variant> LuaScript::call(
   }
 
   // now call the function
-  int r = lua_pcall(_lua_state, args.size(), numret, error_handler);
+  int r = lua_pcall(_lua_state, args.size(), LUA_MULTRET, error_handler);
   if (r) {
     // print and pop the error
     LOG_ERROR << "LuaScript::call : " << function << " : "
@@ -158,18 +165,19 @@ std::vector<LuaScript::Variant> LuaScript::call(
     lua_pop(_lua_state, 1);
     return {};
   }
-  for (int i = numret; i > 0; --i) {
-    ret.emplace_back(_lua_state, -i);
+  int num_results = lua_gettop(_lua_state) - error_handler;
+  for (int i = error_handler + 1; i < error_handler + 1 + num_results; ++i) {
+    ret.emplace_back(_lua_state, i);
   }
   // pop the results
-  lua_pop(_lua_state, numret + 1);
+  lua_pop(_lua_state, num_results + 1);
   return ret;
 }
 
 std::vector<LuaScript::Variant> LuaScript::callVarArg(
-    const std::string &function, int numret, const std::vector<Variant> &args) {
+    const std::string &function, const std::vector<Variant> &args) {
+  StackGuard stack_guard(this, "LuaScript::callVarArg");
   std::vector<LuaScript::Variant> ret;
-  ret.reserve(numret);
 
   // Load the error handler
   lua_pushcfunction(_lua_state, luaOnError);
@@ -187,7 +195,7 @@ std::vector<LuaScript::Variant> LuaScript::callVarArg(
   }
 
   // now call the function
-  int r = lua_pcall(_lua_state, 1, numret, error_handler);
+  int r = lua_pcall(_lua_state, 1, LUA_MULTRET, error_handler);
   if (r) {
     // print and pop the error
     LOG_ERROR << "LuaScript::callVarArg : " << function << " : "
@@ -195,11 +203,13 @@ std::vector<LuaScript::Variant> LuaScript::callVarArg(
     lua_pop(_lua_state, 1);
     return {};
   }
-  for (int i = numret; i > 0; --i) {
-    ret.emplace_back(_lua_state, -i);
+  int num_results = lua_gettop(_lua_state) - error_handler;
+  for (int i = error_handler + 1; i < error_handler + 1 + num_results; ++i) {
+    ret.emplace_back(_lua_state, i);
   }
-  // pop the results and the error handler
-  lua_pop(_lua_state, numret + 1);
+  // pop the results
+  lua_pop(_lua_state, num_results + 1);
+
   return ret;
 }
 
@@ -270,13 +280,18 @@ LuaScript::Variant::Variant(lua_State *state, int idx) {
     // add an empty key
     lua_pushnil(state);
     // iterate the table
-    while (lua_next(state, idx)) {
-      std::string key = lua_tostring(state, -2);
-      _table[key] = std::make_shared<Variant>(state, -1);
+    while (lua_next(state, idx) != 0) {
+      int keytype = lua_type(state, -2);
+      if (keytype == LUA_TSTRING) {
+        std::string key = lua_tostring(state, -2);
+        _table[key] = std::make_shared<Variant>(state, -1);
+      } else {
+        LOG_ERROR
+            << "LuaScript::Variant::Variant : Unable to load a key of type "
+            << lua_typename(state, -2) << " from a table." << LOG_END;
+      }
       lua_pop(state, 1);
     }
-    // pop the key
-    lua_pop(state, 1);
     _type = Type::TABLE;
   } else if (type == LUA_TUSERDATA || type == LUA_TLIGHTUSERDATA) {
     _type = Type::USERDATA;
@@ -433,7 +448,7 @@ void LuaScript::Variant::push(lua_State *state) const {
       lua_createtable(state, 0, _table.size());
       for (auto it : _table) {
         it.second->push(state);
-        lua_setfield(state, -1, it.first.c_str());
+        lua_setfield(state, -2, it.first.c_str());
       }
       break;
     default:
@@ -478,4 +493,21 @@ void LuaScript::Variant::operator=(Variant &&other) {
 void LuaScript::Variant::operator=(const Variant &other) {
   this->~Variant();
   new (this) Variant(other);
+}
+
+// StackGuard
+// =============================================================================
+
+LuaScript::StackGuard::StackGuard(const LuaScript *script,
+                                  const std::string &name)
+    : _stack_size(script->stackSize()), _script(script), _name(name) {}
+
+LuaScript::StackGuard::~StackGuard() noexcept(false) {
+  int current_size = _script->stackSize();
+  if (current_size != _stack_size) {
+    throw std::runtime_error("A LuaScript function " + _name +
+                             " is not stack balanced. Started at " +
+                             std::to_string(_stack_size) + " but is " +
+                             std::to_string(current_size));
+  }
 }

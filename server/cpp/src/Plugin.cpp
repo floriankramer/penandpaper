@@ -20,9 +20,14 @@ std::pair<WebSocketServer::ResponseType, std::string> Plugin::onCommand(
       }
 
       std::vector<LuaScript::Variant> res =
-          _script.callVarArg(_commands[i].handler, 2, args);
-      if (res[0].type() == LuaScript::Type::NUMBER &&
-          res[1].type() == LuaScript::Type::STRING) {
+          _script.callVarArg(_commands[i].handler, args);
+      if (res.size() != 2) {
+        LOG_ERROR << "The command handler for " << cmd << " : "
+                  << _packets[i].handler
+                  << " expects exatly two returned values, but got "
+                  << res.size() << LOG_END;
+      } else if (res[0].type() == LuaScript::Type::NUMBER &&
+                 res[1].type() == LuaScript::Type::STRING) {
         return {WebSocketServer::ResponseType(res[0].number()),
                 res[1].string()};
       } else {
@@ -47,17 +52,27 @@ std::pair<WebSocketServer::ResponseType, std::string> Plugin::onPacket(
       LuaScript::Variant arg(packet);
 
       std::vector<LuaScript::Variant> res =
-          _script.call(_commands[i].handler, 2, {arg});
-      if (res[0].type() == LuaScript::Type::NUMBER &&
-          res[1].type() == LuaScript::Type::TABLE) {
-        return {WebSocketServer::ResponseType(res[0].number()),
-                res[1].toJson()};
+          _script.call(_packets[i].handler, {arg});
+      if (res.size() != 3) {
+        LOG_ERROR << "The packet handler for " << name << " : "
+                  << _packets[i].handler
+                  << " expects exatly three returned values, but got "
+                  << res.size() << LOG_END;
+      } else if (res[0].type() == LuaScript::Type::NUMBER &&
+                 res[1].type() == LuaScript::Type::STRING &&
+                 res[2].type() == LuaScript::Type::TABLE) {
+        nlohmann::json j;
+        j["type"] = _name + "::" + res[1].string();
+        j["data"] = res[2].toJson();
+        return {WebSocketServer::ResponseType(res[0].number()), j.dump()};
       } else {
         LOG_ERROR << "The packet handler for " << name << " : "
                   << _packets[i].handler
-                  << " does not return a number and a string." << LOG_END;
-        LOG_ERROR << "Expected: (number, string), got (" << res[0].typeName()
-                  << ", " << res[1].typeName() << ")" << LOG_END;
+                  << " does not return a number a string and a table."
+                  << LOG_END;
+        LOG_ERROR << "Expected: (number, string, table), got ("
+                  << res[0].typeName() << ", " << res[1].typeName() << ", "
+                  << res[2].typeName() << ")" << LOG_END;
         return {WebSocketServer::ResponseType::RETURN, "Internal error"};
       }
     }
@@ -201,7 +216,7 @@ void Plugin::load(const std::string &path) {
       buffer.back() = 0;
       _html = buffer.data();
     } else {
-      LOG_DEBUG << "Plugin " << _name << " does not define a plugin.html"
+      LOG_INFO << "Plugin " << _name << " does not define a plugin.html"
                 << LOG_END;
     }
   }
@@ -221,7 +236,7 @@ void Plugin::load(const std::string &path) {
       buffer.back() = 0;
       _css = buffer.data();
     } else {
-      LOG_DEBUG << "Plugin " << _name << " does not define a plugin.css"
+      LOG_INFO << "Plugin " << _name << " does not define a plugin.css"
                 << LOG_END;
     }
   }
@@ -241,7 +256,7 @@ void Plugin::load(const std::string &path) {
       buffer.back() = 0;
       _js = buffer.data();
     } else {
-      LOG_DEBUG << "Plugin " << _name << " does not define a plugin.js"
+      LOG_INFO << "Plugin " << _name << " does not define a plugin.js"
                 << LOG_END;
     }
   }

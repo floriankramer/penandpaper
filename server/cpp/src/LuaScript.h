@@ -95,6 +95,17 @@ class LuaScript {
     std::string name;
   };
 
+  class StackGuard {
+  public:
+    StackGuard(const LuaScript *script, const std::string &name = "");
+    virtual ~StackGuard() noexcept(false);
+
+  private:
+    int _stack_size;
+    const LuaScript *_script;
+    std::string _name;
+  };
+
  public:
   /**
    * @brief Stores a pointer to this script in the lua registry
@@ -121,7 +132,7 @@ class LuaScript {
   void setGlobal(const std::string &s, Variant value);
 
   /** @brief Calls the given function. Returns the functions return value. */
-  std::vector<Variant> call(const std::string &function, int numret = 0,
+  std::vector<Variant> call(const std::string &function,
                             const std::vector<Variant> args = {});
 
   /**
@@ -130,7 +141,7 @@ class LuaScript {
    * single argument
    * // TODO: Remove this function once tables are properly supported
    */
-  std::vector<Variant> callVarArg(const std::string &function, int numret,
+  std::vector<Variant> callVarArg(const std::string &function,
                                   const std::vector<Variant> &args);
 
   /**
@@ -151,6 +162,8 @@ class LuaScript {
                         const std::vector<Type> &arguments = {});
 
   Variant onFunctionCall(int index, std::vector<Variant> arguments);
+
+  int stackSize() const;
 
  private:
   void load(const std::string &path);
