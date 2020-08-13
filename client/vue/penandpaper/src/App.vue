@@ -119,11 +119,17 @@ export default class App extends Vue {
   chatPanel: PanelContainer | null = null
   playerListPanel: PanelContainer | null = null
 
+  pluginPanels: Map<string, PanelContainer> = new Map();
+
   mapDockNode: DockNode | null = null
 
   notificationText: string = ''
 
   plugins: Plugin[] = []
+  pluginMenu: MenuGroup = {
+    text: 'plugins',
+    items: []
+  }
 
   // The non gm menu
   menus: MenuGroup[] = [
@@ -152,7 +158,8 @@ export default class App extends Vue {
           text: 'darker mode'
         }
       ]
-    }
+    },
+    this.pluginMenu
   ]
 
   mounted () {
@@ -292,7 +299,6 @@ export default class App extends Vue {
 
         // Create a dock from the plugin
         this.$nextTick(() => {
-          this.createPluginDock(plugin)
           // Run the js. Given the js code is loaded from the filesystem on
           // the server, this is equivalent to, but more conventient than
           // creating a new script tag. That justifies the use of new Function
@@ -308,6 +314,9 @@ export default class App extends Vue {
           } else {
             console.log('The plugin ' + plugin.name + ' does not define an init function: ' + plugin)
           }
+
+          this.createPluginDock(plugin)
+          this.updatePluginMenu()
         })
       }).fail(onfail)
     }).fail(onfail)
@@ -321,7 +330,7 @@ export default class App extends Vue {
       if (pluginDiv) {
         let pluginPanel = new PanelContainer(pluginDiv, this.dockManager)
         pluginPanel.setTitle(plugin.name)
-        this.mapDockNode = this.dockManager.dockFill(documentNode, pluginPanel)
+        this.pluginPanels.set(plugin.name, pluginPanel)
       } else {
         console.log('App.createPluginDock: unable to find the plugin ' +
                     'container for ' + plugin.name)
@@ -418,8 +427,36 @@ export default class App extends Vue {
               }
             }
           ]
-        }
+        },
+        this.pluginMenu
       ]
+    }
+  }
+
+  updatePluginMenu () {
+    this.pluginMenu.items = []
+    this.plugins.forEach((plugin: Plugin) => {
+      this.pluginMenu.items.push({
+        id: 'plugin-' + plugin.name,
+        text: plugin.name
+      })
+    })
+    this.pluginMenu.items.sort((a: MenuItem, b: MenuItem) => {
+      if (a.text < b.text) {
+        return -1
+      } else if (a.text === b.text) {
+        return 0
+      } else {
+        return 1
+      }
+    })
+    for (let i = 0; i < this.menus.length; ++i) {
+      if (this.menus[i] === this.pluginMenu) {
+        // Inform vue of the change to the array
+        this.menus.splice(i)
+        this.menus.push(this.pluginMenu)
+        break
+      }
     }
   }
 
@@ -498,6 +535,12 @@ export default class App extends Vue {
       this.toggleDarkerMode()
     } else if (id === 'view-wikionly') {
       this.showWikiOnly()
+    } else if (id.startsWith('plugin-')) {
+      let name = id.substr('plugin-'.length)
+      let panel = this.pluginPanels.get(name)
+      if (panel !== undefined) {
+        this.togglePanel(panel)
+      }
     } else {
       eventbus.$emit('/menu/' + id)
     }
