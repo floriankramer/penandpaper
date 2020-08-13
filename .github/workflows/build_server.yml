@@ -21,7 +21,7 @@ jobs:
       run: sudo apt update && sudo apt install libasio-dev libssl-dev libsqlite3-dev liblua5.3-dev
     - name: Build
       run:  |
-        cd server/cpp
+        cd server
         mkdir build
         cd build
         cmake -DCMAKE_BUILD_TYPE=Release ../src
