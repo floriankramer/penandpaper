@@ -58,12 +58,9 @@ endif ()
 #==============================================================================
 # lua
 #==============================================================================
-if (WIN32)
-  # TODO
-else ()
- # For ubuntu
- include_directories(SYSTEM "/usr/include/lua5.3")
-endif ()
+find_package(Lua REQUIRED)
+include_directories(SYSTEM ${LUA_INCLDUDE_DIR})
+
 
 #==============================================================================
 # boost
@@ -131,7 +128,7 @@ add_executable(markdown markdown_main.cpp
   Markdown.cpp Markdown.h
   MarkdownNode.cpp MarkdownNode.h)
 
-target_link_libraries(penandpaper-server building geometry lua OpenSSL::SSL ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(penandpaper-server building geometry ${LUA_LIBRARIES} OpenSSL::SSL ${CMAKE_THREAD_LIBS_INIT})
 if (NOT WIN32) 
     target_link_libraries(penandpaper-server sqlite3)
 else()
