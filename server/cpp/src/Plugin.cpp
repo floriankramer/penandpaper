@@ -123,6 +123,14 @@ const std::vector<char> Plugin::data(const std::string &filename) const {
   return buffer;
 }
 
+void Plugin::setWriteToChat(std::function<void(const std::string &)> f) {
+  _writeToChat = f;
+}
+
+void Plugin::setBroadcastPacket(std::function<void(const std::string &)> f) {
+  _broadcast_packet = f;
+}
+
 void Plugin::load(const std::string &path) {
   _path = path;
   // Load the server sided lua plugin
@@ -196,6 +204,52 @@ void Plugin::load(const std::string &path) {
       },
       {LuaScript::Type::STRING, LuaScript::Type::STRING});
 
+  _script.registerFunction(
+      "writeToChat",
+      [this](std::vector<LuaScript::Variant> args) {
+        if (args.size() != 1) {
+          _script.error("writeToChat: Expected exactly one arguments but got " +
+                        std::to_string(args.size()));
+        }
+        if (_writeToChat != nullptr) {
+          _writeToChat(args[0].string());
+        } else {
+          LOG_ERROR << "Plugin " << _name
+                    << " called writeToChat but the _writeToChat function is "
+                       "not defined."
+                    << LOG_END;
+        }
+        return LuaScript::Variant();
+      },
+      {LuaScript::Type::STRING});
+
+  _script.registerFunction(
+      "broadcastPacket",
+      [this](std::vector<LuaScript::Variant> args) {
+        using nlohmann::json;
+        if (args.size() != 2) {
+          _script.error(
+              "broadcastPacket: Expected exactly two arguments but got " +
+              std::to_string(args.size()));
+        }
+        // TODO
+        if (_broadcast_packet != nullptr) {
+          std::string packet_type = _name + "::" + args[0].string();
+          json packet;
+          packet["type"] = packet_type;
+          packet["data"] = args[1].toJson();
+          _broadcast_packet(packet.dump());
+        } else {
+          LOG_ERROR
+              << "Plugin " << _name
+              << " called broadcastPacket but the _broadcastPacket function is "
+                 "not defined."
+              << LOG_END;
+        }
+        return LuaScript::Variant();
+      },
+      {LuaScript::Type::STRING, LuaScript::Type::TABLE});
+
   // Tell the script to initialize
   _script.call("init");
 
@@ -217,7 +271,7 @@ void Plugin::load(const std::string &path) {
       _html = buffer.data();
     } else {
       LOG_INFO << "Plugin " << _name << " does not define a plugin.html"
-                << LOG_END;
+               << LOG_END;
     }
   }
   {
@@ -237,7 +291,7 @@ void Plugin::load(const std::string &path) {
       _css = buffer.data();
     } else {
       LOG_INFO << "Plugin " << _name << " does not define a plugin.css"
-                << LOG_END;
+               << LOG_END;
     }
   }
   {
@@ -257,7 +311,7 @@ void Plugin::load(const std::string &path) {
       _js = buffer.data();
     } else {
       LOG_INFO << "Plugin " << _name << " does not define a plugin.js"
-                << LOG_END;
+               << LOG_END;
     }
   }
 }

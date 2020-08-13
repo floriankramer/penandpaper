@@ -4,6 +4,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <functional>
 
 #include "LuaScript.h"
 
@@ -74,6 +75,18 @@ class Plugin {
   /** @brief Loads the given file from the plugins data folder. */
   const std::vector<char> data(const std::string &filename) const;
 
+  /**
+   * @brief f should be a function that takes a string and sends it to all
+   * players chats.
+   */
+  void setWriteToChat(std::function<void(const std::string&)> f);
+
+  /**
+   * @brief f should be a function that takes a string and sends it to all
+   * players.
+   */
+  void setBroadcastPacket(std::function<void(const std::string&)> f);
+
  private:
   /** @brief Load the plugin from a folder at path */
   void load(const std::string &path);
@@ -99,4 +112,11 @@ class Plugin {
   std::string _html;
   std::string _css;
   std::string _js;
+
+  /** @brief A function that can be called to write data to the chat. */
+  std::function<void(const std::string &)> _writeToChat;
+
+
+  /** @brief A function that can be called to write data to the chat. */
+  std::function<void(const std::string &)> _broadcast_packet;
 };

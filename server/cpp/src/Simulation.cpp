@@ -64,7 +64,13 @@ void Simulation::setWebSocketServer(WebSocketServer *wss) {
   _web_socket_server = wss;
 }
 
-void Simulation::setPluginManager(PluginManager *pm) { _plugin_manager = pm; }
+void Simulation::setPluginManager(PluginManager *pm) {
+  _plugin_manager = pm;
+  _plugin_manager->setWriteToChat(
+      std::bind(&Simulation::sendChatToAll, this, std::placeholders::_1));
+  _plugin_manager->setBroadcastPacket(std::bind(
+      &WebSocketServer::broadcast, _web_socket_server, std::placeholders::_1));
+}
 
 Token *Simulation::tokenById(uint64_t id) {
   for (Token &t : _tokens) {
@@ -549,4 +555,14 @@ Player *Simulation::getPlayer(const std::string &uid) {
     }
   }
   return nullptr;
+}
+
+void Simulation::sendChatToAll(const std::string &msg) {
+  using nlohmann::json;
+  json resp_json;
+  resp_json["type"] = "Chat";
+  resp_json["data"] = {};
+  resp_json["data"]["sender"] = "The Server";
+  resp_json["data"]["message"] = msg;
+  _web_socket_server->broadcast(resp_json.dump());
 }

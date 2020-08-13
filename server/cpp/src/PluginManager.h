@@ -2,6 +2,7 @@
 
 #include <unordered_map>
 #include <vector>
+#include <memory>
 
 #include "HttpServer.h"
 #include "Plugin.h"
@@ -30,13 +31,27 @@ class PluginManager : public HttpServer::RequestHandler {
   /** @brief handles the clients requests for a plugins client code. */
   void onRequest(const httplib::Request &req, httplib::Response &resp) override;
 
+  /**
+   * @brief f should be a function that takes a string and sends it to all
+   * players.
+   */
+  void setWriteToChat(std::function<void(const std::string&)> f);
+
+  /**
+   * @brief f should be a function that takes a string and sends it to all
+   * players.
+   */
+  void setBroadcastPacket(std::function<void(const std::string&)> f);
+
  private:
   /**
    * @brief Scans the plugins folder for plugins and loads and initialzies them.
    **/
   void loadPlugins();
 
-  std::vector<Plugin> _plugins;
+  // Pointers are stored to avoid plugins moving in memory, as they need to be
+  // able to self reference
+  std::vector<std::shared_ptr<Plugin>> _plugins;
 
   /** @brief Maps command names to plugin indices */
   std::unordered_map<std::string, size_t> _commands;

@@ -54,6 +54,8 @@ class Simulation {
    */
   Player *getPlayer(const std::string &uid);
 
+  void sendChatToAll(const std::string &msg);
+
  private:
   void broadcastClients();
 

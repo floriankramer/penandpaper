@@ -12,13 +12,13 @@ void PluginManager::loadPlugins() {
   LOG_INFO << "Found " << names.size() << " plugins" << LOG_END;
   for (const std::string &name : names) {
     LOG_INFO << "Loading plugin at " << name << LOG_END;
-    _plugins.emplace_back("plugins/" + name);
+    _plugins.push_back(std::make_shared<Plugin>("plugins/" + name));
 
-    for (const std::string &cmd : _plugins.back().commands()) {
+    for (const std::string &cmd : _plugins.back()->commands()) {
       _commands[cmd] = _plugins.size() - 1;
     }
 
-    for (const std::string &cmd : _plugins.back().packets()) {
+    for (const std::string &cmd : _plugins.back()->packets()) {
       _packet_handlers[cmd] = _plugins.size() - 1;
     }
   }
@@ -36,7 +36,7 @@ PluginManager::handleCommand(const std::vector<std::string> &args) {
     throw std::runtime_error("PluginManager::handleCommand : command " + cmd +
                              " is not handled by any plugin.");
   }
-  return _plugins[it->second].onCommand(args);
+  return _plugins[it->second]->onCommand(args);
 }
 
 bool PluginManager::hasPacketHandler(const std::string &cmd) const {
@@ -51,14 +51,14 @@ PluginManager::handlePacket(const std::string &name,
     throw std::runtime_error("PluginManager::handlePacket : packet " + name +
                              " is not handled by any plugin.");
   }
-  return _plugins[it->second].onPacket(name, packet);
+  return _plugins[it->second]->onPacket(name, packet);
 }
 
 std::vector<std::string> PluginManager::pluginNames() const {
   std::vector<std::string> names;
   names.reserve(_plugins.size());
-  for (const Plugin &p : _plugins) {
-    names.push_back(p.name());
+  for (const std::shared_ptr<Plugin> &p : _plugins) {
+    names.push_back(p->name());
   }
   return names;
 }
@@ -83,27 +83,24 @@ void PluginManager::onRequest(const httplib::Request &req,
   resp.status = 404;
 
   std::string name = parts[1];
-  for (const Plugin &p : _plugins) {
-    if (p.name() == name) {
-      LOG_DEBUG
-          << "PluginManager::onRequest : Found a plugin to handle the request: "
-          << p.name() << LOG_END;
+  for (const std::shared_ptr<Plugin> &p : _plugins) {
+    if (p->name() == name) {
       if (parts[2] == "html") {
         resp.status = 200;
         resp.set_header("Content-Type", "text/html");
-        resp.body = p.html();
+        resp.body = p->html();
       } else if (parts[2] == "css") {
         resp.status = 200;
         resp.set_header("Content-Type", "text/css");
-        resp.body = p.css();
+        resp.body = p->css();
       } else if (parts[2] == "js") {
         resp.status = 200;
         resp.set_header("Content-Type", "text/javascript");
-        resp.body = p.js();
+        resp.body = p->js();
       } else if (parts[2] == "data") {
         resp.status = 200;
         std::string filename = parts[3];
-        std::vector<char> data = p.data(filename);
+        std::vector<char> data = p->data(filename);
         // We need to guess the mime type to allow for proper loading of images.
         std::string mime_type =
             HttpServer::guessMimeType(filename, "application/octet-stream");
@@ -115,5 +112,18 @@ void PluginManager::onRequest(const httplib::Request &req,
       }
       return;
     }
+  }
+}
+
+void PluginManager::setWriteToChat(std::function<void(const std::string &)> f) {
+  for (std::shared_ptr<Plugin> &p : _plugins) {
+    p->setWriteToChat(f);
+  }
+}
+
+void PluginManager::setBroadcastPacket(
+    std::function<void(const std::string &)> f) {
+  for (std::shared_ptr<Plugin> &p : _plugins) {
+    p->setBroadcastPacket(f);
   }
 }
