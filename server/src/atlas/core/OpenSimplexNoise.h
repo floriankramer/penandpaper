@@ -1,8 +1,8 @@
 #ifndef OPEN_SIMPLEX_NOISE2S_H_
 #define OPEN_SIMPLEX_NOISE2S_H_
 
-#include <vector>
 #include <cstdint>
+#include <vector>
 
 /**
  * @brief OpenSimplexNoise2S from https://github.com/KdotJPG/OpenSimplex2/
@@ -17,7 +17,7 @@ class OpenSimplexNoise {
   };
 
   class LatticePoint2D {
-  public:
+   public:
     LatticePoint2D(int xsv, int ysv);
 
     int xsv;
@@ -27,19 +27,21 @@ class OpenSimplexNoise {
     double dy;
   };
 
-public:
+ public:
   OpenSimplexNoise();
   OpenSimplexNoise(long seed);
 
+  /**
+   * @brief Returns open simplex noise in the range 0-1
+   */
   double noise2(double x, double y) const;
 
-private:
+ private:
   uint16_t perm[PSIZE];
   Vec2 permGrad2[PSIZE];
 
   static std::vector<LatticePoint2D> generateLookup2D();
   static std::vector<Vec2> generateGradients2D();
-
 };
 
 #endif

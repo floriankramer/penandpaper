@@ -9,7 +9,7 @@ class TileRenderer {
   TileRenderer();
   virtual ~TileRenderer();
 
-  Image renderTile(const Map *map, size_t x, size_t y, size_t zoom,
-                   size_t width, size_t height);
+  Image renderTile(const Map *map, size_t min_x, size_t min_y, size_t max_x,
+                   size_t max_y);
 };
-}  // namespace TileRenderer
+}  // namespace atlas

@@ -5,12 +5,15 @@
 #include <unordered_map>
 
 #include "Camera.h"
-
-#include "core/Semaphore.h"
 #include "core/Map.h"
+#include "core/Semaphore.h"
 #include "rendering/TileRenderer.h"
 
 namespace atlas {
+/**
+ * @brief This widget renders a map. The map is first rendered into _tile_size
+ * sized square images which are then rendered onto the screen.
+ */
 class MapWidget : public QWidget {
   Q_OBJECT
 
@@ -18,11 +21,20 @@ class MapWidget : public QWidget {
     size_t x, y, zoom;
   };
 
+  enum class Action { NONE, PAN, DRAW };
+
  public:
+  enum class Brush { ADD, SUBTRACT, NOISE, SMOOTHE };
+
   MapWidget(QWidget *parent = nullptr);
   virtual ~MapWidget();
 
   void setMap(std::shared_ptr<Map> map);
+
+  void exportMap(const std::string &path);
+  void setBrush(Brush brush);
+  void setBrushSize(size_t size);
+  size_t brushSize() const;
 
  protected:
   void paintEvent(QPaintEvent *event) override;
@@ -34,6 +46,11 @@ class MapWidget : public QWidget {
   void resizeEvent(QResizeEvent *event) override;
 
  private:
+  void applyBrush(int64_t start_x, int64_t start_y, int64_t stop_x,
+                  int64_t stop_y);
+
+  void invalidateCells(const Map::BoundingBox &aabb);
+
   /**
    * @brief To be run on another thread to continuosly load tiles
    */
@@ -42,35 +59,19 @@ class MapWidget : public QWidget {
   /**
    * @brief Returns an image of the rendererd tile. May return a cached result.
    */
-  std::shared_ptr<QImage> renderTile(size_t col, size_t row, size_t zoom);
-
-  /**
-   * @brief Transforms a map tiles column to a position in world space
-   */
-  double tileXCoordToWorld(size_t coord, size_t zoom) const;
-
-  /**
-   * @brief Transforms a map tiles row to a position in world space
-   */
-  double tileYCoordToWorld(size_t coord, size_t zoom) const;
-
-  /** @brief Transforms a world coordinate to a tile col. May be negative. */
-  int64_t worldXCoordToTile(double world_x, size_t zoom) const;
-
-  /** @brief Transforms a world coordinate to a tile row. May be negative. */
-  int64_t worldYCoordToTile(double world_y, size_t zoom) const;
+  std::shared_ptr<QImage> renderTile(size_t col, size_t row);
 
   /** @brief Converts from the world coordinate system to screen coordinates. */
-  int worldToScreenX(double world_x) const;
+  int64_t worldToScreenX(int64_t world_x) const;
 
   /** @brief Converts from the world coordinate system to screen coordinates. */
-  int worldToScreenY(double world_y) const;
+  int64_t worldToScreenY(int64_t world_y) const;
 
-  /**
-   * @brief Computes the current zoom level that should be used when rendering
-   *        tiles.
-   */
-  size_t currentZoomLevel() const;
+  /** @brief Converts from the world coordinate system to screen coordinates. */
+  int64_t screenToWorldX(int64_t world_x) const;
+
+  /** @brief Converts from the world coordinate system to screen coordinates. */
+  int64_t screenToWorldY(int64_t world_y) const;
 
   std::shared_ptr<Map> _map;
 
@@ -83,12 +84,15 @@ class MapWidget : public QWidget {
   std::shared_ptr<bool> _workers_should_run;
   Semaphore _tiles_to_load;
 
-  bool _is_moving;
+  Action _action;
   int _last_mouse_x, _last_mouse_y;
 
   int _tile_size;
 
   std::unordered_map<size_t, std::shared_ptr<QImage>> _tile_cache;
+
+  Brush _brush;
+  size_t _brush_size;
 };
 
 }  // namespace atlas

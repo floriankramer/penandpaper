@@ -1,60 +1,84 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "OpenSimplexNoise.h"
 
 namespace atlas {
 class Map {
-  struct Cell {
-    int16_t altitude;
-    uint16_t deriv_altitude_x;
-    uint16_t deriv_altitude_y;
+ public:
+  typedef void (Map::*BrushFunction)(int64_t x, int64_t y, double dist,
+                                     int64_t radius);
+  struct BoundingBox {
+    int64_t min_x, min_y, max_x, max_y;
+  };
+
+ private:
+  struct Pixel {
+    uint8_t altitude;
     uint16_t material_index;
     uint16_t nation_index;
   };
-public:
+
+ public:
   Map();
   virtual ~Map();
 
-  // columns and rows need to be powers of 2
-  void initialize(size_t columns, size_t rows, double cell_size);
+  void save(const std::string &path);
+  void load(const std::string &path);
 
-  float altitude(double x, double y) const;
+  /**
+   * @brief Initialize the map. Discards previous map data.
+   */
+  void initialize(size_t width, size_t height, double meter_per_pixel);
 
-  float minAltitude() const;
-  float maxAltitude() const;
-  float seaLevel() const;
+  uint8_t &altitude(size_t x, size_t y);
+  const uint8_t &altitude(size_t x, size_t y) const;
 
-  double cellSize() const;
+  BoundingBox softBrushStroke(int64_t start_x, int64_t start_y, int64_t stop_x,
+                              int64_t stop_y, int64_t radius, bool add);
 
-  size_t rows() const;
-  size_t cols() const;
+  BoundingBox noiseBrushStroke(int64_t start_x, int64_t start_y, int64_t stop_x,
+                               int64_t stop_y, int64_t radius);
 
-  size_t rowsAtZoom(size_t zoom) const;
-  size_t colsAtZoom(size_t zoom) const;
+  BoundingBox smoothBrushStroke(int64_t start_x, int64_t start_y,
+                                int64_t stop_x, int64_t stop_y, int64_t radius);
 
-  float width(size_t zoom = 0) const;
-  float height(size_t zoom = 0) const;
+  size_t widthPixels() const;
+  size_t heightPixels() const;
 
-private:
-  double computeAltitude(double x, double y) const;
+  /**
+   * @brief Returns the size of the map in meters
+   */
+  float widthMeters() const;
 
-  double cellAltitude(int64_t x, int64_t y) const;
+  /**
+   * @brief Returns the height of the map in meters
+   */
+  float heightMeters() const;
 
-  OpenSimplexNoise _noise;
+ private:
+  BoundingBox applyBrush(int64_t start_x, int64_t start_y, int64_t stop_x,
+                         int64_t stop_y, int64_t radius, BrushFunction brush);
 
-  size_t _columns;
-  size_t _rows;
+  template <bool positive>
+  void softBrush(int64_t x, int64_t y, double dist, int64_t radius);
 
-  // Cell size in meters. The entire map is (_columns - 1) * _cell_size wide
-  double _cell_size;
+  void noiseBrush(int64_t x, int64_t y, double dist, int64_t radius);
 
-  std::vector<Cell> _cells;
+  void smoothBrush(int64_t x, int64_t y, double dist, int64_t radius);
 
-  float _min_altitude;
-  float _max_altitude;
-  float _sea_level;
+  BoundingBox strokeAABB(int64_t start_x, int64_t start_y, int64_t stop_x,
+                         int64_t stop_y, int64_t radius) const;
+
+  size_t _width_pixels;
+  size_t _height_pixels;
+  double _meter_per_pixel;
+
+  std::vector<Pixel> _pixels;
+
+  OpenSimplexNoise _brush_noise;
 };
-}
+}  // namespace atlas

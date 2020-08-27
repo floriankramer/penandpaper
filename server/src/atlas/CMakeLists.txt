@@ -30,6 +30,7 @@ add_executable(atlas_gui
   gui/MainWindow.cpp gui/MainWindow.h
   gui/Conversions.cpp gui/Conversions.h
   gui/MapWidget.cpp gui/MapWidget.h
+  gui/BrushPanel.cpp gui/BrushPanel.h
   gui/Camera.cpp gui/Camera.h)
 target_link_directories(atlas_gui PUBLIC core PUBLIC rendering)
 
