@@ -24,7 +24,7 @@ class MapWidget : public QWidget {
   enum class Action { NONE, PAN, DRAW };
 
  public:
-  enum class Brush { ADD, SUBTRACT, NOISE, SMOOTHE };
+  enum class Brush { ADD, SUBTRACT, NOISE, SMOOTHE, SHARPEN };
 
   MapWidget(QWidget *parent = nullptr);
   virtual ~MapWidget();
@@ -33,8 +33,14 @@ class MapWidget : public QWidget {
 
   void exportMap(const std::string &path);
   void setBrush(Brush brush);
+
   void setBrushSize(size_t size);
   size_t brushSize() const;
+
+  void setBrushStrength(float strength);
+  float brushStrength() const;
+
+  void undo();
 
  protected:
   void paintEvent(QPaintEvent *event) override;

@@ -43,11 +43,13 @@ void MainWindow::buildMenu() {
   QMenu *file = menuBar()->addMenu("file");
 
   QAction *newMap = new QAction("New Map");
+  newMap->setShortcut(QKeySequence::New);
   connect(newMap, &QAction::triggered, [this]() { this->newMap(); });
 
   file->addAction(newMap);
 
   QAction *saveMap = new QAction("Save");
+  saveMap->setShortcut(QKeySequence::Save);
   connect(saveMap, &QAction::triggered, [this]() {
     QString path =
         QFileDialog::getSaveFileName(this, "Save", "", "map (*.map)");
@@ -58,6 +60,7 @@ void MainWindow::buildMenu() {
   file->addAction(saveMap);
 
   QAction *loadMap = new QAction("Load");
+  loadMap->setShortcut(QKeySequence::Open);
   connect(loadMap, &QAction::triggered, [this]() {
     QString path =
         QFileDialog::getOpenFileName(this, "Load", "", "map (*.map)");
@@ -77,6 +80,14 @@ void MainWindow::buildMenu() {
     }
   });
   file->addAction(exportMap);
+
+  QMenu *edit = menuBar()->addMenu("Edit");
+
+  QAction *undo = new QAction("undo");
+  undo->setShortcut(QKeySequence::Undo);
+  connect(undo, &QAction::triggered, [this]() { _map_widget->undo(); });
+
+  edit->addAction(undo);
 }
 
 void MainWindow::newMap() {

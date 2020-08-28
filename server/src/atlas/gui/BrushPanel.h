@@ -25,8 +25,10 @@ class BrushPanel : public QWidget {
   QPushButton *_subtract_button;
   QPushButton *_noise_button;
   QPushButton *_smoothe_button;
+  QPushButton *_sharpen_button;
 
   QSlider *_brush_size_slider;
+  QSlider *_brush_strength_slider;
 };
 
 }  // namespace atlas

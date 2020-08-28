@@ -59,6 +59,14 @@ void MapWidget::setBrushSize(size_t size) { _brush_size = size; }
 
 size_t MapWidget::brushSize() const { return _brush_size; }
 
+void MapWidget::setBrushStrength(float strength) {
+  _map->setBrushStrength(strength);
+}
+
+float MapWidget::brushStrength() const { return _map->getBrushStrength(); }
+
+void MapWidget::undo() { invalidateCells(_map->undoTransaction()); }
+
 void MapWidget::resizeEvent(QResizeEvent *event) {
   _camera.setAspectRatio(double(width()) / height());
   repaint();
@@ -77,6 +85,7 @@ void MapWidget::mousePressEvent(QMouseEvent *event) {
   if (event->button() == Qt::MouseButton::MiddleButton) {
     _action = Action::PAN;
   } else if (event->button() == Qt::MouseButton::LeftButton) {
+    _map->startTransaction();
     _action = Action::DRAW;
     int64_t world_x = screenToWorldX(event->x());
     int64_t world_y = screenToWorldY(event->y());
@@ -107,6 +116,7 @@ void MapWidget::mouseMoveEvent(QMouseEvent *event) {
 
 void MapWidget::mouseReleaseEvent(QMouseEvent *event) {
   if (_action == Action::DRAW) {
+    _map->endTransaction();
     int64_t start_x = screenToWorldX(_last_mouse_x);
     int64_t start_y = screenToWorldY(_last_mouse_y);
     int64_t stop_x = screenToWorldX(event->x());
@@ -229,6 +239,10 @@ void MapWidget::applyBrush(int64_t start_x, int64_t start_y, int64_t stop_x,
     case Brush::SMOOTHE:
       changed = _map->smoothBrushStroke(start_x, start_y, stop_x, stop_y,
                                         _brush_size);
+      break;
+    case Brush::SHARPEN:
+      changed = _map->sharpenBrushStroke(start_x, start_y, stop_x, stop_y,
+                                         _brush_size);
       break;
     default:
       changed = _map->softBrushStroke(start_x, start_y, stop_x, stop_y,
