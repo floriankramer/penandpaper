@@ -416,4 +416,12 @@ void Map::sharpenBrush(int64_t x, int64_t y, double dist, int64_t radius) {
   current = (val + 1) * 127;
 }
 
+void Map::addObjectDistribution(ObjectDistribution distribution) {
+  _distributions.push_back(distribution);
+}
+
+const std::vector<ObjectDistribution> &Map::objectDistributions() const {
+  return _distributions;
+}
+
 }  // namespace atlas

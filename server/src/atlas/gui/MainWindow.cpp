@@ -37,6 +37,14 @@ void MainWindow::buildUi() {
   QDockWidget *brush_dock = new QDockWidget("Brushes", this);
   brush_dock->setWidget(_brush_panel);
   addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, brush_dock);
+
+  _object_panel = new ObjectPanel();
+  _object_panel->setMapWidget(_map_widget);
+  _object_panel->setMap(_map);
+
+  QDockWidget *object_dock = new QDockWidget("Objects", this);
+  object_dock->setWidget(_object_panel);
+  addDockWidget(Qt::DockWidgetArea::RightDockWidgetArea, object_dock);
 }
 
 void MainWindow::buildMenu() {
@@ -67,6 +75,7 @@ void MainWindow::buildMenu() {
     if (path.size() > 0) {
       _map->load(path.toUtf8().constData());
       _map_widget->setMap(_map);
+      _object_panel->setMap(_map);
     }
   });
   file->addAction(loadMap);
@@ -123,6 +132,7 @@ void MainWindow::newMap() {
     int height = height_edit->text().toInt();
     _map->initialize(width, height, 1);
     _map_widget->setMap(_map);
+    _object_panel->setMap(_map);
   }
 }
 }  // namespace atlas

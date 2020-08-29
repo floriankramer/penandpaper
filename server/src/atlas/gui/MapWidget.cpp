@@ -67,6 +67,11 @@ float MapWidget::brushStrength() const { return _map->getBrushStrength(); }
 
 void MapWidget::undo() { invalidateCells(_map->undoTransaction()); }
 
+void MapWidget::invalidateObjectLayer() {
+  // TODO: store separate tiles for the map and the object layer.
+  _tile_cache.clear();
+}
+
 void MapWidget::resizeEvent(QResizeEvent *event) {
   _camera.setAspectRatio(double(width()) / height());
   repaint();

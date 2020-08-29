@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Image.h"
+#include "core/Image.h"
 #include "core/Map.h"
 
 namespace atlas {

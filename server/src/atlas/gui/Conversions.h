@@ -1,6 +1,6 @@
 #pragma once
 #include <QImage>
-#include "rendering/Image.h"
+#include "core/Image.h"
 
 namespace atlas {
 

@@ -81,6 +81,9 @@ endif ()
 # penandpaper
 #==============================================================================
 
+add_library(penandpaper-utils STATIC
+  utils/File.cpp utils/File.h)
+
 if (BUILD_ATLAS_MODULE)
   add_subdirectory(atlas)
 endif ()
@@ -116,7 +119,6 @@ add_executable(penandpaper-server main.cpp
   Os.cpp Os.h
   Plugin.cpp Plugin.h
   PluginManager.cpp PluginManager.h
-  File.cpp File.h
   LuaScript.cpp LuaScript.h
   ${SQLITE_SRC_FILES})
 
@@ -128,7 +130,7 @@ add_executable(markdown markdown_main.cpp
   Markdown.cpp Markdown.h
   MarkdownNode.cpp MarkdownNode.h)
 
-target_link_libraries(penandpaper-server building geometry ${LUA_LIBRARIES} OpenSSL::SSL ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(penandpaper-server building geometry penandpaper-utils ${LUA_LIBRARIES} OpenSSL::SSL ${CMAKE_THREAD_LIBS_INIT})
 if (NOT WIN32)
     target_link_libraries(penandpaper-server sqlite3)
 else()

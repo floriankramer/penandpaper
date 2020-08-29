@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "OpenSimplexNoise.h"
+#include "ObjectDistribution.h"
 
 namespace atlas {
 class Map {
@@ -87,6 +88,9 @@ class Map {
    */
   BoundingBox undoTransaction();
 
+  void addObjectDistribution(ObjectDistribution distribution);
+  const std::vector<ObjectDistribution> &objectDistributions() const;
+
  private:
   BoundingBox applyBrush(int64_t start_x, int64_t start_y, int64_t stop_x,
                          int64_t stop_y, int64_t radius, BrushFunction brush);
@@ -136,5 +140,7 @@ class Map {
 
   Transaction _current_transaction;
   std::vector<Transaction> _undo_stack;
+
+  std::vector<ObjectDistribution> _distributions;
 };
 }  // namespace atlas

@@ -40,6 +40,14 @@ Image TileRenderer::renderTile(const Map *map, size_t min_x, size_t min_y,
 
     img(px, py) = color;
   }
+
+  for (const ObjectDistribution &dist : map->objectDistributions()) {
+    for (const std::array<int64_t, 2> &point : dist.getPoints()) {
+      img.draw(dist.img(), point[0] - min_x - dist.img().width() / 2,
+               point[1] - min_y - dist.img().height() / 2);
+    }
+  }
+
   // img.save("/tmp/tile.png");
   return img;
 }

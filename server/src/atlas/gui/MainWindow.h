@@ -5,7 +5,9 @@
 
 #include "BrushPanel.h"
 #include "MapWidget.h"
+#include "ObjectPanel.h"
 #include "core/Map.h"
+#include "core/ObjectIndex.h"
 
 namespace atlas {
 class MainWindow : public QMainWindow {
@@ -21,6 +23,7 @@ class MainWindow : public QMainWindow {
 
   MapWidget *_map_widget;
   BrushPanel *_brush_panel;
+  ObjectPanel *_object_panel;
 
   std::shared_ptr<Map> _map;
 };

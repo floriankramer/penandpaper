@@ -12,12 +12,12 @@ class Image {
   };
 
   Image();
-  Image(uint32_t width, uint32_t height);
-  Image(uint32_t width, uint32_t height, Pixel color);
+  Image(int64_t width, int64_t height);
+  Image(int64_t width, int64_t height, Pixel color);
   virtual ~Image();
 
-  Pixel &operator()(uint32_t x, uint32_t y);
-  const Pixel &operator()(uint32_t x, uint32_t y) const;
+  Pixel &operator()(int64_t x, int64_t y);
+  const Pixel &operator()(int64_t x, int64_t y) const;
 
   void load(const std::string &path);
   void save(const std::string &path) const;
@@ -25,11 +25,13 @@ class Image {
   Pixel *pixels();
   const Pixel *pixels() const;
 
-  uint32_t width() const;
-  uint32_t height() const;
+  int64_t width() const;
+  int64_t height() const;
 
-private:
-  uint32_t _width, _height;
+  void draw(const Image &other, int64_t x, int64_t y);
+
+ private:
+  int64_t _width, _height;
   std::vector<Pixel> _pixels;
 };
 }  // namespace atlas

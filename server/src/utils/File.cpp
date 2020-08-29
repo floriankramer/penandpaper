@@ -1,6 +1,7 @@
 #include "File.h"
 
 #include <cstring>
+#include <type_traits>
 
 #ifdef linux
 #include <dirent.h>
@@ -24,6 +25,8 @@ std::vector<std::string> File::listDir(const std::string &path) {
     }
     closedir(dir);
   }
+#else
+  std::static_assert(false, "File::listDir is not supported on this platform.");
 #endif
   return entries;
 }
