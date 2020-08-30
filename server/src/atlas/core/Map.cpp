@@ -16,6 +16,10 @@ std::ostream &operator<<(std::ostream &out,
 }
 
 namespace atlas {
+
+const std::string Map::EVENT_NEW_DISTRIBUTION = "new_distribution";
+const std::string Map::EVENT_REMOVED_DISTRIBUTION = "removed_distribution";
+
 Map::Map() : _brush_strength(1) {}
 Map::~Map() {}
 
@@ -418,10 +422,33 @@ void Map::sharpenBrush(int64_t x, int64_t y, double dist, int64_t radius) {
 
 void Map::addObjectDistribution(ObjectDistribution distribution) {
   _distributions.push_back(distribution);
+  _event_bus.trigger(EVENT_NEW_DISTRIBUTION);
+}
+
+void Map::removeObjectDistribution(ObjectDistribution *dist) {
+  for (size_t i = 0; i < _distributions.size(); ++i) {
+    if (&_distributions[i] == dist) {
+      _distributions.erase(_distributions.begin() + i);
+      _event_bus.trigger(EVENT_REMOVED_DISTRIBUTION);
+      return;
+    }
+  }
+}
+
+void Map::removeObjectDistribution(size_t idx) {
+  if (idx < _distributions.size()) {
+    _distributions.erase(_distributions.begin() + idx);
+    _event_bus.trigger(EVENT_REMOVED_DISTRIBUTION);
+  }
 }
 
 const std::vector<ObjectDistribution> &Map::objectDistributions() const {
   return _distributions;
+}
+
+void Map::listenTo(const std::string &event_name,
+                   EventBus::EventHandler handler) {
+  _event_bus.listenTo(event_name, handler);
 }
 
 }  // namespace atlas

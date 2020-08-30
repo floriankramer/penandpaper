@@ -2,6 +2,7 @@
 
 #include <QWidget>
 #include <memory>
+#include <QListWidget>
 
 #include "core/Map.h"
 #include "core/ObjectIndex.h"
@@ -23,10 +24,16 @@ class ObjectPanel : public QWidget {
  private:
   void createUi();
 
+  void updateDistributions();
+
+  void createNewDistribution();
+
   std::shared_ptr<Map> _map;
   MapWidget *_map_widget;
 
   ObjectIndex _object_index;
+
+  QListWidget *_distributions_list = new QListWidget();
 };
 
 }  // namespace atlas

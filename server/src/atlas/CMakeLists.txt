@@ -18,6 +18,7 @@ add_library(atlas_core
   core/OpenSimplexNoise.cpp core/OpenSimplexNoise.h
   core/ObjectIndex.cpp core/ObjectIndex.h
   core/ObjectDistribution.cpp core/ObjectDistribution.h
+  core/EventBus.cpp core/EventBus.h
   core/Image.cpp core/Image.h)
 target_link_libraries(atlas_core penandpaper-utils Threads::Threads)
 

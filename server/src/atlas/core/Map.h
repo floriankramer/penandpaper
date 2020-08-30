@@ -4,8 +4,9 @@
 #include <string>
 #include <vector>
 
-#include "OpenSimplexNoise.h"
+#include "EventBus.h"
 #include "ObjectDistribution.h"
+#include "OpenSimplexNoise.h"
 
 namespace atlas {
 class Map {
@@ -15,6 +16,9 @@ class Map {
   struct BoundingBox {
     int64_t min_x, min_y, max_x, max_y;
   };
+
+  static const std::string EVENT_NEW_DISTRIBUTION;
+  static const std::string EVENT_REMOVED_DISTRIBUTION;
 
  private:
   struct Pixel {
@@ -89,7 +93,11 @@ class Map {
   BoundingBox undoTransaction();
 
   void addObjectDistribution(ObjectDistribution distribution);
+  void removeObjectDistribution(ObjectDistribution *dist);
+  void removeObjectDistribution(size_t idx);
   const std::vector<ObjectDistribution> &objectDistributions() const;
+
+  void listenTo(const std::string &event_name, EventBus::EventHandler handler);
 
  private:
   BoundingBox applyBrush(int64_t start_x, int64_t start_y, int64_t stop_x,
@@ -142,5 +150,7 @@ class Map {
   std::vector<Transaction> _undo_stack;
 
   std::vector<ObjectDistribution> _distributions;
+
+  EventBus _event_bus;
 };
 }  // namespace atlas
