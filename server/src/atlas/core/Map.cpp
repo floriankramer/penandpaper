@@ -20,7 +20,7 @@ namespace atlas {
 const std::string Map::EVENT_NEW_DISTRIBUTION = "new_distribution";
 const std::string Map::EVENT_REMOVED_DISTRIBUTION = "removed_distribution";
 
-Map::Map() : _brush_strength(1) {}
+Map::Map() : _brush_strength(1), _debug_index(100, 100, 10, 10) {}
 Map::~Map() {}
 
 void Map::initialize(size_t width, size_t height, double meter_per_pixel) {

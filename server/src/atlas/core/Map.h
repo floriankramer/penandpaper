@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "EventBus.h"
+#include "GridIndex.h"
 #include "ObjectDistribution.h"
 #include "OpenSimplexNoise.h"
 
@@ -152,5 +153,7 @@ class Map {
   std::vector<ObjectDistribution> _distributions;
 
   EventBus _event_bus;
+
+  GridIndex<Image *> _debug_index;
 };
 }  // namespace atlas

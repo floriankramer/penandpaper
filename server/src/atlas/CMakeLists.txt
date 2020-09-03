@@ -19,7 +19,8 @@ add_library(atlas_core
   core/ObjectIndex.cpp core/ObjectIndex.h
   core/ObjectDistribution.cpp core/ObjectDistribution.h
   core/EventBus.cpp core/EventBus.h
-  core/Image.cpp core/Image.h)
+  core/Image.cpp core/Image.h
+  core/GridIndex.cpp core/GridIndex.h)
 target_link_libraries(atlas_core penandpaper-utils Threads::Threads)
 
 add_library(atlas_rendering
