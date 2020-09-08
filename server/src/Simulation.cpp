@@ -291,6 +291,9 @@ WebSocketServer::Response Simulation::onChat(const Packet &j) {
       } else if (cmd == "/help") {
         resp_json["data"]["message"] = cmdHelp(sender, uid, parts);
         resp.type = WebSocketServer::ResponseType::RETURN;
+      } else if (cmd == "/audio") {
+        resp_json["data"]["message"] = cmdAudio(sender, uid, parts);
+        resp.type = WebSocketServer::ResponseType::RETURN;
       } else if (cmd == "/gm") {
         if (player) {
           player->permissions = Permissions::GAMEMASTER;
@@ -503,8 +506,8 @@ std::string Simulation::cmdHelp(const std::string &who, const std::string &uid,
                                 const std::vector<std::string> &cmd) {
   std::stringstream s;
   s << "Commands: <br/>";
-  s << "/roll <die 1> ... - Roll dice with a public result<br/>";
-  s << "/rollp <die 1> ... - Roll dice with a private result<br/>";
+  s << "/roll <die> ... - Roll dice with a public result<br/>";
+  s << "/rollp <die> ... - Roll dice with a private result<br/>";
   s << "/setname <newname> - Change your username.<br/>";
 
   Player *p = getPlayer(uid);
@@ -512,9 +515,52 @@ std::string Simulation::cmdHelp(const std::string &who, const std::string &uid,
     s << "<br/>GM Commands:<br/>";
     s << "/settiles <path> - Loads a tile map.<br/>";
     s << "/cleartiles <path> - Clears a tile map.<br/>";
+    s << "/audio <play|stream|stopstreams> [src] - Control the audio "
+         "server.<br/>";
   }
 
   return s.str();
+}
+
+std::string Simulation::cmdAudio(const std::string &who, const std::string &uid,
+                                 const std::vector<std::string> &cmd) {
+  using nlohmann::json;
+  if (cmd.size() < 2) {
+  }
+  if (cmd[1] == "play") {
+    if (cmd.size() != 3) {
+      return "Expected a command format of /audio play <src>";
+    }
+    const std::string &src = cmd[2];
+    json packet;
+    packet["type"] = "PlayAudio";
+    json data;
+    data["src"] = src;
+    packet["data"] = data;
+    _web_socket_server->broadcast(packet.dump());
+    return "Playing " + src;
+  } else if (cmd[1] == "stream") {
+    if (cmd.size() != 3) {
+      return "Expected a command format of /audio stream <src>";
+    }
+    const std::string &src = cmd[2];
+    json packet;
+    packet["type"] = "StreamAudio";
+    json data;
+    data["src"] = src;
+    packet["data"] = data;
+    _web_socket_server->broadcast(packet.dump());
+    return "Streaming " + src;
+  } else if (cmd[1] == "stopstreams") {
+    json packet;
+    packet["type"] = "StopAudioStreams";
+    json data;
+    packet["data"] = data;
+    _web_socket_server->broadcast(packet.dump());
+    return "Stopped all audio streams";
+  } else {
+    return "Expected one of play|stream|stopstreams.";
+  }
 }
 
 std::vector<std::string> Simulation::splitWs(const std::string &s) {

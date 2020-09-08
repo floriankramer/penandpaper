@@ -82,6 +82,8 @@ class Simulation {
                                const std::vector<std::string> &cmd);
   std::string cmdHelp(const std::string &who, const std::string &uid,
                       const std::vector<std::string> &cmd);
+  std::string cmdAudio(const std::string &who, const std::string &uid,
+                      const std::vector<std::string> &cmd);
 
   Color nextColor();
 

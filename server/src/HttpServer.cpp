@@ -204,6 +204,8 @@ std::string HttpServer::guessMimeType(const std::string &path,
     return "image/svg+xml";
   } else if (ending == "json") {
     return "application/json";
+  } else if (ending == "ogg") {
+    return "audio/ogg";
   } else {
     return "application/octet-stream";
   }

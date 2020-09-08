@@ -68,6 +68,16 @@ export default class Chat extends Vue {
     this.chatArea = this.$el.getElementsByClassName('chat-text').item(0) as HTMLDivElement
   }
 
+  escapeText (text: string) : string {
+    return text.replace(/<br\/>/g, '\n')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;')
+      .replace(/\n/g, '<br/>')
+  }
+
   onMessage (data : any) {
     let scroll = false
     if (this.chatArea !== undefined) {
@@ -77,7 +87,7 @@ export default class Chat extends Vue {
     }
     let m = new Message()
     m.from = data['sender']
-    m.text = data['message']
+    m.text = this.escapeText(data['message'])
     m.id = this.nextId
     this.nextId++
     this.chatHistory.push(m)
@@ -124,6 +134,14 @@ export default class Chat extends Vue {
   }
 
   send () {
+    if (this.currentText.length > 0 && this.currentText[0] === '/') {
+      // The text is a command
+      if (this.currentText.startsWith('/roll ')) {
+        let i: number = Math.floor(Math.random() * 4) + 1
+        eventBus.$emit('/audio/play', '/audio/ui/dice_' + i + '.ogg')
+      }
+    }
+
     eventBus.$emit('/chat/send', this.currentText)
 
     if (this.historyPos !== 0) {

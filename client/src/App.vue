@@ -47,6 +47,7 @@ import PlayerList from './components/PlayerList.vue'
 import Wiki from './components/Wiki.vue'
 import Menu, { MenuGroup, MenuItem, MenuKeyShortcut } from './components/Menu.vue'
 import Notification from './components/Notification.vue'
+import AudioServer from './audio/AudioServer'
 
 import { MutationPayload } from 'vuex'
 
@@ -125,10 +126,26 @@ export default class App extends Vue {
 
   notificationText: string = ''
 
+  audioServer: AudioServer = new AudioServer()
+
   plugins: Plugin[] = []
   pluginMenu: MenuGroup = {
     text: 'plugins',
     items: []
+  }
+
+  audioMenu: MenuGroup = {
+    text: 'audio',
+    items: [
+      {
+        id: 'audio-mute',
+        text: 'mute'
+      },
+      {
+        id: 'audio-unmute',
+        text: 'unmute'
+      }
+    ]
   }
 
   // The non gm menu
@@ -159,6 +176,7 @@ export default class App extends Vue {
         }
       ]
     },
+    this.audioMenu,
     this.pluginMenu
   ]
 
@@ -428,6 +446,7 @@ export default class App extends Vue {
             }
           ]
         },
+        this.audioMenu,
         this.pluginMenu
       ]
     }
@@ -541,6 +560,10 @@ export default class App extends Vue {
       if (panel !== undefined) {
         this.togglePanel(panel)
       }
+    } else if (id === 'audio-mute') {
+      eventbus.$emit('/audio/mute', true)
+    } else if (id === 'audio-unmute') {
+      eventbus.$emit('/audio/mute', false)
     } else {
       eventbus.$emit('/menu/' + id)
     }

@@ -145,6 +145,12 @@ export default class Server implements PacketDispatcher {
         this.onServerClearTiles(data)
       } else if (type === 'PlayerList') {
         this.onServerPlayerList(data)
+      } else if (type === 'PlayAudio') {
+        this.onServerPlayAudio(data)
+      } else if (type === 'StreamAudio') {
+        this.onServerStreamAudio(data)
+      } else if (type === 'StopAudioStreams') {
+        this.onServerStopAudioStreams(data)
       } else if (this.buildingServer.onmessage(type, data)) {
         // the message was handled by the buildingServer
       } else if (this.pluginListeners.has(type)) {
@@ -467,6 +473,20 @@ export default class Server implements PacketDispatcher {
         this.players.push(p)
       })
       eventBus.$emit('/server/players/list', this.players)
+    }
+
+    onServerPlayAudio (data: any) {
+      var src: string = data.src
+      eventBus.$emit('/audio/play', src)
+    }
+
+    onServerStreamAudio (data: any) {
+      var src: string = data.src
+      eventBus.$emit('/audio/stream', src)
+    }
+
+    onServerStopAudioStreams (data: any) {
+      eventBus.$emit('/audio/stop-streams')
     }
 
     findTokenById (id: number) : Sim.Token | undefined {
