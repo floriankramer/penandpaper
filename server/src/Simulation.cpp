@@ -443,6 +443,18 @@ WebSocketServer::Response Simulation::onSetUsername(const Packet &j) {
 
 std::string Simulation::cmdRollDice(const std::string &who,
                                     const std::vector<std::string> &cmd) {
+  using nlohmann::json;
+  // Trigger a roll dice sound
+  json packet;
+  packet["type"] = "PlayAudio";
+  json data;
+  unsigned int seed = time(NULL);
+  int sound_variant = (rand_r(&seed) % 4) + 1;
+  data["src"] = "/audio/ui/dice_" + std::to_string(sound_variant) + ".ogg";
+  packet["data"] = data;
+  _web_socket_server->broadcast(packet.dump());
+
+  // Roll the dice
   std::ostringstream out;
   if (cmd.size() == 1) {
     out << who << " tried to roll an empty hand of dice.";
@@ -528,26 +540,32 @@ std::string Simulation::cmdAudio(const std::string &who, const std::string &uid,
   if (cmd.size() < 2) {
   }
   if (cmd[1] == "play") {
-    if (cmd.size() != 3) {
-      return "Expected a command format of /audio play <src>";
+    if (cmd.size() != 3 && cmd.size() != 4) {
+      return "Expected a command format of /audio play <src> [volume 0-1]";
     }
     const std::string &src = cmd[2];
     json packet;
     packet["type"] = "PlayAudio";
     json data;
     data["src"] = src;
+    if (cmd.size() == 4) {
+      data["volume"] = std::stof(cmd[3]);
+    }
     packet["data"] = data;
     _web_socket_server->broadcast(packet.dump());
     return "Playing " + src;
   } else if (cmd[1] == "stream") {
-    if (cmd.size() != 3) {
-      return "Expected a command format of /audio stream <src>";
+    if (cmd.size() != 3 && cmd.size() != 4) {
+      return "Expected a command format of /audio stream <src> [volume 0-1]";
     }
     const std::string &src = cmd[2];
     json packet;
     packet["type"] = "StreamAudio";
     json data;
     data["src"] = src;
+    if (cmd.size() == 4) {
+      data["volume"] = std::stof(cmd[3]);
+    }
     packet["data"] = data;
     _web_socket_server->broadcast(packet.dump());
     return "Streaming " + src;

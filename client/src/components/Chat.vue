@@ -134,14 +134,6 @@ export default class Chat extends Vue {
   }
 
   send () {
-    if (this.currentText.length > 0 && this.currentText[0] === '/') {
-      // The text is a command
-      if (this.currentText.startsWith('/roll ')) {
-        let i: number = Math.floor(Math.random() * 4) + 1
-        eventBus.$emit('/audio/play', '/audio/ui/dice_' + i + '.ogg')
-      }
-    }
-
     eventBus.$emit('/chat/send', this.currentText)
 
     if (this.historyPos !== 0) {

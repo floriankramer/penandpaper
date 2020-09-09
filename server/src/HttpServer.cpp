@@ -206,6 +206,12 @@ std::string HttpServer::guessMimeType(const std::string &path,
     return "application/json";
   } else if (ending == "ogg") {
     return "audio/ogg";
+  } else if (ending == "opus") {
+    return "audio/opus";
+  } else if (ending == "mp3") {
+    return "audio/mpeg";
+  } else if (ending == "wav") {
+    return "audio/wav";
   } else {
     return "application/octet-stream";
   }

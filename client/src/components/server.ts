@@ -477,12 +477,20 @@ export default class Server implements PacketDispatcher {
 
     onServerPlayAudio (data: any) {
       var src: string = data.src
-      eventBus.$emit('/audio/play', src)
+      let volume = 1
+      if (data.volume !== undefined) {
+        volume = data.volume
+      }
+      eventBus.$emit('/audio/play', src, volume)
     }
 
     onServerStreamAudio (data: any) {
       var src: string = data.src
-      eventBus.$emit('/audio/stream', src)
+      let volume = 1
+      if (data.volume !== undefined) {
+        volume = data.volume
+      }
+      eventBus.$emit('/audio/stream', src, volume)
     }
 
     onServerStopAudioStreams (data: any) {

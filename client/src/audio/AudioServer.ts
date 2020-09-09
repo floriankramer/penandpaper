@@ -9,14 +9,14 @@ export default class AudioServer {
 
   constructor () {
     console.log('registering audio events.')
-    eventBus.$on('/audio/play', (src: string) => { this.play(src) })
-    eventBus.$on('/audio/stream', (src: string) => { this.stream(src) })
+    eventBus.$on('/audio/play', (src: string, volume: number = 1) => { this.play(src, volume) })
+    eventBus.$on('/audio/stream', (src: string, volume: number = 1) => { this.stream(src, volume) })
     eventBus.$on('/audio/stop-streams', () => { this.stopAllStreams() })
     eventBus.$on('/audio/mute', (m: boolean) => { this.setMuted(m) })
   }
 
   // Play a short sound that should be cached
-  play (src: string) {
+  play (src: string, volume: number = 1) {
     if (this.muted) {
       return
     }
@@ -29,17 +29,19 @@ export default class AudioServer {
       audio = new Audio(src)
       this.cache.set(src, audio)
     }
+    audio.volume = volume
     audio.play()
   }
 
   // Play a long piece of music that should not be cached explicitly
-  stream (src: string) {
+  stream (src: string, volume: number = 1) {
     let audio = new Audio(src)
     this.streams.push(audio)
     audio.loop = true
     audio.addEventListener('error', () => {
       this.stopStream(audio)
     })
+    audio.volume = volume
     audio.play()
   }
 
