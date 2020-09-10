@@ -23,7 +23,7 @@
 
 #include <regex>
 
-#include "Authenticator.h"
+#include "UserManager.h"
 
 class HttpServer {
  public:
@@ -34,7 +34,7 @@ class HttpServer {
                            httplib::Response &resp) = 0;
   };
 
-  HttpServer(std::shared_ptr<Authenticator> authenticator,
+  HttpServer(std::shared_ptr<UserManager> authenticator,
              const std::string &base_dir, bool do_keycheck = true);
 
   void registerRequestHandler(const std::string &path, RequestType type,
@@ -55,7 +55,7 @@ class HttpServer {
       _get_request_handlers;
   std::vector<std::pair<std::regex, std::shared_ptr<RequestHandler>>>
       _post_request_handlers;
-  std::shared_ptr<Authenticator> _authenticator;
+  std::shared_ptr<UserManager> user_manager;
   std::unique_ptr<httplib::SSLServer> _server;
   bool _do_keycheck;
   std::string _base_dir;

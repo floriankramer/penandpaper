@@ -34,7 +34,7 @@ std::string dbDataTypeName(DbDataType t) {
     case DbDataType::AUTO_INCREMENT:
       return "INTEGER PRIMARY KEY";
   }
-  return "";
+  return "UNKNOWN";
 }
 
 // =============================================================================
@@ -84,6 +84,75 @@ DbVariant &DbVariant::operator=(const DbVariant &other) {
   return *this;
 }
 
+int64_t &DbVariant::asInteger() {
+  if (type != DbDataType::INTEGER) {
+    throw std::runtime_error(
+        "DbVariant::asString This variant is not an integer, but a " +
+        dbDataTypeName(type));
+  }
+  return integer;
+}
+const int64_t &DbVariant::asInteger() const {
+  if (type != DbDataType::INTEGER) {
+    throw std::runtime_error(
+        "DbVariant::asString This variant is not an integer, but a " +
+        dbDataTypeName(type));
+  }
+  return integer;
+}
+
+double &DbVariant::asReal() {
+  if (type != DbDataType::REAL) {
+    throw std::runtime_error(
+        "DbVariant::asString This variant is not a real, but a " +
+        dbDataTypeName(type));
+  }
+  return real;
+}
+const double &DbVariant::asReal() const {
+  if (type != DbDataType::REAL) {
+    throw std::runtime_error(
+        "DbVariant::asString This variant is not a real, but a " +
+        dbDataTypeName(type));
+  }
+  return real;
+}
+
+std::string &DbVariant::asText() {
+  if (type != DbDataType::TEXT) {
+    throw std::runtime_error(
+        "DbVariant::asString This variant is not a string, but a " +
+        dbDataTypeName(type));
+  }
+  return text;
+}
+
+const std::string &DbVariant::asText() const {
+  if (type != DbDataType::TEXT) {
+    throw std::runtime_error(
+        "DbVariant::asString This variant is not a string, but a " +
+        dbDataTypeName(type));
+  }
+  return text;
+}
+
+std::vector<uint8_t> &DbVariant::asBlob() {
+  if (type != DbDataType::BLOB) {
+    throw std::runtime_error(
+        "DbVariant::asString This variant is not a blob, but a " +
+        dbDataTypeName(type));
+  }
+  return blob;
+}
+const std::vector<uint8_t> &DbVariant::asBlob() const {
+  if (type != DbDataType::BLOB) {
+    throw std::runtime_error(
+        "DbVariant::asString This variant is not a blob, but a " +
+        dbDataTypeName(type));
+  }
+  return blob;
+}
+
 // =============================================================================
 // DbCursor
 // =============================================================================
@@ -91,7 +160,7 @@ DbVariant &DbVariant::operator=(const DbVariant &other) {
 DbCursor::DbCursor() : _db(NULL), _stmt(NULL), _done(true) {}
 
 DbCursor::DbCursor(sqlite3_stmt *stmt, sqlite3 *db)
-    : _stmt(stmt), _db(db), _done(false) {
+    : _db(db), _stmt(stmt), _done(false) {
   // load the first row
   next();
 }
@@ -111,27 +180,34 @@ void DbCursor::next() {
 bool DbCursor::done() const { return _done; }
 
 DbVariant DbCursor::col(int index) {
-  sqlite3_value *val = sqlite3_column_value(_stmt, index);
-  int type = sqlite3_value_type(val);
+  int cols = sqlite3_column_count(_stmt);
+  if (index < 0 || index >= cols) {
+    throw std::runtime_error(
+        "DbCursor::col: Attempted to access a column outside of the range.");
+  }
+  int type = sqlite3_column_type(_stmt, index);
   switch (type) {
     case SQLITE_INTEGER:
-      return int64_t(sqlite3_value_int(val));
+      return int64_t(sqlite3_column_int64(_stmt, index));
     case SQLITE_NULL:
       return DbVariant();
     case SQLITE_FLOAT:
-      return sqlite3_value_double(val);
+      return sqlite3_column_double(_stmt, index);
     case SQLITE_TEXT: {
-      int size = sqlite3_value_bytes(val);
+      int size = sqlite3_column_bytes(_stmt, index);
       return std::string(
-          reinterpret_cast<const char *>(sqlite3_value_text(val)), size);
+          reinterpret_cast<const char *>(sqlite3_column_text(_stmt, index)),
+          size);
     }
     case SQLITE_BLOB: {
-      int size = sqlite3_value_bytes(val);
+      int size = sqlite3_column_bytes(_stmt, index);
       const uint8_t *data =
-          reinterpret_cast<const uint8_t *>(sqlite3_value_blob(val));
+          reinterpret_cast<const uint8_t *>(sqlite3_column_blob(_stmt, index));
       return std::vector<uint8_t>(data, data + size);
     }
     default:
+      LOG_WARN << "DbCursor::col: Unknown sqlite3 type in column " << index
+               << " " << type << LOG_END;
       return DbVariant();
   }
 }
@@ -539,6 +615,21 @@ Table Database::createTable(const std::string &name,
   Table table(name, _db);
   table.setColumns(types);
   return table;
+}
+
+bool Database::tableExists(const std::string &name) {
+  using CType = DbCondition::Type;
+  Table schema("sqlite_schema", _db);
+  const std::vector<DbColumn> types = {{"type", DbDataType::TEXT},
+                                       {"name", DbDataType::TEXT},
+                                       {"tbl_name", DbDataType::TEXT},
+                                       {"rootpage", DbDataType::INTEGER},
+                                       {"sql", DbDataType::TEXT}};
+  schema.setColumns(types);
+  DbCursor c =
+      schema.query(DbCondition("type", CType::EQ, std::string("table")) &&
+                   DbCondition("name", CType::EQ, name));
+  return !c.done();
 }
 
 Database::~Database() {

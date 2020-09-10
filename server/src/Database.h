@@ -18,9 +18,9 @@
 
 #include <sqlite3.h>
 
+#include <sstream>
 #include <string>
 #include <vector>
-#include <sstream>
 
 enum class DbDataType { NULL_T, INTEGER, REAL, TEXT, BLOB, AUTO_INCREMENT };
 
@@ -40,6 +40,18 @@ class DbVariant {
   DbVariant(const DbVariant &other);
 
   DbVariant &operator=(const DbVariant &other);
+
+  int64_t &asInteger();
+  const int64_t &asInteger() const;
+
+  double &asReal();
+  const double &asReal() const;
+
+  std::string &asText();
+  const std::string &asText() const;
+
+  std::vector<uint8_t> &asBlob();
+  const std::vector<uint8_t> &asBlob() const;
 
   DbDataType type;
   union {
@@ -63,18 +75,8 @@ class DbColumnUpdate {
 };
 
 class DbCondition {
-public:
-  enum class Type {
-    ALL,
-    AND,
-    OR,
-    NOT,
-    EQ,
-    GT,
-    LT,
-    GE,
-    LE
-  };
+ public:
+  enum class Type { ALL, AND, OR, NOT, EQ, GT, LT, GE, LE };
 
   DbCondition();
   DbCondition(const std::string &column, Type type, const DbVariant &value);
@@ -94,7 +96,7 @@ public:
 using DBCT = DbCondition::Type;
 
 class DbSqlBuilder {
-public:
+ public:
   DbSqlBuilder &operator<<(const std::string &s);
   DbSqlBuilder &operator<<(const DbVariant &v);
   DbSqlBuilder &operator<<(const DbColumnUpdate &v);
@@ -102,7 +104,7 @@ public:
   std::string str() const;
   const std::vector<DbVariant> &data() const;
 
-private:
+ private:
   std::ostringstream _str;
   std::vector<DbVariant> _data;
 };
@@ -135,7 +137,8 @@ class Table {
   void insert(const std::vector<DbVariant> &data);
   void erase(const DbCondition &where);
   DbCursor query(const DbCondition &where = DbCondition());
-  void update(const std::vector<DbColumnUpdate> &updates, const DbCondition &where);
+  void update(const std::vector<DbColumnUpdate> &updates,
+              const DbCondition &where);
 
  private:
   int bindValues(sqlite3_stmt *stmt, const DbSqlBuilder &builder);
@@ -151,8 +154,14 @@ class Database {
   Database(const std::string &database_path);
   virtual ~Database();
 
+  /**
+   * @brief Creates the table in the database if it doesn't exist or returns
+   * the existing table.
+   */
   Table createTable(const std::string &name,
                     const std::vector<DbColumn> &types);
+
+  bool tableExists(const std::string &name);
 
  private:
   sqlite3 *_db;

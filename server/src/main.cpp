@@ -21,12 +21,12 @@
 #include <functional>
 #include <memory>
 
-#include "Authenticator.h"
 #include "Database.h"
 #include "HttpServer.h"
 #include "Logger.h"
 #include "PluginManager.h"
 #include "Simulation.h"
+#include "UserManager.h"
 #include "WebSocketServer.h"
 #include "Wiki.h"
 
@@ -78,14 +78,14 @@ int main(int argc, char **argv) {
 
   std::shared_ptr<PluginManager> plugins = std::make_shared<PluginManager>();
 
-  std::shared_ptr<Authenticator> authenticator =
-      std::make_shared<Authenticator>();
-
   Database db("./database.sqlite3");
+  std::shared_ptr<UserManager> user_manager =
+      std::make_shared<UserManager>(&db);
+
   std::shared_ptr<Wiki> wiki = std::make_shared<Wiki>(&db);
   Simulation sim;
   WebSocketServer wss(
-      authenticator,
+      user_manager,
       std::bind(&Simulation::onMessage, &sim, std::placeholders::_1),
       std::bind(&Simulation::onNewClient, &sim), settings.base_dir);
   sim.setWebSocketServer(&wss);
@@ -94,7 +94,7 @@ int main(int argc, char **argv) {
     wss.disableKeyCheck();
   }
 
-  HttpServer server(authenticator, settings.base_dir, settings.do_keycheck);
+  HttpServer server(user_manager, settings.base_dir, settings.do_keycheck);
   server.registerRequestHandler("/wiki/.*", HttpServer::RequestType::GET, wiki);
   server.registerRequestHandler("/wiki/.*", HttpServer::RequestType::POST,
                                 wiki);

@@ -38,6 +38,27 @@ uint8_t BASE64_DECODER[] = {
     0,  0,  26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
     43, 44, 45, 46, 47, 48, 49, 50, 51, 0,  0,  0,  0,  0};
 
+std::vector<char> base16Encode(const void *data, size_t length) {
+  std::vector<char> encoded;
+  encoded.resize(length * 2);
+  unsigned char *usrc = (unsigned char *)(data);
+  for (size_t i = 0; i < length; ++i) {
+    uint8_t upper = usrc[i] >> 4;
+    if (upper > 9) {
+      encoded[i * 2] = 'A' + (upper - 10);
+    } else {
+      encoded[i * 2] = '0' + upper;
+    }
+    uint8_t lower = usrc[i] & 0xF;
+    if (lower > 9) {
+      encoded[i * 2 + 1] = 'A' + (lower - 10);
+    } else {
+      encoded[i * 2 + 1] = '0' + lower;
+    }
+  }
+  return encoded;
+}
+
 void base64Encode3(const void *src, char *dest) {
   unsigned char *usrc = (unsigned char *)(src);
   // The first 6 bits
@@ -59,6 +80,11 @@ void base64Encode3(const void *src, char *dest) {
   *dest = BASE64_ENCODER[codepoint3];
   dest++;
   *dest = BASE64_ENCODER[codepoint4];
+}
+
+std::string base64EncodeStr(const void *data, size_t length) {
+  std::vector<char> encoded = base64Encode(data, length);
+  return std::string(encoded.begin(), encoded.end());
 }
 
 std::vector<char> base64Encode(const void *data, size_t length) {

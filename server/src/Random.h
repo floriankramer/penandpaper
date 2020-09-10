@@ -16,9 +16,12 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 class Random {
-public:
+ public:
+  static std::vector<char> secureRandomBytes(size_t length);
+
   /**
    * @brief Generate a random string using urand. Will block until urand is
    *        initialized. The string will be length characters long, with every

@@ -112,7 +112,7 @@ add_executable(penandpaper-server main.cpp
   Database.cpp Database.h
   MarkdownNode.cpp MarkdownNode.h
   Markdown.cpp Markdown.h
-  Authenticator.cpp Authenticator.h
+  UserManager.cpp UserManager.h
   Random.cpp Random.h
   QGramIndex.cpp QGramIndex.h
   BTree.cpp BTree.h
@@ -130,7 +130,15 @@ add_executable(markdown markdown_main.cpp
   Markdown.cpp Markdown.h
   MarkdownNode.cpp MarkdownNode.h)
 
-target_link_libraries(penandpaper-server building geometry penandpaper-utils ${LUA_LIBRARIES} OpenSSL::SSL ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(penandpaper-server
+  building
+  geometry
+  penandpaper-utils
+  sodium
+  ${LUA_LIBRARIES}
+  OpenSSL::SSL
+  ${CMAKE_THREAD_LIBS_INIT})
+
 if (NOT WIN32)
     target_link_libraries(penandpaper-server sqlite3)
 else()

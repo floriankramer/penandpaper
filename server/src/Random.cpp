@@ -23,6 +23,19 @@
 
 #include "Util.h"
 
+std::vector<char> Random::secureRandomBytes(size_t length) {
+  std::vector<char> buffer(length);
+#ifndef WIN32
+  getrandom(buffer.data(), buffer.size(), 0);
+#else
+  BCRYPT_ALG_HANDLE handle;
+  BCryptOpenAlgorithmProvider(&handle, BCRYPT_RNG_ALGORITHM, NULL, 0);
+  BCryptGenRandom(handle, reinterpret_cast<PUCHAR>(buffer.data()),
+                  buffer.size(), 0);
+  BCryptCloseAlgorithmProvider(handle, 0);
+#endif
+  return buffer;
+}
 
 std::string Random::secureRandomString(size_t length) {
   size_t num_bytes = length * 3;
@@ -34,7 +47,8 @@ std::string Random::secureRandomString(size_t length) {
 #else
   BCRYPT_ALG_HANDLE handle;
   BCryptOpenAlgorithmProvider(&handle, BCRYPT_RNG_ALGORITHM, NULL, 0);
-  BCryptGenRandom(handle, reinterpret_cast<PUCHAR>(buffer.data()), num_bytes, 0);
+  BCryptGenRandom(handle, reinterpret_cast<PUCHAR>(buffer.data()), num_bytes,
+                  0);
   BCryptCloseAlgorithmProvider(handle, 0);
 #endif
   std::vector<char> encoded = util::base64Encode(buffer.data(), buffer.size());

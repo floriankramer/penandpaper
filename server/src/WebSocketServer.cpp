@@ -22,11 +22,11 @@
 
 #include "Logger.h"
 
-WebSocketServer::WebSocketServer(std::shared_ptr<Authenticator> authenticator,
+WebSocketServer::WebSocketServer(std::shared_ptr<UserManager> authenticator,
                                  OnMsgHandler_t on_msg,
                                  OnConnectHandler_t on_connect,
                                  std::string base_dir)
-    : _authenticator(authenticator),
+    : user_manager(authenticator),
       _on_msg(on_msg),
       _on_connect(on_connect),
       _do_key_check(true),
@@ -48,8 +48,7 @@ void WebSocketServer::run() {
           // Authenticate the new user
           std::string cookies =
               _socket.get_con_from_hdl(conn_hdl)->get_request_header("Cookie");
-          if (_do_key_check &&
-              !_authenticator->authenticateFromCookies(cookies)) {
+          if (_do_key_check && !user_manager->authenticateViaCookies(cookies)) {
             _socket.get_con_from_hdl(conn_hdl)->close(1000,
                                                       "Not Authenticated.");
             return;
@@ -104,7 +103,8 @@ void WebSocketServer::run() {
               asio::ssl::context::no_sslv2 | asio::ssl::context::no_sslv3 |
               asio::ssl::context::no_tlsv1 | asio::ssl::context::single_dh_use);
           ctx->use_certificate_chain_file(_base_dir + "/cert/certificate.pem");
-          ctx->use_private_key_file(_base_dir + "/cert/key.pem", asio::ssl::context::pem);
+          ctx->use_private_key_file(_base_dir + "/cert/key.pem",
+                                    asio::ssl::context::pem);
           ctx->use_tmp_dh_file(_base_dir + "/cert/dh1024.pem");
         } catch (const std::exception &e) {
           LOG_ERROR << "Error during tls initializtion " << e.what() << LOG_END;

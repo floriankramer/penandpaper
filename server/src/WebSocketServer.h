@@ -25,7 +25,7 @@
 #include <websocketpp/config/asio.hpp>
 #include <websocketpp/server.hpp>
 
-#include "Authenticator.h"
+#include "UserManager.h"
 
 class WebSocketServer {
   typedef websocketpp::config::asio_tls ServerConfig;
@@ -49,7 +49,7 @@ class WebSocketServer {
   typedef std::function<Response()> OnConnectHandler_t;
 
  public:
-  WebSocketServer(std::shared_ptr<Authenticator> authenticator,
+  WebSocketServer(std::shared_ptr<UserManager> user_manager,
                   OnMsgHandler_t on_msg, OnConnectHandler_t on_connect,
                   std::string base_dir);
 
@@ -62,7 +62,7 @@ class WebSocketServer {
   void handleResponse(const Response &response,
                       websocketpp::connection_hdl &initiator);
 
-  std::shared_ptr<Authenticator> _authenticator;
+  std::shared_ptr<UserManager> user_manager;
   std::vector<websocketpp::connection_hdl> _connections;
 
   Server _socket;
