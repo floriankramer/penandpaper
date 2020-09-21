@@ -76,6 +76,7 @@ std::string firstWords(const std::string &s, size_t num_words,
 
 
 std::vector<char> base16Encode(const void *data, size_t length);
+std::string base16EncodeStr(const void *data, size_t length);
 
 std::vector<char> base64Encode(const void *data, size_t length);
 std::string base64EncodeStr(const void *data, size_t length);

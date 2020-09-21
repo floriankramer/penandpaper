@@ -25,6 +25,7 @@
     <WorldMap id="map" class="content-area"/>
     <PlayerList id="playerlist"/>
     <Wiki id="wiki"/>
+    <UserManager id="user-manager"/>
     <div v-for="plugin in plugins" v-bind:key="plugin.idx">
       <style>{{plugin.css}}</style>
       <div v-html="plugin.html" v-bind:id="'container-' + plugin.name"></div>
@@ -44,10 +45,12 @@ import WorldMap from './components/WorldMap.vue'
 import CriticalError from './components/CriticalError.vue'
 import Server, { ServerState } from './components/server'
 import PlayerList from './components/PlayerList.vue'
-import Wiki from './components/Wiki.vue'
 import Menu, { MenuGroup, MenuItem, MenuKeyShortcut } from './components/Menu.vue'
 import Notification from './components/Notification.vue'
 import AudioServer from './audio/AudioServer'
+
+import Wiki from './components/Wiki.vue'
+import UserManager from './components/UserManager.vue'
 
 import { MutationPayload } from 'vuex'
 
@@ -99,7 +102,8 @@ class Plugin {
     PlayerList,
     Wiki,
     Menu,
-    Notification
+    Notification,
+    UserManager
   }
 })
 export default class App extends Vue {
@@ -116,6 +120,7 @@ export default class App extends Vue {
 
   toolbarPanel: PanelContainer | null = null
   wikiPanel: PanelContainer | null = null
+  userManagerPanel: PanelContainer | null = null
   mapPanel: PanelContainer | null = null
   chatPanel: PanelContainer | null = null
   playerListPanel: PanelContainer | null = null
@@ -144,6 +149,16 @@ export default class App extends Vue {
       {
         id: 'audio-unmute',
         text: 'unmute'
+      }
+    ]
+  }
+
+  accountMenu: MenuGroup = {
+    text: 'account',
+    items: [
+      {
+        id: 'account-logout',
+        text: 'logout'
       }
     ]
   }
@@ -177,7 +192,8 @@ export default class App extends Vue {
       ]
     },
     this.audioMenu,
-    this.pluginMenu
+    this.pluginMenu,
+    this.accountMenu
   ]
 
   mounted () {
@@ -207,6 +223,18 @@ export default class App extends Vue {
         this.wikiPanel.setTitle('Wiki')
         if (this.isGamemaster) {
           this.dockManager.dockFill(documentNode, this.wikiPanel)
+        }
+      }
+
+      // The user manager
+      let userManagerDiv = document.getElementById('user-manager')
+      if (userManagerDiv !== null) {
+        this.userManagerPanel = new PanelContainer(userManagerDiv, this.dockManager)
+        this.userManagerPanel.setTitle('User Manager')
+        if (this.isGamemaster) {
+          // TODO: this should actually happen if the user has the create-user
+          // or modify permissions permission
+          this.dockManager.dockFill(documentNode, this.userManagerPanel)
         }
       }
 
@@ -378,6 +406,14 @@ export default class App extends Vue {
           this.wikiPanel.close()
         }
       }
+      if (this.userManagerPanel !== null) {
+        if (this.isGamemaster) {
+          let documentNode = this.dockManager.context.model.documentManagerNode
+          this.dockManager.dockFill(documentNode, this.userManagerPanel)
+        } else {
+          this.userManagerPanel.close()
+        }
+      }
 
       // Trigger a round of resizes by firing the dock library's custom resize event
       let dockSpawnResizedEvent = new CustomEvent('DockSpawnResizedEvent', { composed: true, bubbles: true })
@@ -393,6 +429,10 @@ export default class App extends Vue {
             {
               id: 'window-wiki',
               text: 'wiki'
+            },
+            {
+              id: 'window-user-manager',
+              text: 'user manager'
             },
             {
               id: 'window-map',
@@ -447,7 +487,8 @@ export default class App extends Vue {
           ]
         },
         this.audioMenu,
-        this.pluginMenu
+        this.pluginMenu,
+        this.accountMenu
       ]
     }
   }
@@ -512,6 +553,9 @@ export default class App extends Vue {
     if (this.wikiPanel !== null) {
       this.dockManager.dockFill(docnode, this.wikiPanel)
     }
+    if (this.userManagerPanel !== null) {
+      this.userManagerPanel.close()
+    }
     if (this.mapPanel !== null) {
       this.mapPanel.close()
     }
@@ -532,6 +576,12 @@ export default class App extends Vue {
       if (this.isGamemaster) {
         if (this.wikiPanel !== null) {
           this.togglePanel(this.wikiPanel)
+        }
+      }
+    } else if (id === 'window-user-manager') {
+      if (this.isGamemaster) {
+        if (this.userManagerPanel !== null) {
+          this.togglePanel(this.userManagerPanel)
         }
       }
     } else if (id === 'window-map') {
@@ -564,6 +614,10 @@ export default class App extends Vue {
       eventbus.$emit('/audio/mute', true)
     } else if (id === 'audio-unmute') {
       eventbus.$emit('/audio/mute', false)
+    } else if (id === 'account-logout') {
+      $.get('/auth/logout', () => {
+        location.reload()
+      })
     } else {
       eventbus.$emit('/menu/' + id)
     }

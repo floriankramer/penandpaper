@@ -159,8 +159,9 @@ const std::vector<uint8_t> &DbVariant::asBlob() const {
 
 DbCursor::DbCursor() : _db(NULL), _stmt(NULL), _done(true) {}
 
-DbCursor::DbCursor(sqlite3_stmt *stmt, sqlite3 *db)
-    : _db(db), _stmt(stmt), _done(false) {
+DbCursor::DbCursor(sqlite3_stmt *stmt, sqlite3 *db,
+                   std::unordered_map<std::string, int> columns)
+    : _columns(columns), _db(db), _stmt(stmt), _done(false) {
   // load the first row
   next();
 }
@@ -210,6 +211,14 @@ DbVariant DbCursor::col(int index) {
                << " " << type << LOG_END;
       return DbVariant();
   }
+}
+
+DbVariant DbCursor::col(const std::string &name) {
+  auto col_it = _columns.find(name);
+  if (col_it == _columns.end()) {
+    throw std::runtime_error("DbCursor::col: no column named " + name);
+  }
+  return col(col_it->second);
 }
 
 void DbCursor::reset() {
@@ -335,6 +344,11 @@ Table::~Table() {}
 
 void Table::setColumns(const std::vector<DbColumn> &columns) {
   _columns = columns;
+  _column_index.clear();
+  for (size_t i = 0; i < columns.size(); ++i) {
+    const DbColumn &col = _columns[i];
+    _column_index[col.name] = i;
+  }
 }
 
 void Table::insert(const std::vector<DbColumnUpdate> &data) {
@@ -495,7 +509,7 @@ DbCursor Table::query(const DbCondition &where) {
               << sqlite3_errmsg(_db) << LOG_END;
     return DbCursor();
   }
-  return DbCursor(stmt, _db);
+  return DbCursor(stmt, _db, _column_index);
 }
 
 void Table::update(const std::vector<DbColumnUpdate> &updates,
@@ -587,7 +601,7 @@ int Table::bindValue(sqlite3_stmt *stmt, int index, const DbVariant &value) {
 Database::Database(const std::string &database_path) {
   int r = sqlite3_open(database_path.c_str(), &_db);
   if (r != SQLITE_OK) {
-    _db == nullptr;
+    _db = nullptr;
     LOG_ERROR << "Unable to open the database at " << database_path << LOG_END;
   }
 }

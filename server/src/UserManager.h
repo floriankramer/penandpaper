@@ -24,22 +24,28 @@
 
 class UserManager {
  public:
-  enum class Permission { CREATE_USERS };
+  enum class Permission { MODIFY_USERS, ADMIN };
 
   class User {
    public:
-    User(Table *table, DbCursor &db_entry);
+    User(Table *table, std::shared_ptr<std::recursive_mutex> auth_mutex,
+         DbCursor &db_entry);
 
     const std::string &name() const;
     void setName(const std::string &name);
 
     void setPassword(const std::string password_hash);
 
+    void setPermissions(const std::vector<Permission> &new_permissions);
+
     bool hasPermission(Permission permission) const;
 
     const std::string &oauth() const;
     void refreshOauth();
     std::string createSetCookieHeader() const;
+    std::string createClearCookieHeader() const;
+
+    int64_t id() const;
 
    private:
     int64_t _id;
@@ -50,9 +56,20 @@ class UserManager {
     int64_t _oauth_expiry;
     int64_t _permissions;
 
+    mutable std::shared_ptr<std::recursive_mutex> _auth_mutex;
+
     Table *_table;
   };
   using UserPtr = std::shared_ptr<User>;
+
+  /**
+   * @brief Contains data about users thats available to any logged in user
+   */
+  struct PublicUserInfo {
+    int64_t id;
+    std::string name;
+    int64_t permissions;
+  };
 
   UserManager(Database *db);
   virtual ~UserManager();
@@ -68,6 +85,10 @@ class UserManager {
                      const std::string &password_hash,
                      const std::vector<Permission> &permissions);
 
+  void deleteUser(int64_t id);
+
+  std::vector<PublicUserInfo> listUsers();
+
   static std::string clientSidePasswordHash(const std::string &username,
                                             const std::string &password);
   static std::string hashPassword(const std::vector<char> &salt,
@@ -77,7 +98,8 @@ class UserManager {
  private:
   // Maps oauth to users
   std::unordered_map<std::string, UserPtr> _authenticated_users;
-  mutable std::mutex _auth_mutex;
+  std::unordered_map<int64_t, UserPtr> _loaded_users;
+  mutable std::shared_ptr<std::recursive_mutex> _auth_mutex;
 
   Database *_db;
   Table _users;

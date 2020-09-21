@@ -49,7 +49,6 @@ void HttpServer::registerRequestHandler(
 }
 
 void HttpServer::run() {
-  std::string key = Random::secureRandomString(32);
   std::string basepath;
   if (_base_dir == ".") {
     _base_dir = os::getcwd();
@@ -59,12 +58,9 @@ void HttpServer::run() {
   basepath = os::realpath(basepath);
   if (!_do_keycheck) {
     LOG_INFO << "Http server keychecking is disabled" << LOG_END;
-  } else {
-    LOG_INFO << "The key is: " << key << LOG_END;
   }
-
-  _server->Get(".*", [this, &key, &basepath](const httplib::Request &req,
-                                             httplib::Response &resp) {
+  _server->Get(".*", [this, &basepath](const httplib::Request &req,
+                                       httplib::Response &resp) {
     try {
       std::string cookies = req.get_header_value("Cookie");
       if (_do_keycheck && req.path != "/auth") {
@@ -106,7 +102,55 @@ void HttpServer::run() {
           resp.set_header("Content-Type", "text/html");
         }
         return;
+      } else if (realpath == "/auth/list") {
+        if (!_do_keycheck || user_manager->authenticateViaCookies(cookies)) {
+          nlohmann::json data;
+          std::vector<UserManager::PublicUserInfo> users =
+              user_manager->listUsers();
+          nlohmann::json users_json = nlohmann::json::array();
+          for (const UserManager::PublicUserInfo &user : users) {
+            nlohmann::json user_json;
+            user_json["id"] = user.id;
+            user_json["name"] = user.name;
+
+            nlohmann::json permissions = nlohmann::json::array();
+            if (user.permissions &
+                (int64_t(1)
+                 << int64_t(UserManager::Permission::MODIFY_USERS))) {
+              permissions.push_back("modify-users");
+            }
+            if (user.permissions &
+                (int64_t(1) << int64_t(UserManager::Permission::ADMIN))) {
+              permissions.push_back("admin");
+            }
+            user_json["permissions"] = permissions;
+            users_json.push_back(user_json);
+          }
+          data["users"] = users_json;
+          resp.status = 200;
+          resp.body = data.dump();
+          resp.set_header("Content-Type", "application/json");
+          return;
+        } else {
+          resp.status = 404;
+          resp.body = "Not Found";
+          return;
+        }
+      } else if (realpath == "/auth/logout") {
+        UserManager::UserPtr user;
+        if (_do_keycheck &&
+            (user = user_manager->authenticateViaCookies(cookies))) {
+          resp.status = 200;
+          resp.body = "Ok";
+          resp.set_header("Set-Cookie", user->createClearCookieHeader());
+          return;
+        } else {
+          resp.status = 404;
+          resp.body = "Not Found";
+          return;
+        }
       }
+
       {
         realpath = basepath + realpath;
         realpath = os::realpath(realpath);
@@ -154,6 +198,10 @@ void HttpServer::run() {
                              httplib::Response &resp) {
     using nlohmann::json;
     try {
+      // Set a default response
+      resp.status = 404;
+      resp.body = "Page not found";
+
       std::string cookies = req.get_header_value("Cookie");
       if (req.path != "/auth") {
         if (_do_keycheck) {
@@ -167,26 +215,177 @@ void HttpServer::run() {
         LOG_DEBUG << "Handling an authentification attempt" << LOG_END;
         // got an authentification attempt
         json data = json::parse(req.body);
-        if (!data.contains("name") || !data.contains("password")) {
+        UserManager::UserPtr user =
+            user_manager->authenticateViaCookies(cookies);
+        if (user == nullptr &&
+            (!data.contains("name") || !data.contains("password"))) {
           resp.status = 404;
           resp.body = "Page not found";
           return;
         }
-        std::string name = data["name"].get<std::string>();
-        std::string password = data["password"].get<std::string>();
-        LOG_DEBUG << "Trying to authenticate " << name << LOG_END;
-        UserManager::UserPtr user =
-            user_manager->authenticateViaLogin(name, password);
-        if (user != nullptr) {
-          LOG_DEBUG << "Authenticated the user" << LOG_END;
+        if (user == nullptr) {
+          // attempt to authenticate the user
+          std::string name = data["name"].get<std::string>();
+          std::string password = data["password"].get<std::string>();
+          LOG_DEBUG << "Trying to authenticate " << name << LOG_END;
+          user = user_manager->authenticateViaLogin(name, password);
+          if (user != nullptr) {
+            LOG_DEBUG << "Authenticated the user" << LOG_END;
+            resp.status = 200;
+            resp.body = "Ok";
+            resp.set_header("Set-Cookie", user->createSetCookieHeader());
+            return;
+          } else {
+            resp.status = 404;
+            resp.body = "Page not found";
+            return;
+          }
+        }
+        if (!data.contains("action")) {
+          // No action specified and the user is already logged in. Simply
+          // confirm the login
           resp.status = 200;
           resp.body = "Ok";
           resp.set_header("Set-Cookie", user->createSetCookieHeader());
           return;
         }
-        LOG_DEBUG << "No user with that username and password" << LOG_END;
-        resp.status = 404;
-        resp.body = "Page not found";
+        std::string action = data.at("action").get<std::string>();
+        if (action == "CreateUser") {
+          if (!user->hasPermission(UserManager::Permission::MODIFY_USERS)) {
+            resp.status = 404;
+            resp.body = "Page not found";
+            return;
+          }
+
+          std::string new_name = data.at("new-name").get<std::string>();
+          std::string new_password = data.at("new-password").get<std::string>();
+          std::vector<UserManager::Permission> new_permissions;
+          for (json perm : data.at("new-permissions")) {
+            std::string perm_str = perm.get<std::string>();
+            if (perm_str == "modify-users") {
+              new_permissions.push_back(UserManager::Permission::MODIFY_USERS);
+            } else if (perm_str == "admin") {
+              if (user->hasPermission(UserManager::Permission::ADMIN)) {
+                new_permissions.push_back(UserManager::Permission::ADMIN);
+              } else {
+                LOG_WARN << "A user named " << user->name()
+                         << " tried to create an admin account without being "
+                            "an admin."
+                         << LOG_END;
+              }
+            }
+          }
+
+          user_manager->createUser(new_name, new_password, new_permissions);
+          resp.status = 200;
+          resp.body = "ok";
+          return;
+        } else if (action == "DeleteUser") {
+          if (!user->hasPermission(UserManager::Permission::MODIFY_USERS)) {
+            resp.status = 404;
+            resp.body = "Page not found";
+            return;
+          }
+          int64_t to_delete_id = data.at("to-delete").get<int64_t>();
+          UserManager::UserPtr to_delete = user_manager->loadUser(to_delete_id);
+          if (to_delete == nullptr) {
+            resp.status = 400;
+            resp.body = "No user with id " + std::to_string(to_delete_id);
+            return;
+          }
+          if (to_delete->hasPermission(UserManager::Permission::ADMIN) &&
+              !user->hasPermission(UserManager::Permission::ADMIN)) {
+            resp.status = 400;
+            resp.body =
+                "You do not have the permissions required to delete an admin "
+                "account.";
+            return;
+          }
+          user_manager->deleteUser(to_delete->id());
+          resp.status = 200;
+          resp.body = "ok";
+          return;
+        } else if (action == "SetPermissions") {
+          if (!user->hasPermission(UserManager::Permission::MODIFY_USERS)) {
+            resp.status = 404;
+            resp.body = "Page not found";
+            return;
+          }
+          int64_t to_modify_id = data.at("to-modify").get<int64_t>();
+          UserManager::UserPtr to_modify = user_manager->loadUser(to_modify_id);
+          if (to_modify == nullptr) {
+            resp.status = 400;
+            resp.body = "No user with id " + std::to_string(to_modify_id);
+            return;
+          }
+          if (to_modify->hasPermission(UserManager::Permission::ADMIN) &&
+              !user->hasPermission(UserManager::Permission::ADMIN)) {
+            resp.status = 400;
+            resp.body =
+                "You do not have the permissions required to modify an admin "
+                "account.";
+            return;
+          }
+          std::vector<UserManager::Permission> new_permissions;
+          for (json perm : data.at("new-permissions")) {
+            std::string perm_str = perm.get<std::string>();
+            if (perm_str == "modify-users") {
+              new_permissions.push_back(UserManager::Permission::MODIFY_USERS);
+            } else if (perm_str == "admin") {
+              if (user->hasPermission(UserManager::Permission::ADMIN)) {
+                new_permissions.push_back(UserManager::Permission::ADMIN);
+              } else {
+                LOG_WARN << "A user named " << user->name()
+                         << " tried to create an admin account without being "
+                            "an admin."
+                         << LOG_END;
+              }
+            }
+          }
+          to_modify->setPermissions(new_permissions);
+          resp.status = 200;
+          resp.body = "ok";
+          return;
+        } else if (action == "SetPassword") {
+          int64_t to_modify_id = data.at("to-modify").get<int64_t>();
+          UserManager::UserPtr to_modify = user_manager->loadUser(to_modify_id);
+          if (to_modify == nullptr) {
+            resp.status = 404;
+            resp.body = "Page not found";
+            return;
+          }
+          if (!user->hasPermission(UserManager::Permission::MODIFY_USERS) &&
+              to_modify->id() != user->id()) {
+            resp.status = 404;
+            resp.body = "Page not found";
+            return;
+          }
+          std::string new_password = data.at("new-password").get<std::string>();
+          user->setPassword(new_password);
+          resp.status = 200;
+          resp.body = "Ok";
+          return;
+        }
+        int64_t to_modify_id = data.at("to-modify").get<int64_t>();
+        UserManager::UserPtr to_modify = user_manager->loadUser(to_modify_id);
+        if (to_modify == nullptr) {
+          resp.status = 400;
+          resp.body = "No user with id " + std::to_string(to_modify_id);
+          return;
+        }
+        if (to_modify->hasPermission(UserManager::Permission::ADMIN) &&
+            !user->hasPermission(UserManager::Permission::ADMIN)) {
+          resp.status = 400;
+          resp.body =
+              "You do not have the permissions required to modify an admin "
+              "account.";
+          return;
+        }
+        std::string new_password = data.at("new-password").get<std::string>();
+        to_modify->setPassword(new_password);
+        resp.status = 200;
+        resp.body = "ok";
+        return;
         return;
       }
 
@@ -258,7 +457,7 @@ std::string HttpServer::guessMimeType(const std::string &path,
 }
 
 const std::string HttpServer::AUTH_PAGE =
-R"(
+    R"(
 <!DOCTYPE html>
 <html>
   <head>
@@ -310,14 +509,10 @@ R"(
           event.preventDefault();
           const name = input_name.value
           const password = input_password.value
-          console.log('raw', password)
           const password_utf8 = new TextEncoder('utf-8').encode(name + password)
           let password_hash_bytes = await crypto.subtle.digest('SHA-256', password_utf8)
-          console.log('hashed', password_hash_bytes, ' ', password_hash_bytes.byteLength)
           let password_array = Array.from(new Uint8Array(password_hash_bytes))
-          console.log('Uint8 length: ', password_array.length)
           let password_hex = password_array.map(x => ('00' + x.toString(16)).slice(-2)).join('').toUpperCase();
-          console.log('hex: ', password_hex)
           var req = new XMLHttpRequest()
           req.open('POST', '/auth', true)
           req.setRequestHeader('Content-Type', 'application/json')

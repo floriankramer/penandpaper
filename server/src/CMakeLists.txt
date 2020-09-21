@@ -9,6 +9,14 @@ set(BUILD_FONTRENDERER ON CACHE BOOL "Build the font renderer used to pregenerat
 
 set(SQLITE_SRC_FILES "")
 
+if (${CMAKE_GENERATOR} STREQUAL "Ninja")
+    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+       add_compile_options (-fdiagnostics-color=always)
+    elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+       add_compile_options (-fcolor-diagnostics)
+    endif ()
+endif ()
+
 #==============================================================================
 # threading
 #==============================================================================

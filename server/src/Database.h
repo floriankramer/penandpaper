@@ -20,6 +20,7 @@
 
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 enum class DbDataType { NULL_T, INTEGER, REAL, TEXT, BLOB, AUTO_INCREMENT };
@@ -112,16 +113,20 @@ class DbSqlBuilder {
 class DbCursor {
  public:
   DbCursor();
-  DbCursor(sqlite3_stmt *stmt, sqlite3 *db);
+  DbCursor(sqlite3_stmt *stmt, sqlite3 *db,
+           std::unordered_map<std::string, int> columns);
   virtual ~DbCursor();
 
   void next();
   bool done() const;
   DbVariant col(int index);
+  DbVariant col(const std::string &name);
 
   void reset();
 
  private:
+  std::unordered_map<std::string, int> _columns;
+
   sqlite3 *_db;
   sqlite3_stmt *_stmt;
   bool _done;
@@ -146,6 +151,7 @@ class Table {
 
   std::string _name;
   std::vector<DbColumn> _columns;
+  std::unordered_map<std::string, int> _column_index;
   sqlite3 *_db;
 };
 
