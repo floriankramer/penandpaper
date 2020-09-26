@@ -29,13 +29,10 @@ WebSocketServer::WebSocketServer(std::shared_ptr<UserManager> authenticator,
     : user_manager(authenticator),
       _on_msg(on_msg),
       _on_connect(on_connect),
-      _do_key_check(true),
       _base_dir(base_dir) {
   std::thread t(&WebSocketServer::run, this);
   t.detach();
 }
-
-void WebSocketServer::disableKeyCheck() { _do_key_check = false; }
 
 void WebSocketServer::run() {
   while (true) {
@@ -48,13 +45,18 @@ void WebSocketServer::run() {
           // Authenticate the new user
           std::string cookies =
               _socket.get_con_from_hdl(conn_hdl)->get_request_header("Cookie");
-          if (_do_key_check && !user_manager->authenticateViaCookies(cookies)) {
+          UserManager::UserPtr user =
+              user_manager->authenticateViaCookies(cookies);
+          if (user == nullptr) {
             _socket.get_con_from_hdl(conn_hdl)->close(1000,
                                                       "Not Authenticated.");
             return;
           }
+          // store the user matching the connection
+          std::shared_ptr<void> conn_ptr = conn_hdl.lock();
+          _connection_users[conn_ptr.get()] = user;
           _connections.push_back(conn_hdl);
-          Response resp = _on_connect();
+          Response resp = _on_connect(user);
           handleResponse(resp, conn_hdl);
         } catch (const std::exception &e) {
           LOG_ERROR << "Error while handling a new client: " << e.what()
@@ -65,6 +67,11 @@ void WebSocketServer::run() {
       });
 
       _socket.set_close_handler([this](websocketpp::connection_hdl conn_hdl) {
+        {
+          std::shared_ptr<void> conn_ptr = conn_hdl.lock();
+          _connection_users.erase(conn_ptr.get());
+        }
+
         LOG_DEBUG << "A client disconnected" << LOG_END;
         for (int64_t i = 0; i < _connections.size(); i++) {
           websocketpp::connection_hdl hdl = _connections[i];
@@ -80,7 +87,15 @@ void WebSocketServer::run() {
       _socket.set_message_handler([this](websocketpp::connection_hdl conn_hdl,
                                          Server::message_ptr msg) {
         try {
-          Response resp = _on_msg(msg->get_payload());
+          std::shared_ptr<void> conn_ptr = conn_hdl.lock();
+          UserManager::UserPtr user = _connection_users[conn_ptr.get()];
+          if (user->isDeleted()) {
+            // The user no longer exists
+            _socket.close(conn_hdl, 1000, "Not Authenticated.");
+            _connection_users.erase(conn_ptr.get());
+            return;
+          }
+          Response resp = _on_msg(msg->get_payload(), user);
           if (resp.type == ResponseType::FORWARD) {
             resp.text = msg->get_payload();
           }

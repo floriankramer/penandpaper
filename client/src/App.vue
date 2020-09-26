@@ -26,19 +26,16 @@
     <PlayerList id="playerlist"/>
     <Wiki id="wiki"/>
     <UserManager id="user-manager"/>
+    <Account id="account"/>
     <div v-for="plugin in plugins" v-bind:key="plugin.idx">
       <style>{{plugin.css}}</style>
       <div v-html="plugin.html" v-bind:id="'container-' + plugin.name"></div>
     </div>
-    <template v-if="noUsername">
-      <Login v-bind:server="server"></Login>
-    </template>
   </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator'
-import Login from './components/Login.vue'
 import Chat from './components/Chat.vue'
 import Toolbar from './components/Toolbar.vue'
 import WorldMap from './components/WorldMap.vue'
@@ -51,6 +48,7 @@ import AudioServer from './audio/AudioServer'
 
 import Wiki from './components/Wiki.vue'
 import UserManager from './components/UserManager.vue'
+import Account from './components/Account.vue'
 
 import { MutationPayload } from 'vuex'
 
@@ -94,7 +92,6 @@ class Plugin {
 
 @Component({
   components: {
-    Login,
     CriticalError,
     Chat,
     Toolbar,
@@ -103,7 +100,8 @@ class Plugin {
     Wiki,
     Menu,
     Notification,
-    UserManager
+    UserManager,
+    Account
   }
 })
 export default class App extends Vue {
@@ -112,7 +110,6 @@ export default class App extends Vue {
   hasCriticalError: boolean = false;
   criticalErrorString: string = '';
 
-  noUsername: boolean = true;
   isGamemaster: boolean = false;
 
   dockManager?: DockManager = undefined
@@ -121,6 +118,7 @@ export default class App extends Vue {
   toolbarPanel: PanelContainer | null = null
   wikiPanel: PanelContainer | null = null
   userManagerPanel: PanelContainer | null = null
+  accountPanel: PanelContainer | null = null
   mapPanel: PanelContainer | null = null
   chatPanel: PanelContainer | null = null
   playerListPanel: PanelContainer | null = null
@@ -163,34 +161,86 @@ export default class App extends Vue {
     ]
   }
 
+  windowMenu: MenuGroup = {
+    text: 'window',
+    items: [
+      {
+        id: 'window-map',
+        text: 'map'
+      },
+      {
+        id: 'window-chat',
+        text: 'chat'
+      },
+      {
+        id: 'window-playerlist',
+        text: 'playerlist'
+      },
+      {
+        id: 'window-account',
+        text: 'account'
+      }
+    ]
+  }
+
+  windowMenuGM : MenuItem[] = [
+    {
+      id: 'window-wiki',
+      text: 'wiki'
+    },
+    {
+      id: 'window-user-manager',
+      text: 'user manager'
+    },
+    {
+      id: 'window-toolbar',
+      text: 'toolbar'
+    }
+  ]
+
+  viewMenu: MenuGroup = {
+    text: 'view',
+    items: [
+      {
+        id: 'view-colorscheme',
+        text: 'darker mode'
+      }
+    ]
+  }
+
+  viewMenuGM: MenuItem[] = [
+    {
+      id: 'view-wikionly',
+      text: 'wiki only'
+    }
+  ]
+
+  wikiMenu: MenuGroup = {
+    text: 'wiki',
+    items: [
+      {
+        id: 'wiki-save',
+        text: 'save [ctrl+s]',
+        shortcut: {
+          key: 's',
+          ctrl: true
+        }
+      },
+      {
+        id: 'wiki-quickcreate',
+        text: 'quickcreate [alt+z]',
+        shortcut: {
+          key: 'z',
+          alt: true
+        }
+      }
+    ]
+  }
+
   // The non gm menu
   menus: MenuGroup[] = [
-    {
-      text: 'window',
-      items: [
-        {
-          id: 'window-map',
-          text: 'map'
-        },
-        {
-          id: 'window-chat',
-          text: 'chat'
-        },
-        {
-          id: 'window-playerlist',
-          text: 'playerlist'
-        }
-      ]
-    },
-    {
-      text: 'view',
-      items: [
-        {
-          id: 'view-colorscheme',
-          text: 'darker mode'
-        }
-      ]
-    },
+    this.windowMenu,
+    this.viewMenu,
     this.audioMenu,
     this.pluginMenu,
     this.accountMenu
@@ -231,11 +281,14 @@ export default class App extends Vue {
       if (userManagerDiv !== null) {
         this.userManagerPanel = new PanelContainer(userManagerDiv, this.dockManager)
         this.userManagerPanel.setTitle('User Manager')
-        if (this.isGamemaster) {
-          // TODO: this should actually happen if the user has the create-user
-          // or modify permissions permission
-          this.dockManager.dockFill(documentNode, this.userManagerPanel)
-        }
+      }
+
+      // The account
+      let accountDiv = document.getElementById('account')
+      if (accountDiv !== null) {
+        this.accountPanel = new PanelContainer(accountDiv, this.dockManager)
+        this.accountPanel.setTitle('Account')
+        this.dockManager.dockFill(documentNode, this.accountPanel)
       }
 
       // The map
@@ -290,11 +343,6 @@ export default class App extends Vue {
     }
 
     this.$store.subscribe((mutation: MutationPayload, state: any) => {
-      if (mutation.type === 'setUsername') {
-        if (state.username.length > 0) {
-          app.noUsername = false
-        }
-      }
       if (mutation.type === 'setPermissions') {
         app.isGamemaster = state.permissions > 0
         this.onGameMasterChange()
@@ -311,6 +359,14 @@ export default class App extends Vue {
     })
 
     this.onGameMasterChange()
+
+    $.get('/auth/self', (user: any) => {
+      console.log('App.vue: /auth/self: ', user, user.permissions.length)
+      if (user.permissions.length > 0 && this.dockManager !== undefined && this.userManagerPanel !== null) {
+        let documentNode = this.dockManager.context.model.documentManagerNode
+        this.dockManager.dockFill(documentNode, this.userManagerPanel)
+      }
+    })
   }
 
   onServerState (state: ServerState) {
@@ -395,7 +451,9 @@ export default class App extends Vue {
             this.dockManager.dockUp(documentNode, this.toolbarPanel, 0.15)
           }
         } else {
-          this.toolbarPanel.close()
+          if (this.toolbarPanel.state !== undefined) {
+            this.toolbarPanel.close()
+          }
         }
       }
       if (this.wikiPanel !== null) {
@@ -403,15 +461,9 @@ export default class App extends Vue {
           let documentNode = this.dockManager.context.model.documentManagerNode
           this.dockManager.dockFill(documentNode, this.wikiPanel)
         } else {
-          this.wikiPanel.close()
-        }
-      }
-      if (this.userManagerPanel !== null) {
-        if (this.isGamemaster) {
-          let documentNode = this.dockManager.context.model.documentManagerNode
-          this.dockManager.dockFill(documentNode, this.userManagerPanel)
-        } else {
-          this.userManagerPanel.close()
+          if (this.wikiPanel.state !== undefined) {
+            this.wikiPanel.close()
+          }
         }
       }
 
@@ -424,68 +476,22 @@ export default class App extends Vue {
     if (this.isGamemaster) {
       this.menus = [
         {
-          text: 'window',
-          items: [
-            {
-              id: 'window-wiki',
-              text: 'wiki'
-            },
-            {
-              id: 'window-user-manager',
-              text: 'user manager'
-            },
-            {
-              id: 'window-map',
-              text: 'map'
-            },
-            {
-              id: 'window-chat',
-              text: 'chat'
-            },
-            {
-              id: 'window-toolbar',
-              text: 'toolbar'
-            },
-            {
-              id: 'window-playerlist',
-              text: 'playerlist'
-            }
-          ]
+          text: this.windowMenu.text,
+          items: this.windowMenu.items.concat(this.windowMenuGM)
         },
         {
-          text: 'view',
-          items: [
-            {
-              id: 'view-colorscheme',
-              text: 'darker mode'
-            },
-            {
-              id: 'view-wikionly',
-              text: 'wiki only'
-            }
-          ]
+          text: this.viewMenu.text,
+          items: this.viewMenu.items.concat(this.viewMenuGM)
         },
-        {
-          text: 'wiki',
-          items: [
-            {
-              id: 'wiki-save',
-              text: 'save [ctrl+s]',
-              shortcut: {
-                key: 's',
-                ctrl: true
-              }
-            },
-            {
-              id: 'wiki-quickcreate',
-              text: 'quickcreate [alt+z]',
-              shortcut: {
-                key: 'z',
-                alt: true
-              }
-            }
-          ]
-        },
+        this.wikiMenu,
+        this.audioMenu,
+        this.pluginMenu,
+        this.accountMenu
+      ]
+    } else {
+      this.menus = [
+        this.windowMenu,
+        this.viewMenu,
         this.audioMenu,
         this.pluginMenu,
         this.accountMenu
@@ -556,6 +562,9 @@ export default class App extends Vue {
     if (this.userManagerPanel !== null) {
       this.userManagerPanel.close()
     }
+    if (this.accountPanel !== null) {
+      this.accountPanel.close()
+    }
     if (this.mapPanel !== null) {
       this.mapPanel.close()
     }
@@ -583,6 +592,10 @@ export default class App extends Vue {
         if (this.userManagerPanel !== null) {
           this.togglePanel(this.userManagerPanel)
         }
+      }
+    } else if (id === 'window-account') {
+      if (this.accountPanel !== null) {
+        this.togglePanel(this.accountPanel)
       }
     } else if (id === 'window-map') {
       if (this.mapPanel !== null) {

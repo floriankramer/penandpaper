@@ -19,39 +19,55 @@
 #include <nlohmann/json.hpp>
 
 #include "Building.h"
-#include "WebSocketServer.h"
-#include "Packet.h"
 #include "IdGenerator.h"
+#include "Packet.h"
+#include "UserManager.h"
+#include "WebSocketServer.h"
 
 class BuildingManager {
  public:
   BuildingManager(IdGenerator *id_generator);
 
-  WebSocketServer::Response onSetDoorOpen(const Packet &j);
-  WebSocketServer::Response onCreateRoom(const Packet &j);
-  WebSocketServer::Response onCreateWall(const Packet &j);
-  WebSocketServer::Response onCreateDoor(const Packet &j);
-  WebSocketServer::Response onCreateFurniture(const Packet &j);
+  WebSocketServer::Response onSetDoorOpen(const Packet &j,
+                                          UserManager::UserPtr user);
+  WebSocketServer::Response onCreateRoom(const Packet &j,
+                                         UserManager::UserPtr user);
+  WebSocketServer::Response onCreateWall(const Packet &j,
+                                         UserManager::UserPtr user);
+  WebSocketServer::Response onCreateDoor(const Packet &j,
+                                         UserManager::UserPtr user);
+  WebSocketServer::Response onCreateFurniture(const Packet &j,
+                                              UserManager::UserPtr user);
 
-  WebSocketServer::Response onModifyRoom(const Packet &j);
-  WebSocketServer::Response onModifyWall(const Packet &j);
-  WebSocketServer::Response onModifyDoor(const Packet &j);
-  WebSocketServer::Response onModifyFurniture(const Packet &j);
+  WebSocketServer::Response onModifyRoom(const Packet &j,
+                                         UserManager::UserPtr user);
+  WebSocketServer::Response onModifyWall(const Packet &j,
+                                         UserManager::UserPtr user);
+  WebSocketServer::Response onModifyDoor(const Packet &j,
+                                         UserManager::UserPtr user);
+  WebSocketServer::Response onModifyFurniture(const Packet &j,
+                                              UserManager::UserPtr user);
 
-  WebSocketServer::Response onDeleteRoom(const Packet &j);
-  WebSocketServer::Response onDeleteWall(const Packet &j);
-  WebSocketServer::Response onDeleteDoor(const Packet &j);
-  WebSocketServer::Response onDeleteFurniture(const Packet &j);
+  WebSocketServer::Response onDeleteRoom(const Packet &j,
+                                         UserManager::UserPtr user);
+  WebSocketServer::Response onDeleteWall(const Packet &j,
+                                         UserManager::UserPtr user);
+  WebSocketServer::Response onDeleteDoor(const Packet &j,
+                                         UserManager::UserPtr user);
+  WebSocketServer::Response onDeleteFurniture(const Packet &j,
+                                              UserManager::UserPtr user);
 
-  WebSocketServer::Response onClearBuilding(const Packet &j);
-  WebSocketServer::Response onLoadBuilding(const Packet &j);
+  WebSocketServer::Response onClearBuilding(const Packet &j,
+                                            UserManager::UserPtr user);
+  WebSocketServer::Response onLoadBuilding(const Packet &j,
+                                           UserManager::UserPtr user);
 
   nlohmann::json toJson() const;
 
-  void registerPackets(
-      std::unordered_map<
-          std::string, std::function<WebSocketServer::Response(const Packet &)>>
-          *packet_handlers);
+  void registerPackets(std::unordered_map<
+                       std::string, std::function<WebSocketServer::Response(
+                                        const Packet &, UserManager::UserPtr)>>
+                           *packet_handlers);
 
  private:
   Building _building;

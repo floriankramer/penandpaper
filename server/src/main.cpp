@@ -31,17 +31,14 @@
 #include "Wiki.h"
 
 struct Settings {
-  int do_keycheck = true;
   std::string base_dir = ".";
 };
 
 Settings parseSettings(int argc, char **argv) {
   Settings s;
 #ifndef WIN32
-  struct option long_options[] = {
-      {"no-key", no_argument, &s.do_keycheck, false},
-      {"data-dir", required_argument, 0, 'd'},
-      {0, 0, 0, 0}};
+  struct option long_options[] = {{"data-dir", required_argument, 0, 'd'},
+                                  {0, 0, 0, 0}};
   int option_index = 0;
   bool failed = false;
   while (true) {
@@ -86,15 +83,14 @@ int main(int argc, char **argv) {
   Simulation sim;
   WebSocketServer wss(
       user_manager,
-      std::bind(&Simulation::onMessage, &sim, std::placeholders::_1),
-      std::bind(&Simulation::onNewClient, &sim), settings.base_dir);
+      std::bind(&Simulation::onMessage, &sim, std::placeholders::_1,
+                std::placeholders::_2),
+      std::bind(&Simulation::onNewClient, &sim, std::placeholders::_1),
+      settings.base_dir);
   sim.setWebSocketServer(&wss);
   sim.setPluginManager(plugins.get());
-  if (!settings.do_keycheck) {
-    wss.disableKeyCheck();
-  }
 
-  HttpServer server(user_manager, settings.base_dir, settings.do_keycheck);
+  HttpServer server(user_manager, settings.base_dir);
   server.registerRequestHandler("/wiki/.*", HttpServer::RequestType::GET, wiki);
   server.registerRequestHandler("/wiki/.*", HttpServer::RequestType::POST,
                                 wiki);

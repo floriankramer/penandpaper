@@ -25,15 +25,15 @@
 #include "IdGenerator.h"
 #include "Packet.h"
 #include "Player.h"
+#include "PluginManager.h"
 #include "Token.h"
+#include "UserManager.h"
 #include "WebSocketServer.h"
 #include "building/BuildingManager.h"
 
-#include "PluginManager.h"
-
 class Simulation {
-  using MemberMsgHandler_t =
-      std::function<WebSocketServer::Response(const Packet &)>;
+  using MemberMsgHandler_t = std::function<WebSocketServer::Response(
+      const Packet &, UserManager::UserPtr)>;
   //      WebSocketServer::Response (Simulation::*)(const nlohmann::json &);
 
   struct Color {
@@ -46,8 +46,9 @@ class Simulation {
   void setWebSocketServer(WebSocketServer *wss);
   void setPluginManager(PluginManager *pm);
 
-  WebSocketServer::Response onNewClient();
-  WebSocketServer::Response onMessage(const std::string &msg);
+  WebSocketServer::Response onNewClient(UserManager::UserPtr user);
+  WebSocketServer::Response onMessage(const std::string &msg,
+                                      UserManager::UserPtr user);
 
   /**
    * @return  The player with the uid or nullptr if no such player exists.
@@ -59,16 +60,25 @@ class Simulation {
  private:
   void broadcastClients();
 
-  WebSocketServer::Response onCreateToken(const Packet &j);
-  WebSocketServer::Response onMoveToken(const Packet &j);
-  WebSocketServer::Response onDeleteToken(const Packet &j);
-  WebSocketServer::Response onChat(const Packet &j);
-  WebSocketServer::Response onCreateDoodadLine(const Packet &j);
-  WebSocketServer::Response onClearDoodads(const Packet &j);
-  WebSocketServer::Response onClearTokens(const Packet &j);
-  WebSocketServer::Response onTokenToggleFoe(const Packet &j);
-  WebSocketServer::Response onInitSession(const Packet &j);
-  WebSocketServer::Response onSetUsername(const Packet &j);
+  WebSocketServer::Response onCreateToken(const Packet &j,
+                                          UserManager::UserPtr user);
+  WebSocketServer::Response onMoveToken(const Packet &j,
+                                        UserManager::UserPtr user);
+  WebSocketServer::Response onDeleteToken(const Packet &j,
+                                          UserManager::UserPtr user);
+  WebSocketServer::Response onChat(const Packet &j, UserManager::UserPtr user);
+  WebSocketServer::Response onCreateDoodadLine(const Packet &j,
+                                               UserManager::UserPtr user);
+  WebSocketServer::Response onClearDoodads(const Packet &j,
+                                           UserManager::UserPtr user);
+  WebSocketServer::Response onClearTokens(const Packet &j,
+                                          UserManager::UserPtr user);
+  WebSocketServer::Response onTokenToggleFoe(const Packet &j,
+                                             UserManager::UserPtr user);
+  WebSocketServer::Response onInitSession(const Packet &j,
+                                          UserManager::UserPtr user);
+  WebSocketServer::Response onSetUsername(const Packet &j,
+                                          UserManager::UserPtr user);
 
   Token *tokenById(uint64_t id);
 
@@ -83,7 +93,7 @@ class Simulation {
   std::string cmdHelp(const std::string &who, const std::string &uid,
                       const std::vector<std::string> &cmd);
   std::string cmdAudio(const std::string &who, const std::string &uid,
-                      const std::vector<std::string> &cmd);
+                       const std::vector<std::string> &cmd);
 
   Color nextColor();
 

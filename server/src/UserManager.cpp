@@ -24,16 +24,29 @@
 #include "Random.h"
 #include "Util.h"
 
+const std::string UserManager::COL_ID = "id";
+const std::string UserManager::COL_NAME = "name";
+const std::string UserManager::COL_SALT = "salt";
+const std::string UserManager::COL_PASSWORD = "password";
+const std::string UserManager::COL_OAUTH = "oauth";
+const std::string UserManager::COL_OAUTH_EXPIRY = "oauth_expiry";
+const std::string UserManager::COL_PERMISSIONS = "permissions";
+const std::string UserManager::COL_UID = "uid";
+
+const std::string UserManager::COL_KEY = "key";
+const std::string UserManager::COL_VALUE = "value";
+
 UserManager::UserManager(Database *db)
     : _auth_mutex(std::make_shared<std::recursive_mutex>()),
       _db(db),
-      _users(db->createTable("users", {{"id", DbDataType::AUTO_INCREMENT},
-                                       {"name", DbDataType::TEXT},
-                                       {"salt", DbDataType::TEXT},
-                                       {"password", DbDataType::TEXT},
-                                       {"oauth", DbDataType::TEXT},
-                                       {"oauth_expiry", DbDataType::INTEGER},
-                                       {"permissions", DbDataType::INTEGER}})),
+      _users(db->createTable("users", {{COL_ID, DbDataType::AUTO_INCREMENT},
+                                       {COL_NAME, DbDataType::TEXT},
+                                       {COL_SALT, DbDataType::TEXT},
+                                       {COL_PASSWORD, DbDataType::TEXT},
+                                       {COL_OAUTH, DbDataType::TEXT},
+                                       {COL_OAUTH_EXPIRY, DbDataType::INTEGER},
+                                       {COL_PERMISSIONS, DbDataType::INTEGER},
+                                       {COL_UID, DbDataType::TEXT}})),
       _can_authenticate_users(true) {
   if (sodium_init() < 0) {
     LOG_ERROR << "UserManager::UserManager: Unable to initialize libsodium, "
@@ -44,24 +57,11 @@ UserManager::UserManager(Database *db)
   DbCursor root_users = _users.query();
 
   if (root_users.done()) {
-    // compute the hash of roots password
-    std::vector<char> salt = generateSalt();
-    std::string client_side_hash = clientSidePasswordHash("root", "root");
-    LOG_DEBUG << "Client side password " << client_side_hash << LOG_END;
-    LOG_DEBUG << "Salt hex " << util::base16EncodeStr(salt.data(), salt.size())
-              << LOG_END;
-    LOG_DEBUG << "Salt " << util::base64EncodeStr(salt.data(), salt.size())
-              << LOG_END;
-    std::string password_hash = hashPassword(salt, client_side_hash);
-    LOG_DEBUG << "Entry to write " << password_hash << LOG_END;
-
-    _users.insert({DbColumnUpdate{"name", std::string("root")},
-                   DbColumnUpdate{
-                       "salt", util::base64EncodeStr(salt.data(), salt.size())},
-                   DbColumnUpdate{"password", password_hash},
-                   DbColumnUpdate{"oauth", std::string("")},
-                   DbColumnUpdate{"oauth_expiry", int64_t(0)},
-                   DbColumnUpdate{"permissions", int64_t(0xFFFFFFF)}});
+    createUser("root", clientSidePasswordHash("root", "root"), {});
+    // Give root permissions for everything including all possible future
+    // permissions.
+    _users.update({DbColumnUpdate{COL_PERMISSIONS, int64_t(0xFFFFFFFFFFFFFF)}},
+                  DbCondition());
   }
 }
 
@@ -76,36 +76,26 @@ UserManager::UserPtr UserManager::authenticateViaLogin(
         << LOG_END;
     return nullptr;
   }
-  LOG_DEBUG << "Querying for users with the given name" << LOG_END;
   DbCursor users =
-      _users.query(DbCondition("name", DbCondition::Type::EQ, username));
-  LOG_DEBUG << " Query complete" << LOG_END;
+      _users.query(DbCondition(COL_NAME, DbCondition::Type::EQ, username));
   while (!users.done()) {
-    LOG_DEBUG << "UserManager::authenticateViaLogin: trying "
-              << users.col(1).text << LOG_END;
     std::string salt = users.col(2).text;
     std::vector<char> decoded_salt =
         util::base64Decode(salt.c_str(), salt.size());
-    LOG_DEBUG << "Salt hex "
-              << util::base16EncodeStr(decoded_salt.data(), decoded_salt.size())
-              << LOG_END;
-    LOG_DEBUG << "Hashing the password using the salt: " << salt << LOG_END;
     std::string passwd_hash =
         hashPassword(util::base64Decode(salt.c_str(), salt.size()), password);
-    LOG_DEBUG << "Hashed password " << passwd_hash
-              << " db password: " << users.col(3).text << LOG_END;
     if (passwd_hash == users.col(3).text) {
-      LOG_DEBUG << "The password matches" << LOG_END;
-      UserPtr user = std::make_shared<User>(&_users, _auth_mutex, users);
+      UserPtr user = std::make_shared<User>(_db, &_users, _auth_mutex, users);
       auto user_it = _authenticated_users.find(user->oauth());
       if (user_it != _authenticated_users.end()) {
         return user_it->second;
       } else {
+        _authenticated_users.insert(std::make_pair(user->oauth(), user));
+        _loaded_users.insert(std::make_pair(user->id(), user));
         user->refreshOauth();
         return user;
       }
     }
-    LOG_DEBUG << "The password didn't match" << LOG_END;
     users.next();
   }
   return nullptr;
@@ -123,12 +113,12 @@ UserManager::UserPtr UserManager::authenticateViaOAuth(
   }
   int64_t now = time(NULL);
   DbCursor users =
-      _users.query(DbCondition("oauth", DbCondition::Type::EQ, oauth));
+      _users.query(DbCondition(COL_OAUTH, DbCondition::Type::EQ, oauth));
   while (!users.done()) {
     if (users.col(5).integer > now) {
-      UserPtr user = std::make_shared<User>(&_users, _auth_mutex, users);
+      UserPtr user = std::make_shared<User>(_db, &_users, _auth_mutex, users);
       user->refreshOauth();
-      _authenticated_users.insert(std::make_pair(oauth, user));
+      _authenticated_users.insert(std::make_pair(user->oauth(), user));
       _loaded_users.insert(std::make_pair(user->id(), user));
       return user;
     }
@@ -170,14 +160,16 @@ UserManager::UserPtr UserManager::loadUser(int64_t id) {
   std::lock_guard<std::recursive_mutex> auth_lock(*_auth_mutex);
   auto loaded_it = _loaded_users.find(id);
   if (loaded_it != _loaded_users.end()) {
+    LOG_DEBUG << "A user with id " << id << " is already loaded" << LOG_END;
     return loaded_it->second;
   }
+  LOG_DEBUG << "A user with id " << id << " is not already loaded" << LOG_END;
 
-  DbCursor users = _users.query(DbCondition("id", DbCondition::Type::EQ, id));
+  DbCursor users = _users.query(DbCondition(COL_ID, DbCondition::Type::EQ, id));
   if (users.done()) {
     return nullptr;
   }
-  UserPtr user = std::make_shared<User>(&_users, _auth_mutex, users);
+  UserPtr user = std::make_shared<User>(_db, &_users, _auth_mutex, users);
   // ensure the user has an oauth token
   user->refreshOauth();
   _authenticated_users.insert(std::make_pair(user->oauth(), user));
@@ -191,7 +183,7 @@ UserManager::UserPtr UserManager::createUser(
   std::lock_guard<std::recursive_mutex> auth_lock(*_auth_mutex);
   {
     DbCursor users =
-        _users.query(DbCondition("name", DbCondition::Type::EQ, username));
+        _users.query(DbCondition(COL_NAME, DbCondition::Type::EQ, username));
     if (!users.done()) {
       throw std::runtime_error(
           "UserManager::createUser: A user with the name " + username +
@@ -207,19 +199,31 @@ UserManager::UserPtr UserManager::createUser(
     permission_mask |= int64_t(1) << int64_t(p);
   }
 
-  _users.insert(
-      {DbColumnUpdate{"name", username},
-       DbColumnUpdate{"salt", util::base64EncodeStr(salt.data(), salt.size())},
-       DbColumnUpdate{"password", passwd},
-       DbColumnUpdate{"oauth", std::string("")},
-       DbColumnUpdate{"oauth_expiry", int64_t(0)},
-       DbColumnUpdate{"permissions", permission_mask}});
+  // Find a unique uid
+  std::string uid;
+  while (true) {
+    uid = Random::secureRandomString(32);
+    DbCursor c = _users.query(DbCondition(COL_UID, DbCondition::Type::EQ, uid));
+    if (c.done()) {
+      break;
+    }
+  }
+
+  _users.insert({DbColumnUpdate{COL_NAME, username},
+                 DbColumnUpdate{
+                     COL_SALT, util::base64EncodeStr(salt.data(), salt.size())},
+                 DbColumnUpdate{COL_PASSWORD, passwd},
+                 DbColumnUpdate{COL_OAUTH, std::string("")},
+                 DbColumnUpdate{COL_OAUTH_EXPIRY, int64_t(0)},
+                 DbColumnUpdate{COL_PERMISSIONS, permission_mask},
+                 DbColumnUpdate{COL_UID, uid}});
 
   DbCursor users =
-      _users.query(DbCondition("name", DbCondition::Type::EQ, username));
-  UserPtr user = std::make_shared<User>(&_users, _auth_mutex, users);
+      _users.query(DbCondition(COL_NAME, DbCondition::Type::EQ, username));
+  UserPtr user = std::make_shared<User>(_db, &_users, _auth_mutex, users);
   user->refreshOauth();
   _authenticated_users.insert(std::make_pair(user->oauth(), user));
+
   return user;
 }
 
@@ -237,7 +241,9 @@ void UserManager::deleteUser(int64_t id) {
   if (loaded_it != _loaded_users.end()) {
     _loaded_users.erase(loaded_it);
   }
-  _users.erase(DbCondition("id", DbCondition::Type::EQ, user->id()));
+  _users.erase(DbCondition(COL_ID, DbCondition::Type::EQ, user->id()));
+  // Clear up any user data
+  user->onDeleted(_db);
 }
 
 std::vector<UserManager::PublicUserInfo> UserManager::listUsers() {
@@ -245,9 +251,9 @@ std::vector<UserManager::PublicUserInfo> UserManager::listUsers() {
   DbCursor result = _users.query();
   while (!result.done()) {
     PublicUserInfo user;
-    user.id = result.col("id").integer;
-    user.name = result.col("name").text;
-    user.permissions = result.col("permissions").integer;
+    user.id = result.col(COL_ID).integer;
+    user.name = result.col(COL_NAME).text;
+    user.permissions = result.col(COL_PERMISSIONS).integer;
     users.push_back(user);
     result.next();
   }
@@ -288,18 +294,25 @@ std::vector<char> UserManager::generateSalt() {
 // USER
 // =============================================================================
 
-UserManager::User::User(Table *table,
+UserManager::User::User(Database *db, DbTable *table,
                         std::shared_ptr<std::recursive_mutex> auth_mutex,
                         DbCursor &db_entry)
-    : _auth_mutex(auth_mutex), _table(table) {
-  _id = db_entry.col(0).asInteger();
-  _name = db_entry.col(1).asText();
-  _salt = db_entry.col(2).asText();
-  _password_hash = db_entry.col(3).asText();
-  _oauth = db_entry.col(4).asText();
-  _oauth_expiry = db_entry.col(5).asInteger();
-  _permissions = db_entry.col(6).asInteger();
+    : _auth_mutex(auth_mutex), _user_table(table), _is_deleted(false) {
+  _id = db_entry.col(COL_ID).asInteger();
+  _name = db_entry.col(COL_NAME).asText();
+  _salt = db_entry.col(COL_SALT).asText();
+  _password_hash = db_entry.col(COL_PASSWORD).asText();
+  _oauth = db_entry.col(COL_OAUTH).asText();
+  _oauth_expiry = db_entry.col(COL_OAUTH_EXPIRY).asInteger();
+  _permissions = db_entry.col(COL_PERMISSIONS).asInteger();
+  _uid = db_entry.col(COL_UID).asText();
+
+  _data_table =
+      db->createTable("user_" + _uid, {DbColumn{COL_KEY, DbDataType::TEXT},
+                                       DbColumn{COL_VALUE, DbDataType::BLOB}});
 }
+
+UserManager::User::~User() {}
 
 const std::string &UserManager::User::name() const {
   // TODO: This is not thread-safe.
@@ -308,8 +321,8 @@ const std::string &UserManager::User::name() const {
 
 void UserManager::User::setName(const std::string &name) {
   std::lock_guard<std::recursive_mutex> auth_lock(*_auth_mutex);
-  _table->update({DbColumnUpdate{"name", name}},
-                 DbCondition("id", DbCondition::Type::EQ, _id));
+  _user_table->update({DbColumnUpdate{COL_NAME, name}},
+                      DbCondition(COL_ID, DbCondition::Type::EQ, _id));
   _name = name;
 }
 
@@ -317,10 +330,10 @@ void UserManager::User::setPassword(const std::string password) {
   std::lock_guard<std::recursive_mutex> auth_lock(*_auth_mutex);
   std::vector<char> salt = UserManager::generateSalt();
   std::string password_hash = UserManager::hashPassword(salt, password);
-  _table->update(
-      {DbColumnUpdate{"password", password_hash},
-       DbColumnUpdate{"salt", util::base64EncodeStr(salt.data(), salt.size())}},
-      DbCondition("id", DbCondition::Type::EQ, _id));
+  _user_table->update({DbColumnUpdate{COL_PASSWORD, password_hash},
+                       DbColumnUpdate{COL_SALT, util::base64EncodeStr(
+                                                    salt.data(), salt.size())}},
+                      DbCondition(COL_ID, DbCondition::Type::EQ, _id));
   _password_hash = password_hash;
 }
 
@@ -331,8 +344,8 @@ void UserManager::User::setPermissions(
   for (Permission p : new_permissions) {
     perm_mask |= int64_t(1) << int64_t(p);
   }
-  _table->update({DbColumnUpdate{"permissions", perm_mask}},
-                 DbCondition("id", DbCondition::Type::EQ, _id));
+  _user_table->update({DbColumnUpdate{COL_PERMISSIONS, perm_mask}},
+                      DbCondition(COL_ID, DbCondition::Type::EQ, _id));
   _permissions = perm_mask;
 }
 
@@ -347,12 +360,12 @@ void UserManager::User::refreshOauth() {
   int64_t now = time(NULL);
   if (_oauth_expiry <= now) {
     _oauth = Random::secureRandomString(32);
-    _table->update({DbColumnUpdate{"oauth", _oauth}},
-                   DbCondition("id", DbCondition::Type::EQ, _id));
+    _user_table->update({DbColumnUpdate{COL_OAUTH, _oauth}},
+                        DbCondition(COL_ID, DbCondition::Type::EQ, _id));
   }
   _oauth_expiry = now + 12l * 7l * 24l * 60l * 60l;
-  _table->update({DbColumnUpdate{"oauth_expiry", _oauth_expiry}},
-                 DbCondition("id", DbCondition::Type::EQ, _id));
+  _user_table->update({DbColumnUpdate{COL_OAUTH_EXPIRY, _oauth_expiry}},
+                      DbCondition(COL_ID, DbCondition::Type::EQ, _id));
 }
 
 std::string UserManager::User::createSetCookieHeader() const {
@@ -372,3 +385,15 @@ std::string UserManager::User::createClearCookieHeader() const {
 }
 
 int64_t UserManager::User::id() const { return _id; }
+
+const std::string &UserManager::User::uid() const { return _uid; }
+
+void UserManager::User::onDeleted(Database *db) {
+  std::lock_guard<std::recursive_mutex> auth_lock(*_auth_mutex);
+  _is_deleted = true;
+  _data_table = DbTable();
+  _user_table = nullptr;
+  db->dropTable("user_" + _uid);
+}
+
+bool UserManager::User::isDeleted() const { return _is_deleted; }

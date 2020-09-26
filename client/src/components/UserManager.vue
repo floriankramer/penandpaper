@@ -20,8 +20,10 @@
     <details>
       <input placeholder="name" v-model="newName"/>
       <input placeholder="password" type="password" v-model="newPassword"/>
-      <input type="checkbox" value="Modify Users" v-model="newModifyUsers"/>
-      <input type="checkbox" value="Admin" v-model="newAdmin"/>
+      <input type="checkbox" value="Modify Users" name="perm-modify-uysers" v-model="newModifyUsers"/>
+      <label for="perm-modify-uysers">Modify Users</label>
+      <input type="checkbox" value="Admin" name="perm-admin" v-model="newAdmin"/>
+      <label for="perm-modify-uysers">Admin</label>
       <button v-on:click="createUser">Create User</button>
     </details>
     <table>
@@ -51,11 +53,15 @@
     <div class="popup" v-show="showEditPassword">
       <input placeholder="password" type="password" v-model="editedPassword"/>
       <button v-on:click="commitPassword">Save</button>
+      <button v-on:click="cancelChangePassword">Cancel</button>
     </div>
     <div class="popup" v-show="showEditPermissions">
-      <input type="checkbox" value="Modify Users"/>
-      <input type="checkbox" value="Admin"/>
-      <button>Save</button>
+      <input type="checkbox" name="perm-modify-uysers" value="Modify Users" v-model="editedModifyUsers"/>
+      <label for="perm-modify-uysers">Modify Users</label>
+      <input type="checkbox" name="perm-admin" value="Admin" v-model="editedAdmin"/>
+      <label for="perm-modify-uysers">Admin</label>
+      <button v-on:click="commitPermissions">Save</button>
+      <button v-on:click="cancelChangePermissions">Cancel</button>
     </div>
   </div>
 </template>
@@ -92,6 +98,9 @@ export default class UserManager extends Vue {
   newModifyUsers: boolean = false
   newAdmin: boolean = false
 
+  editedAdmin: boolean = false
+  editedModifyUsers: boolean = false
+
   editedPassword: string = ''
 
   mounted () {
@@ -122,26 +131,71 @@ export default class UserManager extends Vue {
   }
 
   commitPassword () {
-    let req: any = {
-      'action': 'SetPassword',
-      'to-modify': this.currentId,
-      'new-password': this.hashPassword(this.currentUserName, this.editedPassword)
-    }
-
     this.showEditPassword = false
     this.editedPassword = ''
 
-    $.post('/auth', JSON.stringify(req), () => {
-      eventBus.$emit('/notification', 'Updated the password of ' + this.currentUserName)
-    }).fail(() => {
-      eventBus.$emit('/notification', 'Unable to change the password of ' + this.currentUserName)
+    this.hashPassword(this.currentUserName, this.editedPassword).then((hashedPassword: string) => {
+      let req: any = {
+        'action': 'SetPassword',
+        'to-modify': this.currentId,
+        'new-password': hashedPassword
+      }
+
+      $.post('/auth', JSON.stringify(req), () => {
+        eventBus.$emit('/notification', 'Updated your password')
+      }).fail(() => {
+        eventBus.$emit('/notification', 'Unable to change the password')
+      })
+    }).catch(() => {
+      eventBus.$emit('/notification', 'Unable to change the password')
     })
+  }
+
+  cancelChangePassword () {
+    this.showEditPassword = false
   }
 
   editPermissions (id: number) {
     this.showEditPassword = false
     this.showEditPermissions = true
     this.currentId = id
+
+    let user = this.users.find((user: User) => user.id === id)
+    if (user !== undefined) {
+      this.editedModifyUsers = user.permissions.find((perm) => perm === 'modify-users') !== undefined
+      this.editedAdmin = user.permissions.find((perm) => perm === 'admin') !== undefined
+    } else {
+      this.editedModifyUsers = false
+      this.editedAdmin = false
+    }
+  }
+
+  commitPermissions () {
+    this.showEditPermissions = false
+
+    let perms = []
+    if (this.editedAdmin) {
+      perms.push('admin')
+    }
+    if (this.editedModifyUsers) {
+      perms.push('modify-users')
+    }
+    let req: any = {
+      'action': 'SetPermissions',
+      'to-modify': this.currentId,
+      'new-permissions': perms
+    }
+
+    $.post('/auth', JSON.stringify(req), () => {
+      eventBus.$emit('/notification', 'Updated the permissions')
+      this.updateUsersList()
+    }).fail(() => {
+      eventBus.$emit('/notification', 'Unable to change the permissions')
+    })
+  }
+
+  cancelChangePermissions () {
+    this.showEditPermissions = false
   }
 
   deleteUser (id: number, name: string) {

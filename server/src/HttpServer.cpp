@@ -28,10 +28,8 @@
 #include "Random.h"
 
 HttpServer::HttpServer(std::shared_ptr<UserManager> authenticator,
-                       const std::string &base_dir, bool do_keycheck)
-    : user_manager(authenticator),
-      _base_dir(base_dir),
-      _do_keycheck(do_keycheck) {
+                       const std::string &base_dir)
+    : user_manager(authenticator), _base_dir(base_dir) {
   std::string cert_path = base_dir + "/cert/certificate.pem";
   std::string key_path = base_dir + "/cert/key.pem";
   _server =
@@ -56,14 +54,11 @@ void HttpServer::run() {
   basepath = _base_dir;
   basepath += "/html";
   basepath = os::realpath(basepath);
-  if (!_do_keycheck) {
-    LOG_INFO << "Http server keychecking is disabled" << LOG_END;
-  }
   _server->Get(".*", [this, &basepath](const httplib::Request &req,
                                        httplib::Response &resp) {
     try {
       std::string cookies = req.get_header_value("Cookie");
-      if (_do_keycheck && req.path != "/auth") {
+      if (req.path != "/auth") {
         if (!user_manager->authenticateViaCookies(cookies)) {
           if (req.path == "/") {
             resp.status = 307;
@@ -92,7 +87,7 @@ void HttpServer::run() {
       }
       // The auth page is not served from the filesystem
       if (realpath == "/auth") {
-        if (!_do_keycheck || user_manager->authenticateViaCookies(cookies)) {
+        if (user_manager->authenticateViaCookies(cookies)) {
           resp.status = 307;
           resp.set_header("Location", "/");
           resp.body = "Authentication successfull.";
@@ -103,7 +98,7 @@ void HttpServer::run() {
         }
         return;
       } else if (realpath == "/auth/list") {
-        if (!_do_keycheck || user_manager->authenticateViaCookies(cookies)) {
+        if (user_manager->authenticateViaCookies(cookies)) {
           nlohmann::json data;
           std::vector<UserManager::PublicUserInfo> users =
               user_manager->listUsers();
@@ -138,11 +133,34 @@ void HttpServer::run() {
         }
       } else if (realpath == "/auth/logout") {
         UserManager::UserPtr user;
-        if (_do_keycheck &&
-            (user = user_manager->authenticateViaCookies(cookies))) {
+        if ((user = user_manager->authenticateViaCookies(cookies))) {
           resp.status = 200;
           resp.body = "Ok";
           resp.set_header("Set-Cookie", user->createClearCookieHeader());
+          return;
+        } else {
+          resp.status = 404;
+          resp.body = "Not Found";
+          return;
+        }
+      } else if (realpath == "/auth/self") {
+        UserManager::UserPtr user;
+        if ((user = user_manager->authenticateViaCookies(cookies)) != nullptr) {
+          nlohmann::json user_json;
+          user_json["id"] = user->id();
+          user_json["name"] = user->name();
+
+          nlohmann::json permissions = nlohmann::json::array();
+          if (user->hasPermission(UserManager::Permission::MODIFY_USERS)) {
+            permissions.push_back("modify-users");
+          }
+          if (user->hasPermission(UserManager::Permission::ADMIN)) {
+            permissions.push_back("admin");
+          }
+          user_json["permissions"] = permissions;
+          resp.status = 200;
+          resp.body = user_json.dump();
+          resp.set_header("Content-Type", "application/json");
           return;
         } else {
           resp.status = 404;
@@ -204,12 +222,10 @@ void HttpServer::run() {
 
       std::string cookies = req.get_header_value("Cookie");
       if (req.path != "/auth") {
-        if (_do_keycheck) {
-          if (!user_manager->authenticateViaCookies(cookies)) {
-            resp.status = 404;
-            resp.body = "Page not found";
-            return;
-          }
+        if (!user_manager->authenticateViaCookies(cookies)) {
+          resp.status = 404;
+          resp.body = "Page not found";
+          return;
         }
       } else {
         LOG_DEBUG << "Handling an authentification attempt" << LOG_END;

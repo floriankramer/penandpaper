@@ -132,10 +132,11 @@ class DbCursor {
   bool _done;
 };
 
-class Table {
+class DbTable {
  public:
-  Table(const std::string &name, sqlite3 *db);
-  virtual ~Table();
+  DbTable();
+  DbTable(const std::string &name, sqlite3 *db);
+  virtual ~DbTable();
   void setColumns(const std::vector<DbColumn> &columns);
 
   void insert(const std::vector<DbColumnUpdate> &data);
@@ -164,8 +165,10 @@ class Database {
    * @brief Creates the table in the database if it doesn't exist or returns
    * the existing table.
    */
-  Table createTable(const std::string &name,
-                    const std::vector<DbColumn> &types);
+  DbTable createTable(const std::string &name,
+                      const std::vector<DbColumn> &types);
+
+  void dropTable(const std::string &name);
 
   bool tableExists(const std::string &name);
 

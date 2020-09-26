@@ -121,8 +121,8 @@ class Wiki : public HttpServer::RequestHandler {
 
   class Entry {
    public:
-    Entry(Table *storage);
-    Entry(const std::string &id, Entry *parent, Table *storage);
+    Entry(DbTable *storage);
+    Entry(const std::string &id, Entry *parent, DbTable *storage);
     virtual ~Entry();
 
     Entry *addChild(std::string child_id);
@@ -192,7 +192,7 @@ class Wiki : public HttpServer::RequestHandler {
     std::unordered_map<std::string, std::vector<IndexedAttributeData>>
         _inherited_attributes;
 
-    Table *_storage;
+    DbTable *_storage;
   };
 
  public:
@@ -242,7 +242,7 @@ class Wiki : public HttpServer::RequestHandler {
   void addToPredicateIndex(Entry *e);
 
   Database *_db;
-  Table _pages_table;
+  DbTable _pages_table;
   std::unordered_map<std::string, Entry *> _entry_map;
   std::map<Date, std::vector<EventData>> _dates;
 

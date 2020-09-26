@@ -45,18 +45,20 @@ Simulation::Simulation()
       _plugin_manager(nullptr) {
   _rand_seed = time(NULL);
   using std::placeholders::_1;
+  using std::placeholders::_2;
   _msg_handlers = {
-      {"CreateToken", std::bind(&Simulation::onCreateToken, this, _1)},
-      {"MoveToken", std::bind(&Simulation::onMoveToken, this, _1)},
-      {"DeleteToken", std::bind(&Simulation::onDeleteToken, this, _1)},
-      {"Chat", std::bind(&Simulation::onChat, this, _1)},
+      {"CreateToken", std::bind(&Simulation::onCreateToken, this, _1, _2)},
+      {"MoveToken", std::bind(&Simulation::onMoveToken, this, _1, _2)},
+      {"DeleteToken", std::bind(&Simulation::onDeleteToken, this, _1, _2)},
+      {"Chat", std::bind(&Simulation::onChat, this, _1, _2)},
       {"CreateDoodadLine",
-       std::bind(&Simulation::onCreateDoodadLine, this, _1)},
-      {"ClearDoodads", std::bind(&Simulation::onClearDoodads, this, _1)},
-      {"ClearTokens", std::bind(&Simulation::onClearTokens, this, _1)},
-      {"TokenToggleFoe", std::bind(&Simulation::onTokenToggleFoe, this, _1)},
-      {"InitSession", std::bind(&Simulation::onInitSession, this, _1)},
-      {"SetUsername", std::bind(&Simulation::onSetUsername, this, _1)}};
+       std::bind(&Simulation::onCreateDoodadLine, this, _1, _2)},
+      {"ClearDoodads", std::bind(&Simulation::onClearDoodads, this, _1, _2)},
+      {"ClearTokens", std::bind(&Simulation::onClearTokens, this, _1, _2)},
+      {"TokenToggleFoe",
+       std::bind(&Simulation::onTokenToggleFoe, this, _1, _2)},
+      {"InitSession", std::bind(&Simulation::onInitSession, this, _1, _2)},
+      {"SetUsername", std::bind(&Simulation::onSetUsername, this, _1, _2)}};
   _building_manager.registerPackets(&_msg_handlers);
 }
 
@@ -81,7 +83,7 @@ Token *Simulation::tokenById(uint64_t id) {
   return nullptr;
 }
 
-WebSocketServer::Response Simulation::onNewClient() {
+WebSocketServer::Response Simulation::onNewClient(UserManager::UserPtr user) {
   std::lock_guard<std::mutex> simulation_mutex_lock(_simulation_mutex);
 
   using nlohmann::json;
@@ -141,7 +143,8 @@ void Simulation::broadcastClients() {
   _web_socket_server->broadcast(r.dump());
 }
 
-WebSocketServer::Response Simulation::onMessage(const std::string &msg) {
+WebSocketServer::Response Simulation::onMessage(const std::string &msg,
+                                                UserManager::UserPtr user) {
   std::lock_guard<std::mutex> simulation_mutex_lock(_simulation_mutex);
   using nlohmann::json;
   try {
@@ -153,7 +156,7 @@ WebSocketServer::Response Simulation::onMessage(const std::string &msg) {
         handler_it = _msg_handlers.find(type);
     if (handler_it != _msg_handlers.end()) {
       // call the handler
-      return (handler_it->second)(Packet(j, this));
+      return (handler_it->second)(Packet(j, this), user);
     } else if (_plugin_manager->hasPacketHandler(type)) {
       // Let the plugin handle the packet
       std::pair<WebSocketServer::ResponseType, std::string> p =
@@ -187,7 +190,8 @@ Simulation::Color Simulation::nextColor() {
   return c;
 }
 
-WebSocketServer::Response Simulation::onCreateToken(const Packet &j) {
+WebSocketServer::Response Simulation::onCreateToken(const Packet &j,
+                                                    UserManager::UserPtr user) {
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
   }
@@ -212,7 +216,8 @@ WebSocketServer::Response Simulation::onCreateToken(const Packet &j) {
   return {response.dump(), WebSocketServer::ResponseType::BROADCAST};
 }
 
-WebSocketServer::Response Simulation::onMoveToken(const Packet &j) {
+WebSocketServer::Response Simulation::onMoveToken(const Packet &j,
+                                                  UserManager::UserPtr user) {
   nlohmann::json data = j.json().at("data");
   uint64_t id = data.at("id").get<uint64_t>();
   Token *t = tokenById(id);
@@ -224,7 +229,8 @@ WebSocketServer::Response Simulation::onMoveToken(const Packet &j) {
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
-WebSocketServer::Response Simulation::onDeleteToken(const Packet &j) {
+WebSocketServer::Response Simulation::onDeleteToken(const Packet &j,
+                                                    UserManager::UserPtr user) {
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
   }
@@ -248,9 +254,10 @@ WebSocketServer::Response Simulation::onDeleteToken(const Packet &j) {
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
-WebSocketServer::Response Simulation::onChat(const Packet &j) {
+WebSocketServer::Response Simulation::onChat(const Packet &j,
+                                             UserManager::UserPtr user) {
   using nlohmann::json;
-  std::string uid = j.json().at("uid");
+  std::string uid = user->uid();
   std::string msg = j.json().at("data").at("message");
   std::string sender = "unknown";
 
@@ -342,7 +349,8 @@ WebSocketServer::Response Simulation::onChat(const Packet &j) {
   }
 }
 
-WebSocketServer::Response Simulation::onCreateDoodadLine(const Packet &j) {
+WebSocketServer::Response Simulation::onCreateDoodadLine(
+    const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
@@ -358,7 +366,8 @@ WebSocketServer::Response Simulation::onCreateDoodadLine(const Packet &j) {
   return {response.dump(), WebSocketServer::ResponseType::BROADCAST};
 }
 
-WebSocketServer::Response Simulation::onClearDoodads(const Packet &j) {
+WebSocketServer::Response Simulation::onClearDoodads(
+    const Packet &j, UserManager::UserPtr user) {
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
   }
@@ -366,7 +375,8 @@ WebSocketServer::Response Simulation::onClearDoodads(const Packet &j) {
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
-WebSocketServer::Response Simulation::onClearTokens(const Packet &j) {
+WebSocketServer::Response Simulation::onClearTokens(const Packet &j,
+                                                    UserManager::UserPtr user) {
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
   }
@@ -374,7 +384,8 @@ WebSocketServer::Response Simulation::onClearTokens(const Packet &j) {
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
-WebSocketServer::Response Simulation::onTokenToggleFoe(const Packet &j) {
+WebSocketServer::Response Simulation::onTokenToggleFoe(
+    const Packet &j, UserManager::UserPtr user) {
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
   }
@@ -388,10 +399,11 @@ WebSocketServer::Response Simulation::onTokenToggleFoe(const Packet &j) {
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
-WebSocketServer::Response Simulation::onInitSession(const Packet &j) {
+WebSocketServer::Response Simulation::onInitSession(const Packet &j,
+                                                    UserManager::UserPtr user) {
   using nlohmann::json;
   json req_data = j.json().at("data");
-  std::string uid = req_data.at("uid");
+  std::string uid = user->uid();
   Player *player = getPlayer(uid);
 
   if (player == nullptr) {
@@ -403,6 +415,7 @@ WebSocketServer::Response Simulation::onInitSession(const Packet &j) {
     player->id = _players.size() - 1;
     player->permissions =
         _players.size() == 1 ? Permissions::GAMEMASTER : Permissions::PLAYER;
+    player->name = user->name();
   } else {
     LOG_INFO << "A player with uid " << uid << " and name " << player->name
              << " reconnected." << LOG_END;
@@ -423,8 +436,9 @@ WebSocketServer::Response Simulation::onInitSession(const Packet &j) {
   return {response.dump(), WebSocketServer::ResponseType::RETURN};
 }
 
-WebSocketServer::Response Simulation::onSetUsername(const Packet &j) {
-  std::string uid = j.json().at("uid");
+WebSocketServer::Response Simulation::onSetUsername(const Packet &j,
+                                                    UserManager::UserPtr user) {
+  std::string uid = user->uid();
   std::string newname = j.json().at("data").at("name");
   if (newname == "The Server") {
     newname = "not The Server";

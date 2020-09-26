@@ -137,7 +137,7 @@ ul.menu-item {
   list-style: none;
   display: none;
   position: absolute;
-  z-index: 1002;
+  z-index: 2002;
   background-color: #111111;
   padding: 5px;
   border-radius: 3px;

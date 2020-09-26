@@ -265,6 +265,7 @@ DbCondition DbCondition::operator!() {
 
 DbSqlBuilder &operator<<(DbSqlBuilder &builder, const DbCondition &c) {
   if (c.type == DbCondition::Type::ALL) {
+    builder << "1 = 1";
     return builder;
   }
   if (c.type == DbCondition::Type::AND) {
@@ -288,7 +289,7 @@ DbSqlBuilder &operator<<(DbSqlBuilder &builder, const DbCondition &c) {
   } else if (c.type == DbCondition::Type::NOT) {
     builder << "(NOT " << c.children[0] << ")";
   } else {
-    builder << c.column;
+    builder << "`" << c.column << "`";
     switch (c.type) {
       case DbCondition::Type::EQ:
         builder << " = ";
@@ -326,7 +327,7 @@ DbSqlBuilder &DbSqlBuilder::operator<<(const DbVariant &v) {
 }
 
 DbSqlBuilder &DbSqlBuilder::operator<<(const DbColumnUpdate &v) {
-  *this << v.name << " = " << v.data;
+  *this << "`" << v.name << "` = " << v.data;
   return *this;
 }
 
@@ -338,11 +339,13 @@ const std::vector<DbVariant> &DbSqlBuilder::data() const { return _data; }
 // Table
 // =============================================================================
 
-Table::Table(const std::string &name, sqlite3 *db) : _name(name), _db(db) {}
+DbTable::DbTable() : _name(), _columns(), _column_index(), _db(nullptr) {}
 
-Table::~Table() {}
+DbTable::DbTable(const std::string &name, sqlite3 *db) : _name(name), _db(db) {}
 
-void Table::setColumns(const std::vector<DbColumn> &columns) {
+DbTable::~DbTable() {}
+
+void DbTable::setColumns(const std::vector<DbColumn> &columns) {
   _columns = columns;
   _column_index.clear();
   for (size_t i = 0; i < columns.size(); ++i) {
@@ -351,11 +354,11 @@ void Table::setColumns(const std::vector<DbColumn> &columns) {
   }
 }
 
-void Table::insert(const std::vector<DbColumnUpdate> &data) {
+void DbTable::insert(const std::vector<DbColumnUpdate> &data) {
   DbSqlBuilder ssql;
-  ssql << "INSERT INTO " << _name << " (";
+  ssql << "INSERT INTO `" << _name << "` (";
   for (size_t i = 0; i < data.size(); ++i) {
-    ssql << data[i].name;
+    ssql << "`" << data[i].name << "`";
     if (i + 1 < data.size()) {
       ssql << ", ";
     }
@@ -402,9 +405,9 @@ void Table::insert(const std::vector<DbColumnUpdate> &data) {
   }
 }
 
-void Table::insert(const std::vector<DbVariant> &data) {
+void DbTable::insert(const std::vector<DbVariant> &data) {
   DbSqlBuilder ssql;
-  ssql << "INSERT INTO " << _name << " VALUES (";
+  ssql << "INSERT INTO `" << _name << "` VALUES (";
   for (size_t i = 0; i < data.size(); ++i) {
     ssql << data[i];
     if (i + 1 < data.size()) {
@@ -446,9 +449,9 @@ void Table::insert(const std::vector<DbVariant> &data) {
   }
 }
 
-void Table::erase(const DbCondition &where) {
+void DbTable::erase(const DbCondition &where) {
   DbSqlBuilder ssql;
-  ssql << "DELETE FROM " << _name << " WHERE " << where << ";";
+  ssql << "DELETE FROM `" << _name << "` WHERE " << where << ";";
 
   std::string sql = ssql.str();
   sqlite3_stmt *stmt;
@@ -483,9 +486,9 @@ void Table::erase(const DbCondition &where) {
   }
 }
 
-DbCursor Table::query(const DbCondition &where) {
+DbCursor DbTable::query(const DbCondition &where) {
   DbSqlBuilder ssql;
-  ssql << "SELECT * FROM " << _name;
+  ssql << "SELECT * FROM `" << _name << "`";
   if (where.type != DbCondition::Type::ALL) {
     ssql << " WHERE " << where;
   }
@@ -512,10 +515,10 @@ DbCursor Table::query(const DbCondition &where) {
   return DbCursor(stmt, _db, _column_index);
 }
 
-void Table::update(const std::vector<DbColumnUpdate> &updates,
-                   const DbCondition &where) {
+void DbTable::update(const std::vector<DbColumnUpdate> &updates,
+                     const DbCondition &where) {
   DbSqlBuilder ssql;
-  ssql << "UPDATE " << _name << " SET ";
+  ssql << "UPDATE `" << _name << "` SET ";
   for (size_t i = 0; i < updates.size(); ++i) {
     const DbColumnUpdate &c = updates[i];
     ssql << c;
@@ -558,7 +561,7 @@ void Table::update(const std::vector<DbColumnUpdate> &updates,
   }
 }
 
-int Table::bindValues(sqlite3_stmt *stmt, const DbSqlBuilder &builder) {
+int DbTable::bindValues(sqlite3_stmt *stmt, const DbSqlBuilder &builder) {
   for (size_t i = 0; i < builder.data().size(); ++i) {
     int r = bindValue(stmt, i + 1, builder.data()[i]);
     if (r != 0) {
@@ -568,7 +571,7 @@ int Table::bindValues(sqlite3_stmt *stmt, const DbSqlBuilder &builder) {
   return 0;
 }
 
-int Table::bindValue(sqlite3_stmt *stmt, int index, const DbVariant &value) {
+int DbTable::bindValue(sqlite3_stmt *stmt, int index, const DbVariant &value) {
   int r = 0;
   switch (value.type) {
     case DbDataType::BLOB:
@@ -606,12 +609,12 @@ Database::Database(const std::string &database_path) {
   }
 }
 
-Table Database::createTable(const std::string &name,
-                            const std::vector<DbColumn> &types) {
+DbTable Database::createTable(const std::string &name,
+                              const std::vector<DbColumn> &types) {
   std::stringstream ssql;
-  ssql << "CREATE TABLE IF NOT EXISTS " << name << " (";
+  ssql << "CREATE TABLE IF NOT EXISTS `" << name << "` (";
   for (size_t i = 0; i < types.size(); ++i) {
-    ssql << types[i].name << " " << dbDataTypeName(types[i].type);
+    ssql << '`' << types[i].name << "` " << dbDataTypeName(types[i].type);
     if (i + 1 < types.size()) {
       ssql << ", ";
     }
@@ -626,14 +629,28 @@ Table Database::createTable(const std::string &name,
               << LOG_END;
     sqlite3_free(error);
   }
-  Table table(name, _db);
+  DbTable table(name, _db);
   table.setColumns(types);
   return table;
 }
 
+void Database::dropTable(const std::string &name) {
+  std::stringstream ssql;
+  ssql << "DROP TABLE IF EXISTS `" << name << "`;";
+
+  std::string sql = ssql.str();
+  char *error = NULL;
+  sqlite3_exec(_db, sql.c_str(), NULL, NULL, &error);
+  if (error != NULL) {
+    LOG_ERROR << "Error while dropping a table: " << sql << " : " << error
+              << LOG_END;
+    sqlite3_free(error);
+  }
+}
+
 bool Database::tableExists(const std::string &name) {
   using CType = DbCondition::Type;
-  Table schema("sqlite_schema", _db);
+  DbTable schema("sqlite_schema", _db);
   const std::vector<DbColumn> types = {{"type", DbDataType::TEXT},
                                        {"name", DbDataType::TEXT},
                                        {"tbl_name", DbDataType::TEXT},

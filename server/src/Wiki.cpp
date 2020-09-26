@@ -1129,10 +1129,10 @@ std::string Wiki::getText(Entry *e) const {
 // Entry
 // =============================================================================
 
-Wiki::Entry::Entry(Table *storage)
+Wiki::Entry::Entry(DbTable *storage)
     : _id("root"), _parent(nullptr), _storage(storage) {}
 
-Wiki::Entry::Entry(const std::string &id, Entry *parent, Table *storage)
+Wiki::Entry::Entry(const std::string &id, Entry *parent, DbTable *storage)
     : _id(id), _parent(parent), _storage(storage) {
   if (_parent != nullptr) {
     _parent->_children.push_back(this);

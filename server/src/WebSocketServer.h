@@ -45,15 +45,15 @@ class WebSocketServer {
     ResponseType type;
   };
 
-  typedef std::function<Response(const std::string &)> OnMsgHandler_t;
-  typedef std::function<Response()> OnConnectHandler_t;
+  typedef std::function<Response(const std::string &, UserManager::UserPtr)>
+      OnMsgHandler_t;
+  typedef std::function<Response(UserManager::UserPtr)> OnConnectHandler_t;
 
  public:
   WebSocketServer(std::shared_ptr<UserManager> user_manager,
                   OnMsgHandler_t on_msg, OnConnectHandler_t on_connect,
                   std::string base_dir);
 
-  void disableKeyCheck();
   void broadcast(const std::string &data);
 
  private:
@@ -70,6 +70,7 @@ class WebSocketServer {
   OnMsgHandler_t _on_msg;
   OnConnectHandler_t _on_connect;
 
-  bool _do_key_check;
   std::string _base_dir;
+
+  std::unordered_map<void*, UserManager::UserPtr> _connection_users;
 };

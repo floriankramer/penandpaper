@@ -35,7 +35,7 @@ class HttpServer {
   };
 
   HttpServer(std::shared_ptr<UserManager> authenticator,
-             const std::string &base_dir, bool do_keycheck = true);
+             const std::string &base_dir);
 
   void registerRequestHandler(const std::string &path, RequestType type,
                               std::shared_ptr<RequestHandler> handler);
@@ -57,7 +57,6 @@ class HttpServer {
       _post_request_handlers;
   std::shared_ptr<UserManager> user_manager;
   std::unique_ptr<httplib::SSLServer> _server;
-  bool _do_keycheck;
   std::string _base_dir;
 
   static const std::string AUTH_PAGE;

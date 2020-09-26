@@ -23,13 +23,27 @@
 #include "Database.h"
 
 class UserManager {
+  static const std::string COL_ID;
+  static const std::string COL_NAME;
+  static const std::string COL_SALT;
+  static const std::string COL_PASSWORD;
+  static const std::string COL_OAUTH;
+  static const std::string COL_OAUTH_EXPIRY;
+  static const std::string COL_PERMISSIONS;
+  static const std::string COL_UID;
+
+  static const std::string COL_KEY;
+  static const std::string COL_VALUE;
+
  public:
   enum class Permission { MODIFY_USERS, ADMIN };
 
   class User {
    public:
-    User(Table *table, std::shared_ptr<std::recursive_mutex> auth_mutex,
-         DbCursor &db_entry);
+    User(Database *db, DbTable *table,
+         std::shared_ptr<std::recursive_mutex> auth_mutex, DbCursor &db_entry);
+
+    virtual ~User();
 
     const std::string &name() const;
     void setName(const std::string &name);
@@ -46,6 +60,11 @@ class UserManager {
     std::string createClearCookieHeader() const;
 
     int64_t id() const;
+    const std::string &uid() const;
+
+    void onDeleted(Database *db);
+
+    bool isDeleted() const;
 
    private:
     int64_t _id;
@@ -55,10 +74,14 @@ class UserManager {
     std::string _oauth;
     int64_t _oauth_expiry;
     int64_t _permissions;
+    std::string _uid;
 
     mutable std::shared_ptr<std::recursive_mutex> _auth_mutex;
 
-    Table *_table;
+    DbTable *_user_table;
+    DbTable _data_table;
+
+    bool _is_deleted;
   };
   using UserPtr = std::shared_ptr<User>;
 
@@ -102,7 +125,7 @@ class UserManager {
   mutable std::shared_ptr<std::recursive_mutex> _auth_mutex;
 
   Database *_db;
-  Table _users;
+  DbTable _users;
 
   bool _can_authenticate_users;
 };

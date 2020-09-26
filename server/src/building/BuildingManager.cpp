@@ -23,7 +23,8 @@ BuildingManager::BuildingManager(IdGenerator *id_generator)
 
 nlohmann::json BuildingManager::toJson() const { return _building.toJson(); }
 
-WebSocketServer::Response BuildingManager::onSetDoorOpen(const Packet &j) {
+WebSocketServer::Response BuildingManager::onSetDoorOpen(
+    const Packet &j, UserManager::UserPtr user) {
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
   }
@@ -35,7 +36,8 @@ WebSocketServer::Response BuildingManager::onSetDoorOpen(const Packet &j) {
   return {"", WebSocketServer::ResponseType::SILENCE};
 }
 
-WebSocketServer::Response BuildingManager::onCreateRoom(const Packet &j) {
+WebSocketServer::Response BuildingManager::onCreateRoom(
+    const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
@@ -51,7 +53,8 @@ WebSocketServer::Response BuildingManager::onCreateRoom(const Packet &j) {
   return {response.dump(), WebSocketServer::ResponseType::BROADCAST};
 }
 
-WebSocketServer::Response BuildingManager::onCreateWall(const Packet &j) {
+WebSocketServer::Response BuildingManager::onCreateWall(
+    const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
@@ -68,7 +71,8 @@ WebSocketServer::Response BuildingManager::onCreateWall(const Packet &j) {
   return {response.dump(), WebSocketServer::ResponseType::BROADCAST};
 }
 
-WebSocketServer::Response BuildingManager::onCreateDoor(const Packet &j) {
+WebSocketServer::Response BuildingManager::onCreateDoor(
+    const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
@@ -86,7 +90,8 @@ WebSocketServer::Response BuildingManager::onCreateDoor(const Packet &j) {
   return {response.dump(), WebSocketServer::ResponseType::BROADCAST};
 }
 
-WebSocketServer::Response BuildingManager::onCreateFurniture(const Packet &j) {
+WebSocketServer::Response BuildingManager::onCreateFurniture(
+    const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
@@ -105,7 +110,8 @@ WebSocketServer::Response BuildingManager::onCreateFurniture(const Packet &j) {
   return {response.dump(), WebSocketServer::ResponseType::BROADCAST};
 }
 
-WebSocketServer::Response BuildingManager::onModifyRoom(const Packet &j) {
+WebSocketServer::Response BuildingManager::onModifyRoom(
+    const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
@@ -130,7 +136,8 @@ WebSocketServer::Response BuildingManager::onModifyRoom(const Packet &j) {
   return {"", WebSocketServer::ResponseType::SILENCE};
 }
 
-WebSocketServer::Response BuildingManager::onModifyWall(const Packet &j) {
+WebSocketServer::Response BuildingManager::onModifyWall(
+    const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
@@ -156,7 +163,8 @@ WebSocketServer::Response BuildingManager::onModifyWall(const Packet &j) {
   return {"", WebSocketServer::ResponseType::SILENCE};
 }
 
-WebSocketServer::Response BuildingManager::onModifyDoor(const Packet &j) {
+WebSocketServer::Response BuildingManager::onModifyDoor(
+    const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
@@ -188,7 +196,8 @@ WebSocketServer::Response BuildingManager::onModifyDoor(const Packet &j) {
   return {"", WebSocketServer::ResponseType::SILENCE};
 }
 
-WebSocketServer::Response BuildingManager::onModifyFurniture(const Packet &j) {
+WebSocketServer::Response BuildingManager::onModifyFurniture(
+    const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
@@ -216,7 +225,8 @@ WebSocketServer::Response BuildingManager::onModifyFurniture(const Packet &j) {
   return {"", WebSocketServer::ResponseType::SILENCE};
 }
 
-WebSocketServer::Response BuildingManager::onDeleteRoom(const Packet &j) {
+WebSocketServer::Response BuildingManager::onDeleteRoom(
+    const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
@@ -225,7 +235,8 @@ WebSocketServer::Response BuildingManager::onDeleteRoom(const Packet &j) {
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
-WebSocketServer::Response BuildingManager::onDeleteWall(const Packet &j) {
+WebSocketServer::Response BuildingManager::onDeleteWall(
+    const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
@@ -234,7 +245,8 @@ WebSocketServer::Response BuildingManager::onDeleteWall(const Packet &j) {
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
-WebSocketServer::Response BuildingManager::onDeleteDoor(const Packet &j) {
+WebSocketServer::Response BuildingManager::onDeleteDoor(
+    const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
@@ -243,7 +255,8 @@ WebSocketServer::Response BuildingManager::onDeleteDoor(const Packet &j) {
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
-WebSocketServer::Response BuildingManager::onDeleteFurniture(const Packet &j) {
+WebSocketServer::Response BuildingManager::onDeleteFurniture(
+    const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
@@ -252,7 +265,8 @@ WebSocketServer::Response BuildingManager::onDeleteFurniture(const Packet &j) {
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
-WebSocketServer::Response BuildingManager::onClearBuilding(const Packet &j) {
+WebSocketServer::Response BuildingManager::onClearBuilding(
+    const Packet &j, UserManager::UserPtr user) {
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
   }
@@ -260,7 +274,8 @@ WebSocketServer::Response BuildingManager::onClearBuilding(const Packet &j) {
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
-WebSocketServer::Response BuildingManager::onLoadBuilding(const Packet &j) {
+WebSocketServer::Response BuildingManager::onLoadBuilding(
+    const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
   if (!j.checkPermissions(Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
@@ -275,31 +290,43 @@ WebSocketServer::Response BuildingManager::onLoadBuilding(const Packet &j) {
 
 void BuildingManager::registerPackets(
     std::unordered_map<std::string,
-                       std::function<WebSocketServer::Response(const Packet &)>>
+                       std::function<WebSocketServer::Response(
+                           const Packet &, UserManager::UserPtr)>>
         *packet_handlers) {
   using std::placeholders::_1;
-  std::unordered_map<std::string,
-                     std::function<WebSocketServer::Response(const Packet &)>>
+  using std::placeholders::_2;
+  std::unordered_map<std::string, std::function<WebSocketServer::Response(
+                                      const Packet &, UserManager::UserPtr)>>
       handlers = {
-          {"SetDoorOpen", std::bind(&BuildingManager::onSetDoorOpen, this, _1)},
+          {"SetDoorOpen",
+           std::bind(&BuildingManager::onSetDoorOpen, this, _1, _2)},
           {"ClearBuilding",
-           std::bind(&BuildingManager::onClearBuilding, this, _1)},
+           std::bind(&BuildingManager::onClearBuilding, this, _1, _2)},
           {"LoadBuilding",
-           std::bind(&BuildingManager::onLoadBuilding, this, _1)},
-          {"CreateRoom", std::bind(&BuildingManager::onCreateRoom, this, _1)},
-          {"CreateWall", std::bind(&BuildingManager::onCreateWall, this, _1)},
-          {"CreateDoor", std::bind(&BuildingManager::onCreateDoor, this, _1)},
+           std::bind(&BuildingManager::onLoadBuilding, this, _1, _2)},
+          {"CreateRoom",
+           std::bind(&BuildingManager::onCreateRoom, this, _1, _2)},
+          {"CreateWall",
+           std::bind(&BuildingManager::onCreateWall, this, _1, _2)},
+          {"CreateDoor",
+           std::bind(&BuildingManager::onCreateDoor, this, _1, _2)},
           {"CreateFurniture",
-           std::bind(&BuildingManager::onCreateFurniture, this, _1)},
-          {"ModifyRoom", std::bind(&BuildingManager::onModifyRoom, this, _1)},
-          {"ModifyWall", std::bind(&BuildingManager::onModifyWall, this, _1)},
-          {"ModifyDoor", std::bind(&BuildingManager::onModifyDoor, this, _1)},
+           std::bind(&BuildingManager::onCreateFurniture, this, _1, _2)},
+          {"ModifyRoom",
+           std::bind(&BuildingManager::onModifyRoom, this, _1, _2)},
+          {"ModifyWall",
+           std::bind(&BuildingManager::onModifyWall, this, _1, _2)},
+          {"ModifyDoor",
+           std::bind(&BuildingManager::onModifyDoor, this, _1, _2)},
           {"ModifyFurniture",
-           std::bind(&BuildingManager::onModifyFurniture, this, _1)},
-          {"DeleteRoom", std::bind(&BuildingManager::onDeleteRoom, this, _1)},
-          {"DeleteWall", std::bind(&BuildingManager::onDeleteWall, this, _1)},
-          {"DeleteDoor", std::bind(&BuildingManager::onDeleteDoor, this, _1)},
+           std::bind(&BuildingManager::onModifyFurniture, this, _1, _2)},
+          {"DeleteRoom",
+           std::bind(&BuildingManager::onDeleteRoom, this, _1, _2)},
+          {"DeleteWall",
+           std::bind(&BuildingManager::onDeleteWall, this, _1, _2)},
+          {"DeleteDoor",
+           std::bind(&BuildingManager::onDeleteDoor, this, _1, _2)},
           {"DeleteFurniture",
-           std::bind(&BuildingManager::onDeleteFurniture, this, _1)}};
+           std::bind(&BuildingManager::onDeleteFurniture, this, _1, _2)}};
   packet_handlers->insert(handlers.begin(), handlers.end());
 }
