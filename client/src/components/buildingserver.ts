@@ -22,11 +22,9 @@ import PacketDispatcher from './packetdispatcher'
 export default class BuildingServer {
   building: B.Building | null = null
   dispatcher: PacketDispatcher
-  uid: string
 
-  constructor (dispatcher: PacketDispatcher, uid: string) {
+  constructor (dispatcher: PacketDispatcher) {
     this.dispatcher = dispatcher
-    this.uid = uid
 
     eventBus.$on('/client/building/set', (data: B.Building) => { this.onClientSetBuilding(data) })
 
@@ -103,7 +101,6 @@ export default class BuildingServer {
   onClientSetBuilding (data: B.Building) {
     let packet = {
       type: 'SetBuilding',
-      uid: this.uid,
       data: data.toSerializable()
     }
     this.dispatcher.send(JSON.stringify(packet))
@@ -112,7 +109,6 @@ export default class BuildingServer {
   onClientCreateRoom (room: B.Room) {
     let packet = {
       type: 'CreateRoom',
-      uid: this.uid,
       data: room.toSerializable()
     }
     this.dispatcher.send(JSON.stringify(packet))
@@ -133,7 +129,6 @@ export default class BuildingServer {
         if (r.contains(p.x, p.y)) {
           let packet = {
             type: 'DeleteRoom',
-            uid: this.uid,
             data: {
               'id': r.id
             }
@@ -170,7 +165,6 @@ export default class BuildingServer {
   onClientCreateWall (Wall: B.Wall) {
     let packet = {
       type: 'CreateWall',
-      uid: this.uid,
       data: Wall.toSerializable()
     }
     this.dispatcher.send(JSON.stringify(packet))
@@ -191,7 +185,6 @@ export default class BuildingServer {
         if (r.distTo(p.x, p.y) < 0.5) {
           let packet = {
             type: 'DeleteWall',
-            uid: this.uid,
             data: {
               'id': r.id
             }
@@ -228,7 +221,6 @@ export default class BuildingServer {
   onClientCreateDoor (Door: B.Door) {
     let packet = {
       type: 'CreateDoor',
-      uid: this.uid,
       data: Door.toSerializable()
     }
     this.dispatcher.send(JSON.stringify(packet))
@@ -249,7 +241,6 @@ export default class BuildingServer {
         if (r.position.distTo(p) < 0.5) {
           let packet = {
             type: 'DeleteDoor',
-            uid: this.uid,
             data: {
               'id': r.id
             }
@@ -277,7 +268,6 @@ export default class BuildingServer {
         if (r.position.distTo(p) < 0.5) {
           let packet = {
             type: 'ModifyDoor',
-            uid: this.uid,
             data: r.toSerializable()
           }
           packet.data.is_open = !packet.data.is_open
@@ -302,7 +292,6 @@ export default class BuildingServer {
   onClientCreateFurniture (Furniture: B.Furniture) {
     let packet = {
       type: 'CreateFurniture',
-      uid: this.uid,
       data: Furniture.toSerializable()
     }
     this.dispatcher.send(JSON.stringify(packet))
@@ -323,7 +312,6 @@ export default class BuildingServer {
         if (r.position.distTo(p) < 0.5) {
           let packet = {
             type: 'DeleteFurniture',
-            uid: this.uid,
             data: {
               'id': r.id
             }
@@ -365,7 +353,6 @@ export default class BuildingServer {
       if (area.contains(r.position)) {
         let packet = {
           type: 'ModifyRoom',
-          uid: this.uid,
           data: r.toSerializable()
         }
         packet.data.is_visible = !packet.data.is_visible
@@ -376,7 +363,6 @@ export default class BuildingServer {
       if (area.contains(r.position)) {
         let packet = {
           type: 'ModifyDoor',
-          uid: this.uid,
           data: r.toSerializable()
         }
         packet.data.is_visible = !packet.data.is_visible
@@ -387,7 +373,6 @@ export default class BuildingServer {
       if (area.contains(r.position)) {
         let packet = {
           type: 'ModifyFurniture',
-          uid: this.uid,
           data: r.toSerializable()
         }
         packet.data.is_visible = !packet.data.is_visible
@@ -398,7 +383,6 @@ export default class BuildingServer {
       if (area.contains(r.start) || area.contains(r.end)) {
         let packet = {
           type: 'ModifyWall',
-          uid: this.uid,
           data: r.toSerializable()
         }
         packet.data.is_visible = !packet.data.is_visible
@@ -410,7 +394,6 @@ export default class BuildingServer {
   onClientClearBuilding () {
     let packet = {
       type: 'ClearBuilding',
-      uid: this.uid,
       data: null
     }
     this.dispatcher.send(JSON.stringify(packet))
@@ -437,7 +420,6 @@ export default class BuildingServer {
         let b = B.Building.fromSerializable(data)
         let packet = {
           type: 'LoadBuilding',
-          uid: this.uid,
           data: b.toSerializable()
         }
         this.dispatcher.send(JSON.stringify(packet))

@@ -57,6 +57,8 @@ class Simulation {
 
   void sendChatToAll(const std::string &msg);
 
+  bool checkPermissions(UserManager::UserPtr user, Permissions min_perms);
+
  private:
   void broadcastClients();
 
@@ -111,6 +113,7 @@ class Simulation {
   std::string _tiles_path;
 
   std::unordered_map<std::string, MemberMsgHandler_t> _msg_handlers;
+  std::unordered_map<std::string, MemberMsgHandler_t> _msg_handlers_building;
 
   WebSocketServer *_web_socket_server;
 

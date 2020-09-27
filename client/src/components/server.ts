@@ -43,7 +43,6 @@ export class ServerState {
 }
 
 export default class Server implements PacketDispatcher {
-    uid: string;
     socket?: WebSocket;
     store: Store<any>;
 
@@ -66,13 +65,11 @@ export default class Server implements PacketDispatcher {
 
     constructor (store: Store<any>) {
       console.log('Creating a new server')
-      this.uid = ''
-      this.loadUid()
       this.store = store
       this.store.subscribe((mutation: MutationPayload, state: any) => {
         this.onmutation(mutation, state)
       })
-      this.buildingServer = new BuildingServer(this, this.uid)
+      this.buildingServer = new BuildingServer(this)
       eventBus.$on('/chat/send', (data:string) => { this.sendChat(data) })
       eventBus.$on('/client/token/create', (data:Sim.Point) => { this.clientCreateToken(data) })
       eventBus.$on('/client/token/move', (data: Sim.TokenMoveOrder) => { this.onClientMoveToken(data) })
@@ -197,7 +194,6 @@ export default class Server implements PacketDispatcher {
     sendChat (text : string) {
       let packet = {
         type: 'Chat',
-        uid: this.uid,
         data: {
           sender: this.store.state.username,
           message: text
@@ -222,7 +218,6 @@ export default class Server implements PacketDispatcher {
     clientCreateToken (pos: Sim.Point) {
       let packet = {
         type: 'CreateToken',
-        uid: this.uid,
         data: {
           x: pos.x,
           y: pos.y
@@ -234,7 +229,6 @@ export default class Server implements PacketDispatcher {
     clientClearTokens () {
       let packet = {
         type: 'ClearTokens',
-        uid: this.uid,
         data: { }
       }
       this.send(JSON.stringify(packet))
@@ -247,7 +241,6 @@ export default class Server implements PacketDispatcher {
     onClientMoveToken (move: Sim.TokenMoveOrder) {
       let packet = {
         type: 'MoveToken',
-        uid: this.uid,
         data: {
           'x': move.x,
           'y': move.y,
@@ -281,7 +274,6 @@ export default class Server implements PacketDispatcher {
     onClientDeleteToken (data: Sim.Token) {
       let packet = {
         type: 'DeleteToken',
-        uid: this.uid,
         data: {
           'id': data.id
         }
@@ -303,7 +295,6 @@ export default class Server implements PacketDispatcher {
     onClientCreateLine (line: Sim.Line) {
       let packet = {
         type: 'CreateDoodadLine',
-        uid: this.uid,
         data: {
           'sx': line.start.x,
           'sy': line.start.y,
@@ -328,7 +319,6 @@ export default class Server implements PacketDispatcher {
     onClientClearLines () {
       let packet = {
         type: 'ClearDoodads',
-        uid: this.uid,
         data: { }
       }
       this.send(JSON.stringify(packet))
@@ -337,7 +327,6 @@ export default class Server implements PacketDispatcher {
     onClientPluginSend (name: string, data: any) {
       let packet = {
         type: name,
-        uid: this.uid,
         data: data
       }
       this.send(JSON.stringify(packet))
@@ -377,7 +366,6 @@ export default class Server implements PacketDispatcher {
     onClientTokenToggleFoe (token: Sim.Token) {
       let packet = {
         type: 'TokenToggleFoe',
-        uid: this.uid,
         data: {
           'id': token.id
         }
@@ -414,7 +402,7 @@ export default class Server implements PacketDispatcher {
       // Send the session init
       let packet = {
         type: 'InitSession',
-        data: { uid: this.uid }
+        data: { }
       }
       this.send(JSON.stringify(packet))
     }
@@ -437,27 +425,12 @@ export default class Server implements PacketDispatcher {
       }
     }
 
-    loadUid () {
-      let uid : string | null = localStorage.getItem('uid')
-      if (uid !== null) {
-        this.uid = uid
-        return
-      }
-      this.uid = ''
-      for (var i = 0; i < 32; i++) {
-        // pick a char from [33;126]
-        let v = 33 + Math.round(Math.random() * 93.5)
-        this.uid += String.fromCharCode(v)
-      }
-      localStorage.setItem('uid', this.uid)
-    }
-
     onmutation (mutation: MutationPayload, state: any) {
       if (mutation.type === 'setUsername') {
         if (state.username.length > 0) {
           let packet = {
             type: 'SetUsername',
-            uid: this.uid,
+
             data: { name: state.username }
           }
           this.send(JSON.stringify(packet))

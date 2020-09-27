@@ -17,23 +17,17 @@
 
 #include <nlohmann/json.hpp>
 
-#include "WebSocketServer.h"
 #include "Permissions.h"
-
-class Simulation;
+#include "WebSocketServer.h"
 
 class Packet {
-public:
-
-  Packet(nlohmann::json json, Simulation *simulation);
+ public:
+  Packet(nlohmann::json json);
 
   const nlohmann::json &json() const;
 
-
   WebSocketServer::Response makeMissingPermissionsResponse() const;
-  bool checkPermissions(Permissions min_perm) const;
 
-private:
+ private:
   nlohmann::json _json;
-  Simulation *_simulation;
 };

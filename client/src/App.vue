@@ -189,10 +189,6 @@ export default class App extends Vue {
       text: 'wiki'
     },
     {
-      id: 'window-user-manager',
-      text: 'user manager'
-    },
-    {
       id: 'window-toolbar',
       text: 'toolbar'
     }
@@ -258,7 +254,7 @@ export default class App extends Vue {
     this.dockManagerDiv = document.getElementById('dock-container')
     if (this.dockManagerDiv) {
       // Initialize the dock manager
-      this.dockManager = new DockManager(this.dockManagerDiv)
+      this.dockManager = new DockManager(this.dockManagerDiv, { escClosesWindow: false, dialogRootElement: document.body })
       this.dockManager.initialize()
       this.dockManager.resize(this.$el.clientWidth,
         this.$el.clientHeight - 25)
@@ -288,15 +284,6 @@ export default class App extends Vue {
       if (accountDiv !== null) {
         this.accountPanel = new PanelContainer(accountDiv, this.dockManager)
         this.accountPanel.setTitle('Account')
-        this.dockManager.dockFill(documentNode, this.accountPanel)
-      }
-
-      // The map
-      let mapDiv = document.getElementById('map')
-      if (mapDiv) {
-        this.mapPanel = new PanelContainer(mapDiv, this.dockManager)
-        this.mapPanel.setTitle('Map')
-        this.mapDockNode = this.dockManager.dockFill(documentNode, this.mapPanel)
       }
 
       // The Chat
@@ -327,6 +314,14 @@ export default class App extends Vue {
         if (!this.isGamemaster) {
           this.toolbarPanel.close()
         }
+      }
+
+      // The map
+      let mapDiv = document.getElementById('map')
+      if (mapDiv) {
+        this.mapPanel = new PanelContainer(mapDiv, this.dockManager)
+        this.mapPanel.setTitle('Map')
+        this.mapDockNode = this.dockManager.dockFill(documentNode, this.mapPanel)
       }
 
       // Trigger a round of resizes by firing the dock library's custom resize event
@@ -364,6 +359,12 @@ export default class App extends Vue {
       if (user.permissions.length > 0 && this.dockManager !== undefined && this.userManagerPanel !== null) {
         let documentNode = this.dockManager.context.model.documentManagerNode
         this.dockManager.dockFill(documentNode, this.userManagerPanel)
+
+        this.menus[0].items.push(
+          {
+            id: 'window-user-manager',
+            text: 'user manager'
+          })
       }
     })
   }
@@ -464,6 +465,9 @@ export default class App extends Vue {
             this.wikiPanel.close()
           }
         }
+      }
+      if (this.mapPanel !== null) {
+        this.mapPanel.setActiveChild()
       }
 
       // Trigger a round of resizes by firing the dock library's custom resize event

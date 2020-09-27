@@ -25,9 +25,6 @@ nlohmann::json BuildingManager::toJson() const { return _building.toJson(); }
 
 WebSocketServer::Response BuildingManager::onSetDoorOpen(
     const Packet &j, UserManager::UserPtr user) {
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
-    return j.makeMissingPermissionsResponse();
-  }
   std::shared_ptr<Door> d = _building.door(j.json().at("data").at("id"));
   if (d != nullptr) {
     d->setOpen(j.json().at("data").at("open").get<bool>());
@@ -39,9 +36,6 @@ WebSocketServer::Response BuildingManager::onSetDoorOpen(
 WebSocketServer::Response BuildingManager::onCreateRoom(
     const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
-    return j.makeMissingPermissionsResponse();
-  }
   Vector2f pos = Vector2f::fromJson(j.json().at("data").at("position"));
   Vector2f size = Vector2f::fromJson(j.json().at("data").at("size"));
   std::shared_ptr<Room> r = _building.addRoom(pos, size);
@@ -56,9 +50,6 @@ WebSocketServer::Response BuildingManager::onCreateRoom(
 WebSocketServer::Response BuildingManager::onCreateWall(
     const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
-    return j.makeMissingPermissionsResponse();
-  }
 
   Vector2f start = Vector2f::fromJson(j.json().at("data").at("start"));
   Vector2f end = Vector2f::fromJson(j.json().at("data").at("end"));
@@ -74,9 +65,6 @@ WebSocketServer::Response BuildingManager::onCreateWall(
 WebSocketServer::Response BuildingManager::onCreateDoor(
     const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
-    return j.makeMissingPermissionsResponse();
-  }
 
   Vector2f position = Vector2f::fromJson(j.json().at("data").at("position"));
   float width = j.json().at("data").at("width").get<float>();
@@ -93,9 +81,6 @@ WebSocketServer::Response BuildingManager::onCreateDoor(
 WebSocketServer::Response BuildingManager::onCreateFurniture(
     const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
-    return j.makeMissingPermissionsResponse();
-  }
 
   Vector2f position = Vector2f::fromJson(j.json().at("data").at("position"));
   Vector2f size = Vector2f::fromJson(j.json().at("data").at("size"));
@@ -113,9 +98,6 @@ WebSocketServer::Response BuildingManager::onCreateFurniture(
 WebSocketServer::Response BuildingManager::onModifyRoom(
     const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
-    return j.makeMissingPermissionsResponse();
-  }
   uint64_t id = j.json().at("data").at("id").get<uint64_t>();
   Vector2f pos = Vector2f::fromJson(j.json().at("data").at("position"));
   Vector2f size = Vector2f::fromJson(j.json().at("data").at("size"));
@@ -139,9 +121,6 @@ WebSocketServer::Response BuildingManager::onModifyRoom(
 WebSocketServer::Response BuildingManager::onModifyWall(
     const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
-    return j.makeMissingPermissionsResponse();
-  }
 
   uint64_t id = j.json().at("data").at("id").get<uint64_t>();
   Vector2f start = Vector2f::fromJson(j.json().at("data").at("start"));
@@ -166,9 +145,6 @@ WebSocketServer::Response BuildingManager::onModifyWall(
 WebSocketServer::Response BuildingManager::onModifyDoor(
     const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
-    return j.makeMissingPermissionsResponse();
-  }
 
   uint64_t id = j.json().at("data").at("id").get<uint64_t>();
   Vector2f position = Vector2f::fromJson(j.json().at("data").at("position"));
@@ -199,9 +175,6 @@ WebSocketServer::Response BuildingManager::onModifyDoor(
 WebSocketServer::Response BuildingManager::onModifyFurniture(
     const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
-    return j.makeMissingPermissionsResponse();
-  }
 
   uint64_t id = j.json().at("data").at("id").get<uint64_t>();
   Vector2f position = Vector2f::fromJson(j.json().at("data").at("position"));
@@ -228,9 +201,6 @@ WebSocketServer::Response BuildingManager::onModifyFurniture(
 WebSocketServer::Response BuildingManager::onDeleteRoom(
     const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
-    return j.makeMissingPermissionsResponse();
-  }
   _building.deleteRoom(j.json().at("data").at("id").get<uint64_t>());
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
@@ -238,9 +208,7 @@ WebSocketServer::Response BuildingManager::onDeleteRoom(
 WebSocketServer::Response BuildingManager::onDeleteWall(
     const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
-    return j.makeMissingPermissionsResponse();
-  }
+
   _building.deleteWall(j.json().at("data").at("id").get<uint64_t>());
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
@@ -248,9 +216,7 @@ WebSocketServer::Response BuildingManager::onDeleteWall(
 WebSocketServer::Response BuildingManager::onDeleteDoor(
     const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
-    return j.makeMissingPermissionsResponse();
-  }
+
   _building.deleteDoor(j.json().at("data").at("id").get<uint64_t>());
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
@@ -258,18 +224,13 @@ WebSocketServer::Response BuildingManager::onDeleteDoor(
 WebSocketServer::Response BuildingManager::onDeleteFurniture(
     const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
-    return j.makeMissingPermissionsResponse();
-  }
+
   _building.deleteFurniture(j.json().at("data").at("id").get<uint64_t>());
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
 WebSocketServer::Response BuildingManager::onClearBuilding(
     const Packet &j, UserManager::UserPtr user) {
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
-    return j.makeMissingPermissionsResponse();
-  }
   _building = Building(_id_generator);
   return {"", WebSocketServer::ResponseType::FORWARD};
 }
@@ -277,9 +238,7 @@ WebSocketServer::Response BuildingManager::onClearBuilding(
 WebSocketServer::Response BuildingManager::onLoadBuilding(
     const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
-    return j.makeMissingPermissionsResponse();
-  }
+
   _building = Building(_id_generator);
   _building.fromJson(j.json().at("data"));
   json r;
@@ -289,9 +248,8 @@ WebSocketServer::Response BuildingManager::onLoadBuilding(
 }
 
 void BuildingManager::registerPackets(
-    std::unordered_map<std::string,
-                       std::function<WebSocketServer::Response(
-                           const Packet &, UserManager::UserPtr)>>
+    std::unordered_map<std::string, std::function<WebSocketServer::Response(
+                                        const Packet &, UserManager::UserPtr)>>
         *packet_handlers) {
   using std::placeholders::_1;
   using std::placeholders::_2;

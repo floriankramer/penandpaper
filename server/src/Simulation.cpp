@@ -59,7 +59,7 @@ Simulation::Simulation()
        std::bind(&Simulation::onTokenToggleFoe, this, _1, _2)},
       {"InitSession", std::bind(&Simulation::onInitSession, this, _1, _2)},
       {"SetUsername", std::bind(&Simulation::onSetUsername, this, _1, _2)}};
-  _building_manager.registerPackets(&_msg_handlers);
+  _building_manager.registerPackets(&_msg_handlers_building);
 }
 
 void Simulation::setWebSocketServer(WebSocketServer *wss) {
@@ -124,6 +124,15 @@ WebSocketServer::Response Simulation::onNewClient(UserManager::UserPtr user) {
   return {answer_str, WebSocketServer::ResponseType::RETURN};
 }
 
+bool Simulation::checkPermissions(UserManager::UserPtr user,
+                                  Permissions min_perms) {
+  Player *p = getPlayer(user->uid());
+  if (p != nullptr) {
+    return p->permissions == min_perms;
+  }
+  return false;
+}
+
 void Simulation::broadcastClients() {
   using nlohmann::json;
   if (_web_socket_server == nullptr) {
@@ -156,7 +165,15 @@ WebSocketServer::Response Simulation::onMessage(const std::string &msg,
         handler_it = _msg_handlers.find(type);
     if (handler_it != _msg_handlers.end()) {
       // call the handler
-      return (handler_it->second)(Packet(j, this), user);
+      return (handler_it->second)(Packet(j), user);
+    } else if ((handler_it = _msg_handlers_building.find(type)) !=
+               _msg_handlers_building.end()) {
+      Packet packet(j);
+      // All building packages require gm permissions
+      if (!checkPermissions(user, Permissions::GAMEMASTER)) {
+        return packet.makeMissingPermissionsResponse();
+      }
+      return (handler_it->second)(packet, user);
     } else if (_plugin_manager->hasPacketHandler(type)) {
       // Let the plugin handle the packet
       std::pair<WebSocketServer::ResponseType, std::string> p =
@@ -192,7 +209,7 @@ Simulation::Color Simulation::nextColor() {
 
 WebSocketServer::Response Simulation::onCreateToken(const Packet &j,
                                                     UserManager::UserPtr user) {
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
+  if (!checkPermissions(user, Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
   }
   _tokens.emplace_back();
@@ -231,7 +248,7 @@ WebSocketServer::Response Simulation::onMoveToken(const Packet &j,
 
 WebSocketServer::Response Simulation::onDeleteToken(const Packet &j,
                                                     UserManager::UserPtr user) {
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
+  if (!checkPermissions(user, Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
   }
   bool did_delete = false;
@@ -307,7 +324,7 @@ WebSocketServer::Response Simulation::onChat(const Packet &j,
         }
         resp.type = WebSocketServer::ResponseType::SILENCE;
       } else if (cmd == "/settiles") {
-        if (!j.checkPermissions(Permissions::GAMEMASTER)) {
+        if (!checkPermissions(user, Permissions::GAMEMASTER)) {
           return j.makeMissingPermissionsResponse();
         }
         if (parts.size() == 2) {
@@ -321,7 +338,7 @@ WebSocketServer::Response Simulation::onChat(const Packet &j,
         resp_json["data"]["message"] = "Expected exactly one argument: <path>";
         resp.type = WebSocketServer::ResponseType::RETURN;
       } else if (cmd == "/cleartiles") {
-        if (!j.checkPermissions(Permissions::GAMEMASTER)) {
+        if (!checkPermissions(user, Permissions::GAMEMASTER)) {
           return j.makeMissingPermissionsResponse();
         }
         _tiles_path = "";
@@ -352,7 +369,7 @@ WebSocketServer::Response Simulation::onChat(const Packet &j,
 WebSocketServer::Response Simulation::onCreateDoodadLine(
     const Packet &j, UserManager::UserPtr user) {
   using nlohmann::json;
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
+  if (!checkPermissions(user, Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
   }
   _doodad_lines.emplace_back(&_id_generator);
@@ -368,7 +385,7 @@ WebSocketServer::Response Simulation::onCreateDoodadLine(
 
 WebSocketServer::Response Simulation::onClearDoodads(
     const Packet &j, UserManager::UserPtr user) {
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
+  if (!checkPermissions(user, Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
   }
   _doodad_lines.clear();
@@ -377,7 +394,7 @@ WebSocketServer::Response Simulation::onClearDoodads(
 
 WebSocketServer::Response Simulation::onClearTokens(const Packet &j,
                                                     UserManager::UserPtr user) {
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
+  if (!checkPermissions(user, Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
   }
   _tokens.clear();
@@ -386,7 +403,7 @@ WebSocketServer::Response Simulation::onClearTokens(const Packet &j,
 
 WebSocketServer::Response Simulation::onTokenToggleFoe(
     const Packet &j, UserManager::UserPtr user) {
-  if (!j.checkPermissions(Permissions::GAMEMASTER)) {
+  if (!checkPermissions(user, Permissions::GAMEMASTER)) {
     return j.makeMissingPermissionsResponse();
   }
   nlohmann::json data = j.json().at("data");
