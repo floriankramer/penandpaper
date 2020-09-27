@@ -285,7 +285,6 @@ export default class Wiki extends Vue {
       }
       req.push(new Attribute('text', this.rawContent, false, false, false))
       $.post('/wiki/save/' + this.id, JSON.stringify(req), (body) => {
-        console.log('Saved')
         eventbus.$emit('/notification', 'Saved')
         // the context might have changed
         this.loadContext(this.id)
@@ -688,7 +687,6 @@ export default class Wiki extends Vue {
           stack.push(cl)
         }
       }
-      console.log('updating the index tree')
       this.indexTree = nIdxTree
     })
   }

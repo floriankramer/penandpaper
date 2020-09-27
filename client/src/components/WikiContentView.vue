@@ -55,7 +55,6 @@ export default class WikiContentView extends Vue {
 
   @Watch('id')
   onIdChange (value: string, old: string) {
-    console.log('reloading the wiki content for', this.id)
     if (value === '' || value === 'root') {
       this.entryName = ''
       this.content = ''

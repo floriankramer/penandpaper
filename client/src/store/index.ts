@@ -26,7 +26,6 @@ export default new Vuex.Store({
   },
   mutations: {
     setUsername (state, newname) {
-      console.log('Setting the username to ' + newname)
       state.username = newname
     },
     setPermissions (state, newperms) {

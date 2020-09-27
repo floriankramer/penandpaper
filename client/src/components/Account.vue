@@ -41,7 +41,6 @@ export default class Account extends Vue {
 
   mounted () {
     $.get('/auth/self', (data: any) => {
-      console.log(data)
       this.userName = data.name
       this.userId = data.id
     }).fail(() => {
@@ -56,7 +55,6 @@ export default class Account extends Vue {
         'to-modify': this.userId,
         'new-password': hashedPassword
       }
-      console.log('changing the password: ', req)
 
       $.post('/auth', JSON.stringify(req), () => {
         eventBus.$emit('/notification', 'Updated your password')

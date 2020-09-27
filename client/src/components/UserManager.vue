@@ -118,7 +118,6 @@ export default class UserManager extends Vue {
           'permissions': user.permissions
         })
       })
-      console.log('new users', newUsers)
       this.users = newUsers
     })
   }

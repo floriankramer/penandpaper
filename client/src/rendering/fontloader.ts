@@ -89,7 +89,6 @@ export class Font {
         this.glyphs.set(g.character, g)
       })
       this.scale = 1 / (maxTop - minBot)
-      console.log('Font scale: ', this.scale)
       this.ready = true
     })
   }
@@ -166,23 +165,6 @@ export class Font {
       0, gl.LUMINANCE, gl.UNSIGNED_BYTE, buffer)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-
-    // {
-    //   console.log('reading back the texture')
-    //   var fb = gl.createFramebuffer()
-    //   gl.bindFramebuffer(gl.FRAMEBUFFER, fb)
-    //   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0)
-
-    //   if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE) {
-    //     var pixels = new Uint8Array(textureSize * textureSize * 4)
-    //     gl.readPixels(0, 0, textureSize, textureSize, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
-    //     console.log(pixels)
-    //   } else {
-    //     console.log(gl.FRAMEBUFFER_COMPLETE, gl.FRAMEBUFFER_INCOMPLETE_ATTACHMENT, gl.FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT, gl.FRAMEBUFFER_INCOMPLETE_DIMENSIONS, gl.FRAMEBUFFER_UNSUPPORTED)
-    //     console.log('reading back failed, unable to create the framebuffer:', gl.checkFramebufferStatus(gl.FRAMEBUFFER).toString())
-    //   }
-    //   gl.deleteFramebuffer(fb)
-    // }
   }
 }
 

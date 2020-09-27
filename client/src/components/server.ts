@@ -116,7 +116,6 @@ export default class Server implements PacketDispatcher {
       let packet = JSON.parse(msg.data)
       let type = packet['type']
       let data = packet['data']
-      console.log('Received a message: ', packet)
       if (type === 'Session') {
         this.onServerSession(data)
       } else if (type === 'Chat') {

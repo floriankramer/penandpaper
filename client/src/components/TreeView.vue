@@ -73,13 +73,10 @@ export default class TreeView extends Vue {
           this.treeStates.set(id, visible)
         }
       } else {
-        console.log(el.dataset)
         if (el.dataset.event !== undefined) {
           if (el.dataset.payload !== undefined) {
-            console.log('emitting', el.dataset.event, el.dataset.payload)
             this.$emit(el.dataset.event, el.dataset.payload, event)
           } else {
-            console.log('emitting', el.dataset.event)
             this.$emit(el.dataset.event, event)
           }
         }
@@ -94,7 +91,6 @@ export default class TreeView extends Vue {
 
   @Watch('tree')
   onRebuildTree () {
-    console.log('Rebuilding the tree view')
     if (this.tree === null) {
       this.html = ''
       return

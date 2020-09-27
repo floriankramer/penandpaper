@@ -106,14 +106,11 @@ export default class Autocomplete extends Vue {
 
   onClick (event: MouseEvent) {
     let target = event.target || event.srcElement
-    console.log(target)
 
     if (target !== null) {
       var el = target as HTMLElement
-      console.log('Clicked on', el.tagName)
       if (el.tagName === 'LI') {
         if (el.dataset.value !== undefined) {
-          console.log('selected ', el.dataset.value)
           this.target = el.dataset.value
           this.value = el.dataset.value
           this.showCompletions = false
@@ -121,9 +118,7 @@ export default class Autocomplete extends Vue {
         }
       } else if (el.tagName === 'DIV') {
         var pel = el.parentElement
-        console.log('target parent', pel)
         if (pel !== null && pel.dataset.value !== undefined) {
-          console.log('selected ', pel.dataset.value)
           this.target = pel.dataset.value
           this.value = pel.dataset.value
           this.showCompletions = false

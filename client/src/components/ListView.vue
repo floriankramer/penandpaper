@@ -40,13 +40,10 @@ export default class ListView extends Vue {
 
     if (target !== null) {
       var el = target as HTMLElement
-      console.log(el.dataset)
       if (el.dataset.event !== undefined) {
         if (el.dataset.payload !== undefined) {
-          console.log('emitting', el.dataset.event, el.dataset.payload)
           this.$emit(el.dataset.event, el.dataset.payload)
         } else {
-          console.log('emitting', el.dataset.event)
           this.$emit(el.dataset.event)
         }
       }

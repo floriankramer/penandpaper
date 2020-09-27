@@ -99,7 +99,6 @@ export default class Chat extends Vue {
       // TODO: this is kinda of an ugly hack that tries to handle a delayed dom update
       setTimeout(() => {
         if (this.chatArea !== undefined) {
-          console.log('scrolling')
           this.chatArea.scrollTo({
             top: this.chatArea.scrollHeight,
             left: 0,

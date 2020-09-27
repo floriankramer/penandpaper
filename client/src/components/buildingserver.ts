@@ -353,7 +353,6 @@ export default class BuildingServer {
     let d = this.building.furniture.find((od: B.Furniture) => od.id === Furniture.id)
     if (d !== undefined) {
       d.modify(Furniture)
-      console.log('new Furniture: ', d)
       eventBus.$emit('/server/building/furniture/modified', d)
     }
   }
@@ -374,7 +373,6 @@ export default class BuildingServer {
       }
     })
     this.building.doors.forEach((r: B.Door) => {
-      console.log(area, r)
       if (area.contains(r.position)) {
         let packet = {
           type: 'ModifyDoor',

@@ -48,10 +48,8 @@ export default class TileRenderer {
       this.height = meta['height']
       this.tilesize = meta['tilesize']
 
-      console.log(meta)
       for (let y = 0; y < this.width; ++y) {
         for (let x = 0; x < this.height; ++x) {
-          console.log(x, y)
           let a = new TileActor()
           a.setRenderCallback(this.renderCallback)
           a.setTexturePath(path + '/0/' + y.toFixed(0).toString() + '/' + x.toFixed(0).toString() + '.png')

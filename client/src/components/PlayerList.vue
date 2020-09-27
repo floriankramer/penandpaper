@@ -47,7 +47,6 @@ export default class Login extends Vue {
       players.forEach((player) => {
         this.players.push(player)
       })
-      console.log('received players ', this.players)
     })
 
     eventBus.$on('/server/state', (state: ServerState) => {
@@ -55,7 +54,6 @@ export default class Login extends Vue {
       state.players.forEach((player) => {
         this.players.push(player)
       })
-      console.log('received players ', this.players)
     })
   }
 }

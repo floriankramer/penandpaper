@@ -361,7 +361,6 @@ export default class App extends Vue {
     this.onGameMasterChange()
 
     $.get('/auth/self', (user: any) => {
-      console.log('App.vue: /auth/self: ', user, user.permissions.length)
       if (user.permissions.length > 0 && this.dockManager !== undefined && this.userManagerPanel !== null) {
         let documentNode = this.dockManager.context.model.documentManagerNode
         this.dockManager.dockFill(documentNode, this.userManagerPanel)
@@ -580,7 +579,6 @@ export default class App extends Vue {
   }
 
   onMenuSelected (id: string) {
-    console.log(id)
     if (id === 'window-wiki') {
       if (this.isGamemaster) {
         if (this.wikiPanel !== null) {
