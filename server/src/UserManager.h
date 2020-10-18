@@ -51,6 +51,10 @@ class UserManager {
     void setPassword(const std::string password_hash);
 
     void setPermissions(const std::vector<Permission> &new_permissions);
+    /**
+     * @brief Sets the permissions bit mask directly
+     */
+    void setPermissionsRaw(int64_t permissions);
 
     bool hasPermission(Permission permission) const;
 

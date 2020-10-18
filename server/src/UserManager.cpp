@@ -57,11 +57,11 @@ UserManager::UserManager(Database *db)
   DbCursor root_users = _users.query();
 
   if (root_users.done()) {
-    createUser("root", clientSidePasswordHash("root", "root"), {});
+    UserPtr root =
+        createUser("root", clientSidePasswordHash("root", "root"), {});
     // Give root permissions for everything including all possible future
     // permissions.
-    _users.update({DbColumnUpdate{COL_PERMISSIONS, int64_t(0xFFFFFFFFFFFFFF)}},
-                  DbCondition());
+    root->setPermissionsRaw(0xFFFFFFFFFFFFFF);
   }
 }
 
@@ -347,6 +347,13 @@ void UserManager::User::setPermissions(
   _user_table->update({DbColumnUpdate{COL_PERMISSIONS, perm_mask}},
                       DbCondition(COL_ID, DbCondition::Type::EQ, _id));
   _permissions = perm_mask;
+}
+
+void UserManager::User::setPermissionsRaw(int64_t permissions) {
+  std::lock_guard<std::recursive_mutex> auth_lock(*_auth_mutex);
+  _user_table->update({DbColumnUpdate{COL_PERMISSIONS, permissions}},
+                      DbCondition(COL_ID, DbCondition::Type::EQ, _id));
+  _permissions = permissions;
 }
 
 bool UserManager::User::hasPermission(Permission permission) const {
