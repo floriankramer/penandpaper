@@ -38,6 +38,7 @@ add_library(penandpaper-core STATIC
   Plugin.cpp Plugin.h
   PluginManager.cpp PluginManager.h
   LuaScript.cpp LuaScript.h
+  CharacterManager.cpp CharacterManager.h
   ${SQLITE_SRC_FILES})
 
 target_link_libraries(penandpaper-core
