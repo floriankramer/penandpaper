@@ -13,7 +13,7 @@ if (BUILD_FONTRENDERER)
   add_subdirectory(fontrenderer)
 endif ()
 
-add_executable(penandpaper-server main.cpp
+add_library(penandpaper-core STATIC
   HttpServer.cpp HttpServer.h
   WebSocketServer.cpp WebSocketServer.h
   Simulation.cpp Simulation.h
@@ -40,6 +40,17 @@ add_executable(penandpaper-server main.cpp
   LuaScript.cpp LuaScript.h
   ${SQLITE_SRC_FILES})
 
+target_link_libraries(penandpaper-core
+  building
+  geometry
+  penandpaper-utils
+  sodium
+  uWebSockets
+  ${LUA_LIBRARIES}
+  OpenSSL::SSL
+  ${CMAKE_THREAD_LIBS_INIT})
+
+add_executable(penandpaper-server main.cpp)
 
 add_executable(base64 base64_main.cpp
   Util.cpp Util.h)
@@ -49,14 +60,7 @@ add_executable(markdown markdown_main.cpp
   MarkdownNode.cpp MarkdownNode.h)
 
 target_link_libraries(penandpaper-server
-  building
-  geometry
-  penandpaper-utils
-  sodium
-  uWebSockets
-  ${LUA_LIBRARIES}
-  OpenSSL::SSL
-  ${CMAKE_THREAD_LIBS_INIT})
+  penandpaper-core)
 
 if (NOT WIN32)
     target_link_libraries(penandpaper-server sqlite3)
