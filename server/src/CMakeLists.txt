@@ -51,6 +51,8 @@ target_link_libraries(penandpaper-core
   ${CMAKE_THREAD_LIBS_INIT})
 
 add_executable(penandpaper-server main.cpp)
+target_link_libraries(penandpaper-server
+  penandpaper-core)
 
 add_executable(base64 base64_main.cpp
   Util.cpp Util.h)
@@ -59,8 +61,6 @@ add_executable(markdown markdown_main.cpp
   Markdown.cpp Markdown.h
   MarkdownNode.cpp MarkdownNode.h)
 
-target_link_libraries(penandpaper-server
-  penandpaper-core)
 
 if (NOT WIN32)
     target_link_libraries(penandpaper-server sqlite3)

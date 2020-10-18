@@ -30,6 +30,9 @@ class Image {
 
   void draw(const Image &other, int64_t x, int64_t y);
 
+  Image subimage(int64_t x, int64_t y, int64_t width, int64_t height,
+                 Pixel fill = {0, 0, 0, 0});
+
  private:
   int64_t _width, _height;
   std::vector<Pixel> _pixels;

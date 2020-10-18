@@ -21,12 +21,16 @@ add_library(atlas_core
   core/EventBus.cpp core/EventBus.h
   core/Image.cpp core/Image.h
   core/GridIndex.cpp core/GridIndex.h)
-target_link_libraries(atlas_core penandpaper-utils Threads::Threads)
+target_link_libraries(atlas_core penandpaper-utils Threads::Threads png)
+
+add_executable(create-tile-map core/TileMapCreatorMain.cpp)
+target_link_libraries(create-tile-map
+  atlas_core)
 
 add_library(atlas_rendering
   rendering/TileRenderer.cpp rendering/TileRenderer.h)
 target_link_directories(atlas_rendering PUBLIC core)
-target_link_libraries(atlas_rendering penandpaper-utils atlas_core png)
+target_link_libraries(atlas_rendering penandpaper-utils atlas_core)
 
 
 add_executable(atlas_gui

@@ -19,7 +19,7 @@ cp -r client/dist ./bundle/html
 mkdir -p server/build
 pushd server/build
 cmake ../src
-make -j$(nproc)
+cmake --build .
 popd
 cp server/build/penandpaper-server ./bundle/
 

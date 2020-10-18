@@ -167,6 +167,30 @@ void Image::draw(const Image &other, int64_t x, int64_t y) {
   }
 }
 
+Image Image::subimage(int64_t x, int64_t y, int64_t width, int64_t height,
+                      Pixel fill) {
+  Image result(width, height, fill);
+
+  width = std::max(int64_t(0), width);
+  height = std::max(int64_t(0), height);
+
+  int64_t min_x = std::max(int64_t(0), std::min(x, _width - 1));
+  int64_t max_x = std::max(int64_t(0), std::min(x + width, _width - 1));
+  int64_t min_y = std::max(int64_t(0), std::min(y, _height - 1));
+  int64_t max_y = std::max(int64_t(0), std::min(y + height, _height - 1));
+
+  int64_t result_offset_x = min_x - x;
+  int64_t result_offset_y = min_y - y;
+
+  for (int64_t oy = 0; oy < max_y - min_y; oy++) {
+    for (int64_t ox = 0; ox < max_x - min_x; ox++) {
+      result(result_offset_x + ox, result_offset_y + oy) =
+          (*this)(x + ox, y + oy);
+    }
+  }
+  return result;
+}
+
 Image::Pixel &Image::operator()(int64_t x, int64_t y) {
   return _pixels[y * _width + x];
 }
