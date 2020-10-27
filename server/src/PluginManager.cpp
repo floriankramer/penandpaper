@@ -4,7 +4,7 @@
 #include "Util.h"
 #include "utils/File.h"
 
-PluginManager::PluginManager() { loadPlugins(); }
+PluginManager::PluginManager() {}
 
 void PluginManager::loadPlugins() {
   LOG_INFO << "Loading plugins from './plugins'..." << LOG_END;
@@ -12,7 +12,14 @@ void PluginManager::loadPlugins() {
   LOG_INFO << "Found " << names.size() << " plugins" << LOG_END;
   for (const std::string &name : names) {
     LOG_INFO << "Loading plugin at " << name << LOG_END;
-    _plugins.push_back(std::make_shared<Plugin>("plugins/" + name));
+    std::shared_ptr<Plugin> plugin = std::make_shared<Plugin>();
+    for (const Plugin::AdditionalApiFunction &apif :
+         _additional_api_functions) {
+      plugin->addApiFunction(apif.function_name, apif.function,
+                             apif.argument_types);
+    }
+    plugin->load("plugins/" + name);
+    _plugins.push_back(plugin);
 
     for (const std::string &cmd : _plugins.back()->commands()) {
       _commands[cmd] = _plugins.size() - 1;
@@ -22,6 +29,13 @@ void PluginManager::loadPlugins() {
       _packet_handlers[cmd] = _plugins.size() - 1;
     }
   }
+}
+
+void PluginManager::addApiFunction(
+    const std::string &function_name, LuaScript::ApiFunction function,
+    const std::vector<LuaScript::Type> &argument_types) {
+  _additional_api_functions.push_back(
+      {function_name, function, argument_types});
 }
 
 bool PluginManager::hasCommand(const std::string &cmd) {

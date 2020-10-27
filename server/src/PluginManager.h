@@ -1,8 +1,8 @@
 #pragma once
 
+#include <memory>
 #include <unordered_map>
 #include <vector>
-#include <memory>
 
 #include "HttpServer.h"
 #include "Plugin.h"
@@ -29,26 +29,35 @@ class PluginManager : public HttpServer::RequestHandler {
   std::vector<std::string> pluginNames() const;
 
   /** @brief handles the clients requests for a plugins client code. */
-  HttpServer::HttpResponse onRequest(const HttpServer::HttpRequest &req) override;
+  HttpServer::HttpResponse onRequest(
+      const HttpServer::HttpRequest &req) override;
 
   /**
    * @brief f should be a function that takes a string and sends it to all
    * players.
    */
-  void setWriteToChat(std::function<void(const std::string&)> f);
+  void setWriteToChat(std::function<void(const std::string &)> f);
 
   /**
    * @brief f should be a function that takes a string and sends it to all
    * players.
    */
-  void setBroadcastPacket(std::function<void(const std::string&)> f);
+  void setBroadcastPacket(std::function<void(const std::string &)> f);
 
- private:
   /**
    * @brief Scans the plugins folder for plugins and loads and initialzies them.
    **/
   void loadPlugins();
+  /**
+   * @brief Add a function to the api accessible from all plugins. See
+   * LuaScript.h for details on the arguments. This function needs to be
+   * called before loadPlugins, or it will not have any effect.
+   */
+  void addApiFunction(const std::string &function_name,
+                      LuaScript::ApiFunction function,
+                      const std::vector<LuaScript::Type> &argument_types = {});
 
+ private:
   // Pointers are stored to avoid plugins moving in memory, as they need to be
   // able to self reference
   std::vector<std::shared_ptr<Plugin>> _plugins;
@@ -58,4 +67,7 @@ class PluginManager : public HttpServer::RequestHandler {
 
   /** @brief Maps packet names to plugin indices */
   std::unordered_map<std::string, size_t> _packet_handlers;
+
+  /** @brief A list of functions that should be added to all plugin's apis. */
+  std::vector<Plugin::AdditionalApiFunction> _additional_api_functions;
 };

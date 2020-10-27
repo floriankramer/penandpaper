@@ -29,6 +29,7 @@
 #include "UserManager.h"
 #include "WebSocketServer.h"
 #include "Wiki.h"
+#include "CharacterManager.h"
 
 struct Settings {
   std::string base_dir = ".";
@@ -73,7 +74,11 @@ Settings parseSettings(int argc, char **argv) {
 int main(int argc, char **argv) {
   Settings settings = parseSettings(argc, argv);
 
+  CharacterManager character_manager;
+
   std::shared_ptr<PluginManager> plugins = std::make_shared<PluginManager>();
+
+  plugins->loadPlugins();
 
   Database db("./database.sqlite3");
   std::shared_ptr<UserManager> user_manager =

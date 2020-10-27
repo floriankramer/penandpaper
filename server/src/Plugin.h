@@ -1,10 +1,10 @@
 #pragma once
 
+#include <functional>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <utility>
 #include <vector>
-#include <functional>
 
 #include "LuaScript.h"
 
@@ -30,6 +30,13 @@ class Plugin {
   };
 
  public:
+  /** @brief Stores information about an plugin api function. */
+  struct AdditionalApiFunction {
+    std::string function_name;
+    LuaScript::ApiFunction function;
+    std::vector<LuaScript::Type> argument_types;
+  };
+
   Plugin();
 
   /**
@@ -47,8 +54,7 @@ class Plugin {
    * @brief Passes the packet handling on to the plugin.
    */
   std::pair<WebSocketServer::ResponseType, std::string> onPacket(
-      const std::string &name,
-      const nlohmann::json &packet);
+      const std::string &name, const nlohmann::json &packet);
 
   /**
    * @brief Returns a list of commands this plugin would like to handle
@@ -79,18 +85,27 @@ class Plugin {
    * @brief f should be a function that takes a string and sends it to all
    * players chats.
    */
-  void setWriteToChat(std::function<void(const std::string&)> f);
+  void setWriteToChat(std::function<void(const std::string &)> f);
 
   /**
    * @brief f should be a function that takes a string and sends it to all
    * players.
    */
-  void setBroadcastPacket(std::function<void(const std::string&)> f);
+  void setBroadcastPacket(std::function<void(const std::string &)> f);
 
- private:
   /** @brief Load the plugin from a folder at path */
   void load(const std::string &path);
 
+  /**
+   * @brief Add a function to the api accessible from this plugin. See
+   * LuaScript.h for details on the arguments. This function needs to be
+   * called before load, or it will not have any effect.
+   */
+  void addApiFunction(const std::string &function_name,
+                      LuaScript::ApiFunction function,
+                      const std::vector<LuaScript::Type> &argument_types = {});
+
+ private:
   /** @brief Replaces anything not in [a-zA-Z_] by _*/
   std::string cleanName(const std::string &name) const;
 
@@ -116,7 +131,9 @@ class Plugin {
   /** @brief A function that can be called to write data to the chat. */
   std::function<void(const std::string &)> _writeToChat;
 
-
   /** @brief A function that can be called to write data to the chat. */
   std::function<void(const std::string &)> _broadcast_packet;
+
+  /** @brief A list of functions that should be added to the plugins api. */
+  std::vector<AdditionalApiFunction> _additional_api_functions;
 };

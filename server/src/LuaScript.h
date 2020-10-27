@@ -2,11 +2,10 @@
 
 #include <functional>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <unordered_map>
 #include <vector>
-
-#include <nlohmann/json.hpp>
 
 struct lua_State;
 
@@ -88,6 +87,8 @@ class LuaScript {
     };
   };
 
+  typedef std::function<Variant(std::vector<Variant>)> ApiFunction;
+
  private:
   struct LuaFunction {
     std::function<Variant(std::vector<Variant>)> handler;
@@ -96,11 +97,11 @@ class LuaScript {
   };
 
   class StackGuard {
-  public:
+   public:
     StackGuard(const LuaScript *script, const std::string &name = "");
     virtual ~StackGuard() noexcept(false);
 
-  private:
+   private:
     int _stack_size;
     const LuaScript *_script;
     std::string _name;
@@ -157,8 +158,7 @@ class LuaScript {
    *                  This does not restrict the number of arguments in the
    *                  function call.
    */
-  void registerFunction(const std::string name,
-                        std::function<Variant(std::vector<Variant>)> handler,
+  void registerFunction(const std::string name, ApiFunction handler,
                         const std::vector<Type> &arguments = {});
 
   Variant onFunctionCall(int index, std::vector<Variant> arguments);

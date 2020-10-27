@@ -164,14 +164,6 @@ void Plugin::load(const std::string &path) {
   _script.setGlobal("SEND_TO_NOBODY",
                     double(WebSocketServer::ResponseType::SILENCE));
 
-  //  _script.registerFunction("print",
-  //                           [this](std::vector<LuaScript::Variant> args) {
-  //                             LOG_INFO << "Plugin " << _name << ": "
-  //                                      << args[0].string() << LOG_END;
-  //                             return LuaScript::Variant();
-  //                           },
-  //                           {LuaScript::Type::STRING});
-
   _script.registerFunction(
       "addCommand",
       [this](std::vector<LuaScript::Variant> args) {
@@ -250,6 +242,12 @@ void Plugin::load(const std::string &path) {
       },
       {LuaScript::Type::STRING, LuaScript::Type::TABLE});
 
+  // Add external api functions
+  for (const AdditionalApiFunction &apif : _additional_api_functions) {
+    _script.registerFunction(apif.function_name, apif.function,
+                             apif.argument_types);
+  }
+
   // Tell the script to initialize
   _script.call("init");
 
@@ -314,6 +312,13 @@ void Plugin::load(const std::string &path) {
                << LOG_END;
     }
   }
+}
+
+void Plugin::addApiFunction(
+    const std::string &function_name, LuaScript::ApiFunction function,
+    const std::vector<LuaScript::Type> &argument_types) {
+  _additional_api_functions.push_back(
+      {function_name, function, argument_types});
 }
 
 std::string Plugin::cleanName(const std::string &name) const {
