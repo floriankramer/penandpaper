@@ -76,6 +76,7 @@ export default class Server implements PacketDispatcher {
       eventBus.$on('/client/token/clear', () => { this.clientClearTokens() })
       eventBus.$on('/client/token/toggle_foe', (data: Sim.Token) => { this.onClientTokenToggleFoe(data) })
       eventBus.$on('/client/token/delete', (data: Sim.Token) => { this.onClientDeleteToken(data) })
+      eventBus.$on('/client/token/rename', (data: Sim.Token, newName: string) => { this.onClientRenameToken(data, newName) })
       eventBus.$on('/client/line/create', (data: Sim.Line) => { this.onClientCreateLine(data) })
       eventBus.$on('/client/line/clear', () => { this.onClientClearLines() })
       eventBus.$on('/client/plugin/send', (name: string, data: any) => {
@@ -125,6 +126,8 @@ export default class Server implements PacketDispatcher {
         this.serverClearTokens()
       } else if (type === 'MoveToken') {
         this.onServerMoveToken(data)
+      } else if (type === 'RenameToken') {
+        this.onServerRenameToken(data)
       } else if (type === 'DeleteToken') {
         this.onServerDeleteToken(data)
       } else if (type === 'CreateDoodadLine') {
@@ -173,6 +176,7 @@ export default class Server implements PacketDispatcher {
         token.color.g = rawToken.g
         token.color.b = rawToken.b
         token.rotation = rawToken.rotation
+        token.name = rawToken.name
         this.tokens.push(token)
       }
       for (let rawLine of data.doodads) {
@@ -210,6 +214,7 @@ export default class Server implements PacketDispatcher {
       token.id = data.id
       token.isFoe = data.foe
       token.color = new Sim.Color(data.r, data.g, data.b)
+      token.name = data.name
 
       eventBus.$emit('/server/token/create', token)
       this.tokens.push(token)
@@ -289,6 +294,27 @@ export default class Server implements PacketDispatcher {
         this.tokens.splice(pos, 1)
       } else {
         console.log('Received a DeleteToken packet with data', data, 'but didn\'t find a token with a matching id')
+      }
+    }
+
+    onClientRenameToken (data: Sim.Token, newName: string) {
+      let packet = {
+        type: 'RenameToken',
+        data: {
+          'id': data.id,
+          'new_name': newName
+        }
+      }
+      this.send(JSON.stringify(packet))
+    }
+
+    onServerRenameToken (data: any) {
+      let token = this.findTokenById(data.id)
+      if (token !== undefined) {
+        token.name = data.new_name
+        eventBus.$emit('/server/token/rename', token)
+      } else {
+        console.log('Received a RenameToken packet with data', data, 'but didn\'t find a token with a matching id')
       }
     }
 

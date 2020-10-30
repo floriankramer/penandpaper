@@ -3,7 +3,7 @@
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * You may obtain aToken copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,10 +18,12 @@
   <div id="map">
     <canvas v-on:mousedown="onMouseDown" v-on:mouseup="onMouseUp"
             v-on:mousemove="onMouseMove" v-on:wheel="onMouseWheel"
-            v-on:contextmenu.prevent v-on:keydown="onKeyDown"
+            v-on:contextmenu.prevent v-on:keydown.prevent="onKeyDown"
             v-on:touchstart.prevent="onTouchStart" v-on:touchmove.prevent="onTouchMove"
             v-on:touchend.prevent="onTouchEnd" v-on:touchcancel.prevent="onTochCancel"
             tabindex="0"/>
+    <input type="text" class="map-name-input" v-show="showNameInput" v-model="newName"
+           v-on:keydown.enter="onChangeName" ref="mapNameInput"/>
   </div>
 </template>
 
@@ -41,6 +43,7 @@ import ToolReveal from '../tools/tool_reveal'
 import Renderer from '../rendering/renderer'
 import GridActor from '../rendering/gridactor'
 import TokenActor from '../rendering/token_actor'
+import FontActor from '../rendering/fontactor'
 import Actor from '../rendering/actor'
 import DiffuseMaterial from '../rendering/diffuse_material'
 import * as B from '../simulation/building'
@@ -58,6 +61,16 @@ enum MouseAction {
   CREATE_LINE
 }
 
+class TokenActorGroup {
+  token: TokenActor;
+  name: FontActor;
+
+  constructor (token: TokenActor, name: FontActor) {
+    this.token = token
+    this.name = name
+  }
+}
+
 @Component
 export default class WorldMap extends Vue {
   tokens: Sim.Token[] = []
@@ -69,7 +82,7 @@ export default class WorldMap extends Vue {
   renderer: Renderer = new Renderer()
   gridActor: GridActor = new GridActor()
 
-  tokenActors: Map<number, Actor> = new Map()
+  tokenActors: Map<number, TokenActorGroup> = new Map()
   doodadLineActors: Map<number, Actor> = new Map()
   roomActor: RoomActor = new RoomActor()
   wallActor: WallActor = new WallActor()
@@ -83,6 +96,7 @@ export default class WorldMap extends Vue {
   pixelPerMeter: number = 1
 
   selected?: Sim.Token
+  hovered?: Sim.Token
 
   renderQueued: boolean = false
   lastRender: number = 0
@@ -99,6 +113,9 @@ export default class WorldMap extends Vue {
 
   mutationObserver : MutationObserver | null = null
 
+  showNameInput: boolean = false
+  newName: string = ''
+
   constructor () {
     super()
 
@@ -107,6 +124,7 @@ export default class WorldMap extends Vue {
     eventBus.$on('/server/token/delete', (data: Sim.Token) => { this.onServerDeleteToken(data) })
     eventBus.$on('/server/token/move', (data: Sim.TokenMoveOrder) => { this.onServerMoveToken(data) })
     eventBus.$on('/server/token/toggle_foe', (data: Sim.Token) => { this.onServerToggleFoe(data) })
+    eventBus.$on('/server/token/rename', (data: Sim.Token) => { this.onTokenNewName(data) })
     eventBus.$on('/server/line/create', (data: Sim.Line) => { this.onServerCreateLine(data) })
     eventBus.$on('/server/line/clear', () => { this.onServerClearLines() })
     eventBus.$on('/server/state', (data: ServerState) => { this.onServerState(data) })
@@ -270,7 +288,7 @@ export default class WorldMap extends Vue {
   /**
    * @param wx The x coordinate in world space
    * @param wy The y coordinate in world space
-   * @returns True if a new token was selected
+   * @returns True if aToken new token was selected
    */
   selectTokenAt (wx: number, wy: number) : boolean {
     for (let token of this.tokens) {
@@ -285,22 +303,90 @@ export default class WorldMap extends Vue {
 
   setSelectedToken (selected: Sim.Token | undefined) {
     if (this.selected !== undefined) {
-      let a = this.tokenActors.get(this.selected.id) as TokenActor
-      if (a) {
-        a.setIsSelected(false)
+      let aToken = this.tokenActors.get(this.selected.id)
+      if (aToken !== undefined) {
+        aToken.token.setIsSelected(false)
+        if (this.selected !== this.hovered) {
+          this.renderer.removeActor(aToken.name)
+        }
       }
     }
     this.selected = selected
     if (this.selected !== undefined) {
-      let a = this.tokenActors.get(this.selected.id) as TokenActor
-      if (a) {
-        a.setIsSelected(true)
+      let aToken = this.tokenActors.get(this.selected.id)
+      if (aToken !== undefined) {
+        aToken.token.setIsSelected(true)
+        if (this.selected !== this.hovered) {
+          this.renderer.addActor(aToken.name, RenderLayers.TOOL)
+        }
       }
     }
   }
 
+  /**
+   * @param wx The x coordinate in world space
+   * @param wy The y coordinate in world space
+   * @returns True if aToken new token was selected
+   */
+  hoverTokenAt (wx: number, wy: number) : boolean {
+    for (let token of this.tokens) {
+      if (Math.hypot(token.x - wx, token.y - wy) < token.radius) {
+        this.setHoveredToken(token)
+        return true
+      }
+    }
+    this.setHoveredToken(undefined)
+    return false
+  }
+
+  setHoveredToken (hovered: Sim.Token | undefined) {
+    if (this.hovered === hovered) {
+      return
+    }
+    if (this.hovered !== undefined) {
+      let aToken = this.tokenActors.get(this.hovered.id)
+      if (aToken !== undefined && this.selected !== this.hovered) {
+        this.renderer.removeActor(aToken.name)
+        this.requestRedraw()
+      }
+    }
+    this.hovered = hovered
+    if (this.hovered !== undefined) {
+      let aToken = this.tokenActors.get(this.hovered.id)
+      if (aToken !== undefined && this.selected !== hovered) {
+        this.renderer.addActor(aToken.name, RenderLayers.TOOL)
+        this.requestRedraw()
+      }
+    }
+  }
+
+  onChangeName () {
+    eventBus.$emit('/client/token/rename', this.selected, this.newName)
+    this.showNameInput = false
+  }
+
+  onTokenNewName (token: Sim.Token) {
+    let a = this.tokenActors.get(token.id)
+    console.log('A token got a new name ', token.name)
+    if (a) {
+      a.name.setText(token.name)
+      this.requestRedraw()
+    }
+  }
+
   onKeyDown (event: KeyboardEvent) {
-    this.tool.onKeyDown(event)
+    if (this.selected !== undefined && event.key === 'r') {
+      this.showNameInput = true
+      this.newName = ''
+      var e = this.$refs.mapNameInput as HTMLElement
+      // The focus needs to be set after the event was fully processes or it
+      // will revert the focus back
+      this.$nextTick(() => {
+        e.focus()
+      })
+    } else {
+      this.tool.onKeyDown(event)
+    }
   }
 
   onMouseDown (event: MouseEvent) {
@@ -323,16 +409,16 @@ export default class WorldMap extends Vue {
     this.tool.onTouchCancel(event)
   }
 
-  clientMoveSelectedTo (x: number, y: number, a: number | undefined = undefined) {
+  clientMoveSelectedTo (x: number, y: number, aToken: number | undefined = undefined) {
     if (this.selected !== undefined) {
       // move the selected token
       let move = new Sim.TokenMoveOrder()
       move.x = x
       move.y = y
-      if (a === undefined) {
+      if (aToken === undefined) {
         move.rotation = this.selected.rotation
       } else {
-        move.rotation = a
+        move.rotation = aToken
       }
       move.token = this.selected
       eventBus.$emit('/client/token/move', move)
@@ -356,6 +442,9 @@ export default class WorldMap extends Vue {
   }
 
   onMouseMove (event: MouseEvent) {
+    let wp = this.screenToWorldPos(new Sim.Point(event.offsetX, event.offsetY))
+    this.hoverTokenAt(wp.x, wp.y)
+
     this.tool.onMouseMove(event)
   }
 
@@ -447,7 +536,7 @@ export default class WorldMap extends Vue {
     let start: number = Date.now()
     let toRemove : Sim.Token[] = []
     this.movingTokens.forEach(t => {
-      let a = this.tokenActors.get(t.id)
+      let aToken = this.tokenActors.get(t.id)
 
       let dx = t.x - t.displayX
       let dy = t.y - t.displayY
@@ -455,16 +544,17 @@ export default class WorldMap extends Vue {
       if (l < 1.1 * t.displaySpeed * delta) {
         t.displayX = t.x
         t.displayY = t.y
-        if (a) {
-          a.setRotation(t.rotation)
+        if (aToken) {
+          aToken.token.setRotation(t.rotation)
         }
         toRemove.push(t)
       } else {
         t.displayX += delta * t.displaySpeed * dx / l
         t.displayY += delta * t.displaySpeed * dy / l
       }
-      if (a) {
-        a.setPosition(t.displayX, t.displayY)
+      if (aToken) {
+        aToken.token.setPosition(t.displayX, t.displayY)
+        aToken.name.setPosition(t.displayX, t.displayY + t.radius + 0.1)
       }
     })
 
@@ -506,21 +596,27 @@ export default class WorldMap extends Vue {
   }
 
   createTokenActor (t: Sim.Token) {
-    let a = new TokenActor()
-    a.setScale(t.radius, t.radius)
-    a.setPosition(t.x, t.y)
-    a.setRotation(t.rotation)
-    a.setColor(t.color.r / 255, t.color.g / 255, t.color.b / 255)
-    a.setIsFoe(t.isFoe)
-    this.renderer.addActor(a, RenderLayers.TOKENS)
-    this.tokenActors.set(t.id, a)
+    let aToken = new TokenActor()
+    aToken.setScale(t.radius, t.radius)
+    aToken.setPosition(t.x, t.y)
+    aToken.setRotation(t.rotation)
+    aToken.setColor(t.color.r / 255, t.color.g / 255, t.color.b / 255)
+    aToken.setIsFoe(t.isFoe)
+    this.renderer.addActor(aToken, RenderLayers.TOKENS)
+
+    let aName = new FontActor()
+    aName.setPosition(t.x, t.y + t.radius + 0.1)
+    aName.setText(t.name)
+
+    this.tokenActors.set(t.id, new TokenActorGroup(aToken, aName))
   }
 
   clearTokens () {
     this.tokens.splice(0)
     this.movingTokens.splice(0)
     this.tokenActors.forEach(actor => {
-      this.renderer.removeActor(actor)
+      this.renderer.removeActor(actor.token)
+      this.renderer.removeActor(actor.name)
     })
     this.tokenActors.clear()
     this.requestRedraw()
@@ -579,8 +675,8 @@ export default class WorldMap extends Vue {
     if (t) {
       this.requestRedraw()
       data.token.displaySpeed = Math.hypot(data.token.x - data.token.displayX, data.token.y - data.token.displayY)
-      let a = Math.atan2(data.token.y - data.token.displayY, data.token.x - data.token.displayX)
-      t.setRotation(a)
+      let aToken = Math.atan2(data.token.y - data.token.displayY, data.token.x - data.token.displayX)
+      t.token.setRotation(aToken)
       if (data.token.displaySpeed > 0) {
         if (this.movingTokens.indexOf(data.token) !== undefined) {
           this.movingTokens.push(data.token)
@@ -590,7 +686,7 @@ export default class WorldMap extends Vue {
           }
         }
       } else {
-        t.setRotation(data.rotation)
+        t.token.setRotation(data.rotation)
       }
     }
   }
@@ -607,9 +703,10 @@ export default class WorldMap extends Vue {
 
     pos = this.tokens.findIndex((t : Sim.Token) => { return t.id === data.id })
     if (pos >= 0) {
-      let a = this.tokenActors.get(data.id) as TokenActor
-      if (a) {
-        this.renderer.removeActor(a)
+      let aToken = this.tokenActors.get(data.id)
+      if (aToken) {
+        this.renderer.removeActor(aToken.token)
+        this.renderer.removeActor(aToken.name)
         this.tokenActors.delete(data.id)
       }
       this.tokens.splice(pos, 1)
@@ -654,9 +751,9 @@ export default class WorldMap extends Vue {
   }
 
   onServerToggleFoe (token: Sim.Token) {
-    let a = this.tokenActors.get(token.id) as TokenActor
-    if (a) {
-      a.setIsFoe(token.isFoe)
+    let aToken = this.tokenActors.get(token.id)
+    if (aToken) {
+      aToken.token.setIsFoe(token.isFoe)
     }
     this.requestRedraw()
   }
@@ -750,5 +847,15 @@ export default class WorldMap extends Vue {
 <style scoped>
 canvas {
   outline-width: 0px !important;
+}
+
+.map-name-input {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1000;
+  width: 200px;
+  height: 20px;
+  transform: translate(-50%, -50%);
 }
 </style>

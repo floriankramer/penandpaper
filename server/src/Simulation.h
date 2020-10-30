@@ -67,6 +67,8 @@ class Simulation {
                                           UserManager::UserPtr user);
   WebSocketServer::Response onMoveToken(const Packet &j,
                                         UserManager::UserPtr user);
+  WebSocketServer::Response onRenameToken(const Packet &j,
+                                        UserManager::UserPtr user);
   WebSocketServer::Response onDeleteToken(const Packet &j,
                                           UserManager::UserPtr user);
   WebSocketServer::Response onChat(const Packet &j, UserManager::UserPtr user);

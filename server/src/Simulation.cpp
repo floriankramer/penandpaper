@@ -58,7 +58,8 @@ Simulation::Simulation()
       {"TokenToggleFoe",
        std::bind(&Simulation::onTokenToggleFoe, this, _1, _2)},
       {"InitSession", std::bind(&Simulation::onInitSession, this, _1, _2)},
-      {"SetUsername", std::bind(&Simulation::onSetUsername, this, _1, _2)}};
+      {"SetUsername", std::bind(&Simulation::onSetUsername, this, _1, _2)},
+      {"RenameToken", std::bind(&Simulation::onRenameToken, this, _1, _2)}};
   _building_manager.registerPackets(&_msg_handlers_building);
 }
 
@@ -242,6 +243,25 @@ WebSocketServer::Response Simulation::onMoveToken(const Packet &j,
     t->x() = data.at("x").get<float>();
     t->y() = data.at("y").get<float>();
     t->rotation() = data.at("rotation").get<float>();
+  }
+  return {"", WebSocketServer::ResponseType::FORWARD};
+}
+
+WebSocketServer::Response Simulation::onRenameToken(const Packet &j,
+                                                    UserManager::UserPtr user) {
+  if (!checkPermissions(user, Permissions::GAMEMASTER)) {
+    return j.makeMissingPermissionsResponse();
+  }
+
+  nlohmann::json data = j.json().at("data");
+  uint64_t id = data.at("id").get<uint64_t>();
+  Token *t = tokenById(id);
+  if (t != nullptr) {
+    t->name() = data.at("new_name").get<std::string>();
+  } else {
+    LOG_WARN
+        << "Received a rename request from the gm for an unknown token with id "
+        << id << std::endl;
   }
   return {"", WebSocketServer::ResponseType::FORWARD};
 }

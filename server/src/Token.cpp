@@ -31,6 +31,7 @@ nlohmann::json Token::serialize() {
   j["b"] = _b;
   j["foe"] = _is_enemy;
   j["rotation"] = _rotation;
+  j["name"] = _name;
   return j;
 }
 
@@ -44,4 +45,5 @@ void Token::deserialize(const nlohmann::json &j) {
   _b = j.at("b").get<float>();
   _is_enemy = j.at("foe").get<bool>();
   _rotation = j.at("rotation").get<float>();
+  _name = j.at("name").get<std::string>();
 }

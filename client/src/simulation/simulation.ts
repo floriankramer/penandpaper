@@ -121,6 +121,8 @@ export class Token {
 
   rotation: number = 0
 
+  name: string = ''
+
   // Rendering variables
   displayX: number = 0
   displayY: number = 0

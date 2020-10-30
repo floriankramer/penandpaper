@@ -26,8 +26,8 @@ export default class GridActor extends Actor {
     super()
     this.material = new FontMaterial()
     // A full screen rect
-    let positions = [-15, -15, -15, 15, 15, -15, -15, 15, 15, -15, 15, 15]
-    let uv = [0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 0]
+    let positions: number[] = []
+    let uv : number[] = []
     this.vertexShaderInput.set(ShaderInputType.POSITION, positions)
     this.vertexShaderInput.set(ShaderInputType.TEXTURE_COORD, uv)
   }

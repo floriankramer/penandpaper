@@ -36,6 +36,7 @@ class Token : public Serializable {
   float &b() { return _b; }
   float &rotation() { return _rotation; }
   bool &is_enemy() { return _is_enemy; }
+  std::string &name() { return _name; }
 
  private:
   uint64_t _id;
@@ -44,4 +45,5 @@ class Token : public Serializable {
   float _r, _g, _b;
   bool _is_enemy;
   float _rotation;
+  std::string _name;
 };
