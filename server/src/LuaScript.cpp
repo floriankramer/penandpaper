@@ -95,7 +95,7 @@ LuaScript::Variant LuaScript::onFunctionCall(int index,
         lua_error(_lua_state);
       }
     }
-    return f.handler(arguments);
+    return f.handler(this, arguments);
   } else {
     LOG_WARN << "LuaScript::onFunctionCall : No handler registered for index "
              << index << " (" << _function_handlers.size()
@@ -104,10 +104,8 @@ LuaScript::Variant LuaScript::onFunctionCall(int index,
   return Variant();
 }
 
-void LuaScript::registerFunction(
-    const std::string name,
-    std::function<Variant(std::vector<Variant>)> handler,
-    const std::vector<Type> &arguments) {
+void LuaScript::registerFunction(const std::string name, ApiFunction handler,
+                                 const std::vector<Type> &arguments) {
   StackGuard stack_guard(this, "LuaScript::registerFunction");
   // Store a reference to this script in the closure
   lua_pushlightuserdata(_lua_state, this);
@@ -256,8 +254,7 @@ LuaScript::Variant::Variant(const std::string &string)
 LuaScript::Variant::Variant(void *userdata)
     : _type(Type::USERDATA), _userdata(userdata) {}
 
-LuaScript::Variant::Variant(
-    const std::unordered_map<std::string, std::shared_ptr<Variant>> table)
+LuaScript::Variant::Variant(const Table table)
     : _type(Type::TABLE), _table(table) {}
 
 LuaScript::Variant::Variant(lua_State *state, int idx) {
@@ -283,7 +280,7 @@ LuaScript::Variant::Variant(lua_State *state, int idx) {
     while (lua_next(state, idx) != 0) {
       int keytype = lua_type(state, -2);
       if (keytype == LUA_TSTRING) {
-        std::string key = lua_tostring(state, -2);
+        VariantPtr key = std::make_shared<Variant>(state, -2);
         _table[key] = std::make_shared<Variant>(state, -1);
       } else {
         LOG_ERROR
@@ -376,7 +373,8 @@ LuaScript::Variant::Variant(const nlohmann::json &json) {
     _type = Type::TABLE;
     new (&_table) decltype(_table)();
     for (auto it : json.items()) {
-      _table[it.key()] = std::make_shared<Variant>(it.value());
+      VariantPtr key = std::make_shared<Variant>(it.key());
+      _table[key] = std::make_shared<Variant>(it.value());
     }
   } else {
     throw std::runtime_error(
@@ -415,7 +413,25 @@ nlohmann::json LuaScript::Variant::toJson() const {
       break;
     case Type::TABLE:
       for (auto it : _table) {
-        json[it.first] = it.second->toJson();
+        std::string key = "";
+        switch (it.first->type()) {
+          case Type::BOOLEAN:
+            key = std::to_string(it.first->boolean());
+            break;
+          case Type::NUMBER:
+            key = std::to_string(it.first->number());
+            break;
+          case Type::STRING:
+            key = it.first->string();
+            break;
+          default:
+            throw std::runtime_error(
+                "LuaScript::Variant::toJson: Unable to convert from type " +
+                std::string(TYPE_NAMES[int(it.first->type())]) +
+                " to a string for conversion to json.");
+        }
+
+        json[key] = it.second->toJson();
       }
       break;
     default:
@@ -447,8 +463,9 @@ void LuaScript::Variant::push(lua_State *state) const {
     case Type::TABLE:
       lua_createtable(state, 0, _table.size());
       for (auto it : _table) {
+        it.first->push(state);
         it.second->push(state);
-        lua_setfield(state, -2, it.first.c_str());
+        lua_settable(state, -2);
       }
       break;
     default:
@@ -465,25 +482,55 @@ const char *LuaScript::Variant::typeName() const {
 
 double LuaScript::Variant::number() const { return _number; }
 double &LuaScript::Variant::number() { return _number; }
+double &LuaScript::Variant::asNumber() {
+  if (_type != Type::NUMBER) {
+    throw std::runtime_error(
+        "LuaScript::Variant::asNumber: Variant is not a number");
+  }
+  return _number;
+}
 
 const std::string &LuaScript::Variant::string() const { return _string; }
 std::string &LuaScript::Variant::string() { return _string; }
+std::string &LuaScript::Variant::asString() {
+  if (_type != Type::STRING) {
+    throw std::runtime_error(
+        "LuaScript::Variant::asString: Variant is not a string");
+  }
+  return _string;
+}
 
 void *LuaScript::Variant::userdata() { return _userdata; }
 const void *LuaScript::Variant::userdata() const { return _userdata; }
+void *LuaScript::Variant::asUserdata() {
+  if (_type != Type::USERDATA) {
+    throw std::runtime_error(
+        "LuaScript::Variant::asUserdata: Variant is not userdata");
+  }
+  return _userdata;
+}
 
-const std::unordered_map<std::string, std::shared_ptr<LuaScript::Variant>>
-    &LuaScript::Variant::table() const {
+const LuaScript::Variant::Table &LuaScript::Variant::table() const {
   return _table;
 }
-std::unordered_map<std::string, std::shared_ptr<LuaScript::Variant>>
-    &LuaScript::Variant::table() {
+LuaScript::Variant::Table &LuaScript::Variant::table() { return _table; }
+LuaScript::Variant::Table &LuaScript::Variant::asTable() {
+  if (_type != Type::TABLE) {
+    throw std::runtime_error(
+        "LuaScript::Variant::asTable: Variant is not a table");
+  }
   return _table;
 }
 
 bool &LuaScript::Variant::boolean() { return _boolean; }
-
 const bool &LuaScript::Variant::boolean() const { return _boolean; }
+bool &LuaScript::Variant::asBoolean() {
+  if (_type != Type::BOOLEAN) {
+    throw std::runtime_error(
+        "LuaScript::Variant::asBoolean: Variant is not a boolean");
+  }
+  return _boolean;
+}
 
 void LuaScript::Variant::operator=(Variant &&other) {
   this->~Variant();

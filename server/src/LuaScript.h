@@ -29,13 +29,59 @@ class LuaScript {
    */
   class Variant {
    public:
+    typedef std::shared_ptr<Variant> VariantPtr;
+
+    struct VariantPtrHash {
+      size_t operator()(const VariantPtr &v) const noexcept {
+        constexpr size_t SIZE_T_BITS = sizeof(size_t) * 8;
+        size_t hash = 0;
+        switch (v->type()) {
+          case Type::NIL:
+            hash = 0;
+            break;
+          case Type::BOOLEAN:
+            hash = v->boolean();
+            break;
+          case Type::NUMBER:
+            hash = std::hash<double>()(v->number());
+            break;
+          case Type::STRING:
+            hash = std::hash<std::string>()(v->string());
+            break;
+          case Type::FUNCTION:
+            hash = std::hash<std::string>()(v->_function);
+            break;
+          case Type::CFUNCTION:
+            hash = std::hash<std::string>()(v->_c_function);
+            break;
+          case Type::USERDATA:
+            // The userdata has no associated information, this is the best we
+            // can do
+            hash = std::hash<void *>()(v->userdata());
+            break;
+          case Type::TABLE:
+            // Tables as keys only work as idetity in lua
+            hash = std::hash<void *>()(v.get());
+            break;
+        }
+        // replace the highest three bits by the type. This way two values of
+        // different type may never have the same hash;
+        hash = (hash & (~(size_t(7) << (SIZE_T_BITS - size_t(4))))) |
+               (size_t(v->type()) << (SIZE_T_BITS - size_t(4)));
+        return hash;
+      }
+    };
+
+    typedef std::unordered_map<std::shared_ptr<Variant>,
+                               std::shared_ptr<Variant>, VariantPtrHash>
+        Table;
+
     Variant();
     Variant(double number);
     Variant(bool boolean);
     Variant(const std::string &string);
     Variant(void *userdata);
-    Variant(
-        const std::unordered_map<std::string, std::shared_ptr<Variant>> table);
+    Variant(const Table table);
     Variant(lua_State *state, int idx = -1);
 
     Variant(const Variant &other);
@@ -60,19 +106,23 @@ class LuaScript {
 
     double number() const;
     double &number();
+    double &asNumber();
 
     const std::string &string() const;
     std::string &string();
+    std::string &asString();
 
     void *userdata();
+    void *asUserdata();
     const void *userdata() const;
 
     bool &boolean();
+    bool &asBoolean();
     const bool &boolean() const;
 
-    const std::unordered_map<std::string, std::shared_ptr<Variant>> &table()
-        const;
-    std::unordered_map<std::string, std::shared_ptr<Variant>> &table();
+    const Table &table() const;
+    Table &table();
+    Table &asTable();
 
    private:
     Type _type;
@@ -83,15 +133,16 @@ class LuaScript {
       std::string _function;
       std::string _c_function;
       void *_userdata;
-      std::unordered_map<std::string, std::shared_ptr<Variant>> _table;
+      Table _table;
     };
   };
 
-  typedef std::function<Variant(std::vector<Variant>)> ApiFunction;
+  typedef std::function<Variant(LuaScript *script, std::vector<Variant>)>
+      ApiFunction;
 
  private:
   struct LuaFunction {
-    std::function<Variant(std::vector<Variant>)> handler;
+    ApiFunction handler;
     std::vector<Type> arguments;
     std::string name;
   };

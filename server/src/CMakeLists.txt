@@ -51,6 +51,7 @@ target_link_libraries(penandpaper-core
   OpenSSL::SSL
   ${CMAKE_THREAD_LIBS_INIT})
 
+
 add_executable(penandpaper-server main.cpp)
 target_link_libraries(penandpaper-server
   penandpaper-core)

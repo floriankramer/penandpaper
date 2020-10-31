@@ -74,7 +74,7 @@ Settings parseSettings(int argc, char **argv) {
 int main(int argc, char **argv) {
   Settings settings = parseSettings(argc, argv);
 
-  CharacterManager character_manager;
+//  CharacterManager character_manager;
 
   std::shared_ptr<PluginManager> plugins = std::make_shared<PluginManager>();
 

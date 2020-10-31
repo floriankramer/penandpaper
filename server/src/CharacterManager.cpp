@@ -6,8 +6,9 @@ void CharacterManager::registerPluginFunctions(
     std::shared_ptr<PluginManager> plugin_manager) {
   plugin_manager->addApiFunction(
       "registerCharacterSheet",
-      [this](std::vector<LuaScript::Variant> args) -> LuaScript::Variant {
-        addCharacterSheetFromLua(args);
+      [this](LuaScript *script,
+             std::vector<LuaScript::Variant> args) -> LuaScript::Variant {
+        addCharacterSheetFromLua(script, args);
 
         // Return nil
         return LuaScript::Variant();
@@ -16,13 +17,44 @@ void CharacterManager::registerPluginFunctions(
 }
 
 void CharacterManager::addCharacterSheetFromLua(
-    const std::vector<LuaScript::Variant> &args) {
+    LuaScript *script, const std::vector<LuaScript::Variant> &args) {
+  using Variant = LuaScript::Variant;
+  if (args.size() != 1) {
+    // This exits
+    script->error(
+        "registerCharacterSheet: Expected exactly two arguments but got " +
+        std::to_string(args.size()));
+  }
   // TODO: Without a reference to the lua script we can't call action functions.
   // We should probably receive a reference to the src script here, could also
   // consider changing the lua variant type to not store a copy of the data,
   // but instead to store a pointer to it (as far as possible, there might be
   // ephemeral data where that would not work, e.g. return values).
   CharacterSheet sheet;
+
+  for (auto block_it : args[1].table()) {
+    Variant::VariantPtr src_block = block_it.second;
+    Variant::Table &block_table = src_block->asTable();
+
+    AttributeBlock block;
+    block.heading = block_it.first->asString();
+    if (block_table.find(std::make_shared<Variant>("width")) !=
+        block_table.end()) {
+      block.width = block_table.find(std::make_shared<Variant>("width"))
+                        ->second->asNumber();
+    }
+
+    std::shared_ptr<Variant> attributes =
+        block_table.find(std::make_shared<Variant>("attributes"))->second;
+    for (auto &attribute_it : attributes->asTable()) {
+      Attribute attr;
+      // TODO set the attribute name and value
+    }
+
+    // TODO: iterate the actions
+
+    sheet.blocks.push_back(block);
+  }
 
   _character_sheet_templates.push_back(sheet);
 }

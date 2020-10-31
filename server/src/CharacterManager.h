@@ -72,7 +72,7 @@ class CharacterManager : public HttpServer::RequestHandler {
    * @brief Character sheets are composed of blocks. Every block contains
    * attributes and actions.
    */
-  struct CharacterBlock {
+  struct AttributeBlock {
     std::string heading;
     int width = 4;
 
@@ -90,7 +90,7 @@ class CharacterManager : public HttpServer::RequestHandler {
      * @brief The plugin which defined this character sheet
      */
     std::shared_ptr<Plugin> plugin;
-    std::vector<CharacterBlock> blocks;
+    std::vector<AttributeBlock> blocks;
   };
 
   CharacterManager();
@@ -98,10 +98,11 @@ class CharacterManager : public HttpServer::RequestHandler {
   void registerPluginFunctions(std::shared_ptr<PluginManager> plugin_manager);
 
   virtual HttpServer::HttpResponse onRequest(
-      const HttpServer::HttpRequest &req);
+      const HttpServer::HttpRequest &req) override;
 
  private:
-  void addCharacterSheetFromLua(const std::vector<LuaScript::Variant> &args);
+  void addCharacterSheetFromLua(LuaScript *script,
+                                const std::vector<LuaScript::Variant> &args);
 
   std::vector<CharacterSheet> _character_sheet_templates;
 };

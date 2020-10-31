@@ -166,7 +166,7 @@ void Plugin::load(const std::string &path) {
 
   _script.registerFunction(
       "addCommand",
-      [this](std::vector<LuaScript::Variant> args) {
+      [this](LuaScript *script, std::vector<LuaScript::Variant> args) {
         if (args.size() != 2) {
           _script.error("addCommand: Expected exactly two arguments but got " +
                         std::to_string(args.size()));
@@ -181,7 +181,7 @@ void Plugin::load(const std::string &path) {
 
   _script.registerFunction(
       "listenToPacket",
-      [this](std::vector<LuaScript::Variant> args) {
+      [this](LuaScript *script, std::vector<LuaScript::Variant> args) {
         if (args.size() != 2) {
           _script.error(
               "listenToPacket: Expected exactly two arguments but got " +
@@ -198,7 +198,7 @@ void Plugin::load(const std::string &path) {
 
   _script.registerFunction(
       "writeToChat",
-      [this](std::vector<LuaScript::Variant> args) {
+      [this](LuaScript *script, std::vector<LuaScript::Variant> args) {
         if (args.size() != 1) {
           _script.error("writeToChat: Expected exactly one arguments but got " +
                         std::to_string(args.size()));
@@ -217,7 +217,7 @@ void Plugin::load(const std::string &path) {
 
   _script.registerFunction(
       "broadcastPacket",
-      [this](std::vector<LuaScript::Variant> args) {
+      [this](LuaScript *script, std::vector<LuaScript::Variant> args) {
         using nlohmann::json;
         if (args.size() != 2) {
           _script.error(
