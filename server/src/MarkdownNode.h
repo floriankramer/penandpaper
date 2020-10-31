@@ -25,6 +25,11 @@ using MdLookupAttribute_t =
     std::function<std::string(const std::string &, const std::string &)>;
 using MdNodePtr = std::unique_ptr<MdNode>;
 
+/**
+ * @brief A node in a tree of MdNodes representing a parsed markdown document.
+ * This class is used to represent an abstract syntax tree of a markdown
+ * document. It may be converted to html.
+ */
 class MdNode {
  public:
   virtual MdNodeType type() const;

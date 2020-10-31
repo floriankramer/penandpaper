@@ -133,7 +133,7 @@ void HeadingMdNode::toHTML(std::ostream &out,
                            MdLookupAttribute_t lookup_attribute) const {
   out << "<h" << _level << '>';
   childrenToHtml(out, lookup_attribute);
-  out << "</h" << _level << '>';
+  out << "</h" << _level << ">\n";
 }
 
 MdNodeType HeadingMdNode::type() const { return MdNodeType::HEADING; }
@@ -240,9 +240,9 @@ ListMdNode::ListMdNode(bool is_ordered) : _is_ordered(is_ordered) {}
 void ListMdNode::toHTML(std::ostream &out,
                         MdLookupAttribute_t lookup_attribute) const {
   std::string lm = _is_ordered ? "ol" : "ul";
-  out << '<' << lm << '>';
+  out << '<' << lm << ">\n";
   childrenToHtml(out, lookup_attribute);
-  out << "</" << lm << '>';
+  out << "</" << lm << ">\n";
 }
 
 MdNodeType ListMdNode::type() const { return MdNodeType::LIST; }
@@ -259,7 +259,7 @@ void ListItemMdNode::toHTML(std::ostream &out,
                             MdLookupAttribute_t lookup_attribute) const {
   out << "<li>";
   childrenToHtml(out, lookup_attribute);
-  out << "</li>";
+  out << "</li>\n";
 }
 
 MdNodeType ListItemMdNode::type() const { return MdNodeType::LIST_ITEM; }
@@ -273,7 +273,7 @@ void ParagraphMdNode::toHTML(std::ostream &out,
                              MdLookupAttribute_t lookup_attribute) const {
   out << "<p>";
   childrenToHtml(out, lookup_attribute);
-  out << "</p>";
+  out << "</p>\n";
 }
 MdNodeType ParagraphMdNode::type() const { return MdNodeType::PARAGRAPH; }
 
@@ -284,7 +284,7 @@ MdNodeType ParagraphMdNode::type() const { return MdNodeType::PARAGRAPH; }
 LineBreakMdNode::LineBreakMdNode() {}
 void LineBreakMdNode::toHTML(std::ostream &out,
                              MdLookupAttribute_t lookup_attribute) const {
-  out << "<br/>";
+  out << "<br/>\n";
   childrenToHtml(out, lookup_attribute);
 }
 MdNodeType LineBreakMdNode::type() const { return MdNodeType::LINE_BREAK; }

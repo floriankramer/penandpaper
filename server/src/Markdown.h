@@ -192,10 +192,14 @@ class Markdown {
   bool parseLink(MdNode &parent);
   bool parseHashesHeading(MdNode &parent);
 
+  /**
+   * @brief Blocks are non text block elements (e.g lists)
+   */
   bool parseBlock(MdNode &parent);
-  bool parseUnorderedList(MdNode &parent);
-  bool parseOrderedList(MdNode &parent);
-  bool parseList(MdNode &parent, TokenType list_mark, bool is_ordered);
+
+  bool parseUnorderedList(MdNode &parent, int indent_level=0);
+  bool parseOrderedList(MdNode &parent, int indent_level=0);
+  bool parseList(MdNode &parent, TokenType list_mark, bool is_ordered, int indent_level=0);
 
   /**
    * @return The indent level of text after s

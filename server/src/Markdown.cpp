@@ -15,6 +15,8 @@
  */
 #include "Markdown.h"
 
+#include <iomanip>
+
 #include "Logger.h"
 
 const char *Markdown::TOKEN_TYPE_NAMES[] = {
@@ -487,11 +489,6 @@ void Markdown::Lexer::tokenize() {
     t.value = _input.substr(start, match_pos + 1 - start);
     _tokens.push_back(t);
   }
-
-  //  LOG_DEBUG << "Done Tokenizing:" << LOG_END;
-  //  for (Token &t : _tokens) {
-  //    std::cout << TOKEN_TYPE_NAMES[int(t.type)] << "\t\t" << t.value << "\n";
-  //  }
 }
 
 // =============================================================================
@@ -512,8 +509,8 @@ MdNode Markdown::process() {
   }
 
   // Parse all blocks at the beginning
-  while (parseBlock(root))
-    ;
+  while (parseBlock(root)) {
+  }
   std::unique_ptr<ParagraphMdNode> paragraph = nullptr;
   while (!_lexer.isDone()) {
     // If this is true check if the paragraph continues or is interrupted by
@@ -523,7 +520,14 @@ MdNode Markdown::process() {
     bool skip_line = false;
 
     size_t pos = _lexer.pos();
+    if (paragraph == nullptr) {
+      // Skip any whitespace outside of a paragraph
+      while (_lexer.accept(TokenType::WHITESPACE)) {
+      }
+    }
     if (_lexer.peek(TokenType::HEADING_HASHES)) {
+      // If we can parse a heading skip the line and check for a block following
+      // the heading
       std::ostringstream s;
       if (parseHashesHeading(root)) {
         if (paragraph != nullptr) {
@@ -591,63 +595,110 @@ bool Markdown::parseBlock(MdNode &parent) {
   return parseUnorderedList(parent) || parseOrderedList(parent);
 }
 
-bool Markdown::parseUnorderedList(MdNode &parent) {
-  return parseList(parent, TokenType::LIST_MARK, false);
+bool Markdown::parseUnorderedList(MdNode &parent, int indent_level) {
+  return parseList(parent, TokenType::LIST_MARK, false, indent_level);
 }
 
-bool Markdown::parseOrderedList(MdNode &parent) {
-  return parseList(parent, TokenType::ORDER_MARK, true);
+bool Markdown::parseOrderedList(MdNode &parent, int indent_level) {
+  return parseList(parent, TokenType::ORDER_MARK, true, indent_level);
 }
 
-bool Markdown::parseList(MdNode &parent, TokenType list_mark, bool is_ordered) {
+bool Markdown::parseList(MdNode &parent, TokenType list_mark, bool is_ordered,
+                         int indent_level) {
+  // If this is not a list we can pop the lexer state
   _lexer.push();
-  if (_lexer.peek(TokenType::WHITESPACE)) {
-    std::string val = _lexer.current().value;
-    // A list may be prefixed with at most three whitespace
-    if (indentLevel(val) > 0) {
-      _lexer.pop();
-      return false;
-    }
-    // Consume the whitespace
-    _lexer.any();
-  }
 
-  if (!_lexer.accept(list_mark)) {
-    // A list needs to start with a list mark
-    _lexer.pop();
-    return false;
-  }
-
+  // The node that stores all list items
   std::unique_ptr<ListMdNode> list = std::make_unique<ListMdNode>(is_ordered);
-  std::unique_ptr<ListItemMdNode> item = std::make_unique<ListItemMdNode>();
+  // The current list item. Nullptr if the last item was finished (e.g.
+  // by beginning a sublist) but no new list_mark has been read yet.
+  std::unique_ptr<ListItemMdNode> item = nullptr;
   while (!_lexer.isDone()) {
-    parseLine(*item.get());
-    if (_lexer.isDone() || _lexer.accept(TokenType::EMPTY_LINE)) {
-      list->addChild(item.release());
-      break;
-    }
-    // Consume the token ending the line.
-    _lexer.any();
-    // Check if the next line is indented by no more than three spaces
+    // Check the indent of the next line. It either matches our indent,
+    // starts a sublist or ends this list.
+    int next_line_indent = 0;
+    // If the line starts with whitespace read the indent out of the whitepsace.
+    // We mustn't consume the whitespace yet, as it might start a sublist,
+    // which the needs to parse it.
     if (_lexer.peek(TokenType::WHITESPACE)) {
       std::string val = _lexer.current().value;
-      // A list may be prefixed with at most three whitespace
-      if (indentLevel(val) > 0) {
-        // Keep parsing more lines. This is actually not standard conform,
-        // but will work for now.
+      next_line_indent = indentLevel(val);
+    }
+    if (item == nullptr && list->children().empty() &&
+        next_line_indent != indent_level) {
+      // We are at the very beginning of the list and the indent is wrong.
+      // Abort parsing.
+      break;
+    }
+    if (next_line_indent == indent_level + 1) {
+      // The indent is increased by one. That might start a sublist
+      // Finish the current item (if it exists).
+      if (item != nullptr) {
+        list->addChild(item.release());
+      }
+      item = nullptr;
+
+      // Check if we have a sublist
+      if (!parseOrderedList(*list.get(), indent_level + 1) &&
+          !parseUnorderedList(*list.get(), indent_level + 1)) {
+        // The indentation did not inidicate a sublist. Simply close this list.
+        break;
+      } else {
+        // Start parsing the next line of this list.
         continue;
       }
+    } else if (next_line_indent != indent_level) {
+      // If we still have an open item, finish it
+      if (item != nullptr) {
+        list->addChild(item.release());
+      }
+      // This list ends
+      break;
+    }
+    // Now we can consume the whitespace
+    if (_lexer.peek(TokenType::WHITESPACE)) {
       // Consume the whitespace
       _lexer.any();
     }
-    // Start a new ordered point
+
+    // Check if a new list item is started
     if (_lexer.accept(list_mark)) {
-      list->addChild(item.release());
+      if (item != nullptr) {
+        list->addChild(item.release());
+      }
       item = std::make_unique<ListItemMdNode>();
+
+      // Remove any whitespace after the list mark and before the lists content
+      while (_lexer.accept(TokenType::WHITESPACE)) {
+      }
+    } else if (item == nullptr) {
+      // This is not simply an item continuation as there is no item to continue
+      break;
     }
+
+    // Read a line and add it to item
+    parseLine(*item.get());
+
+    if (_lexer.isDone() || _lexer.accept(TokenType::EMPTY_LINE)) {
+      // The list is terminated, add any open items and finish parsing
+      if (item != nullptr) {
+        list->addChild(item.release());
+      }
+      break;
+    }
+
+    // Consume the token ending the line.
+    _lexer.any();
   }
-  parent.addChild(list.release());
-  return true;
+  if (list->children().size() > 0) {
+    // We succesfully parsed a list with at least one item
+    parent.addChild(list.release());
+    return true;
+  } else {
+    // We weren't able to parse the list
+    _lexer.pop();
+    return false;
+  }
 }
 
 void Markdown::parseLine(MdNode &parent) {
@@ -727,7 +778,10 @@ bool Markdown::parseHashesHeading(MdNode &parent) {
       break;
     }
     if (_lexer.accept(TokenType::WHITESPACE)) {
-      buf << ' ';
+      if (buf.tellp() > 0) {
+        // Don't prefix the heading with whitespace
+        buf << ' ';
+      }
     } else {
       buf << _lexer.any().value;
     }
@@ -799,6 +853,11 @@ bool Markdown::parseLink(MdNode &parent) {
 
 int Markdown::indentLevel(const std::string &s) {
   size_t num_spaces = 0;
+  // Parse from the right, as a newline would terminate the indent level
+  // increase e.g. (with _ instead of spaces for readability)
+  // ____
+  // ____
+  // Should be indent level 1, not 2
   for (size_t i = s.size(); i > 0; i--) {
     if (!std::isspace(s[i - 1]) || s[i - 1] == '\n') {
       return num_spaces / 4;

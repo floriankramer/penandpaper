@@ -1,3 +1,4 @@
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -7,10 +8,19 @@
 int main(int argc, char **argv) {
   std::ostringstream inp;
   char buffer[4096];
-  while (!std::cin.eof()) {
-    std::cin.read(buffer, 4096);
-    std::streamsize num_read = std::cin.gcount();
-    inp.write(buffer, num_read);
+  if (argc == 1) {
+    while (!std::cin.eof()) {
+      std::cin.read(buffer, 4096);
+      std::streamsize num_read = std::cin.gcount();
+      inp.write(buffer, num_read);
+    }
+  } else {
+    std::ifstream in(argv[1]);
+    while (in) {
+      in.read(buffer, 4096);
+      std::streamsize num_read = in.gcount();
+      inp.write(buffer, num_read);
+    }
   }
   std::string inp_str = inp.str();
   try {
