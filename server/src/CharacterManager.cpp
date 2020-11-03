@@ -32,21 +32,20 @@ void CharacterManager::addCharacterSheetFromLua(
   // ephemeral data where that would not work, e.g. return values).
   CharacterSheet sheet;
 
-  for (auto block_it : args[1].table()) {
-    Variant::VariantPtr src_block = block_it.second;
-    Variant::Table &block_table = src_block->asTable();
+  LuaScript::Table blocks_table = args[1].table();
+
+  for (auto block_it = blocks_table.stringBegin();
+       block_it != blocks_table.stringEnd(); ++block_it) {
+    Variant::VariantPtr src_block = block_it->second;
+    LuaScript::Table &block_table = src_block->asTable();
 
     AttributeBlock block;
-    block.heading = block_it.first->asString();
-    if (block_table.find(std::make_shared<Variant>("width")) !=
-        block_table.end()) {
-      block.width = block_table.find(std::make_shared<Variant>("width"))
-                        ->second->asNumber();
-    }
+    block.heading = block_it->first;
+    block.width = (*block_table["width"])->asNumber();
 
-    std::shared_ptr<Variant> attributes =
-        block_table.find(std::make_shared<Variant>("attributes"))->second;
-    for (auto &attribute_it : attributes->asTable()) {
+    LuaScript::Table attributes = (*block_table["attributes"])->asTable();
+    for (auto attribute_it = attributes.stringBegin();
+         attribute_it != attributes.stringEnd(); ++attribute_it) {
       Attribute attr;
       // TODO set the attribute name and value
     }

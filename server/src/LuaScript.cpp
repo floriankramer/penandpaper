@@ -237,6 +237,143 @@ void LuaScript::load(const std::string &path) {
   lua_setfield(_lua_state, LUA_REGISTRYINDEX, REGISTRY_THIS.c_str());
 }
 
+// TABLE
+// =============================================================================
+
+LuaScript::Table::Table() {}
+std::optional<LuaScript::VariantPtr> LuaScript::Table::operator[](
+    const std::string &key) const {
+  auto it = _string_entries.find(key);
+  if (it != _string_entries.end()) {
+    return it->second;
+  } else {
+    return std::optional<LuaScript::VariantPtr>();
+  }
+}
+
+std::optional<LuaScript::VariantPtr> LuaScript::Table::operator[](
+    bool key) const {
+  if (_bool_entries[key] != nullptr) {
+    return _bool_entries[key];
+  } else {
+    return std::optional<LuaScript::VariantPtr>();
+  }
+}
+
+std::optional<LuaScript::VariantPtr> LuaScript::Table::operator[](
+    double key) const {
+  auto it = _number_entries.find(key);
+  if (it != _number_entries.end()) {
+    return it->second;
+  } else {
+    return std::optional<LuaScript::VariantPtr>();
+  }
+}
+
+std::optional<LuaScript::VariantPtr> LuaScript::Table::operator[](
+    size_t key) const {
+  if (key < _vector_entries.size()) {
+    return _vector_entries[key];
+  } else {
+    return std::optional<LuaScript::VariantPtr>();
+  }
+}
+
+void LuaScript::Table::insert(const std::string &key, const VariantPtr &ptr) {
+  _string_entries[key] = ptr;
+}
+
+void LuaScript::Table::insert(bool key, const VariantPtr &ptr) {
+  _bool_entries[key] = ptr;
+}
+
+void LuaScript::Table::insert(double key, const VariantPtr &ptr) {
+  _number_entries[key] = ptr;
+  consolidateNumberEntries();
+}
+
+void LuaScript::Table::push_back(const VariantPtr &ptr) {
+  _vector_entries.push_back(ptr);
+}
+void LuaScript::Table::pop() { _vector_entries.pop_back(); }
+
+LuaScript::VariantPtr &LuaScript::Table::front() {
+  return _vector_entries.front();
+}
+
+LuaScript::VariantPtr &LuaScript::Table::back() {
+  return _vector_entries.back();
+}
+
+std::vector<LuaScript::VariantPtr>::iterator LuaScript::Table::vectorBegin() {
+  return _vector_entries.begin();
+}
+std::vector<LuaScript::VariantPtr>::const_iterator
+LuaScript::Table::vectorBegin() const {
+  return _vector_entries.begin();
+}
+
+std::vector<LuaScript::VariantPtr>::iterator LuaScript::Table::vectorEnd() {
+  return _vector_entries.end();
+}
+std::vector<LuaScript::VariantPtr>::const_iterator LuaScript::Table::vectorEnd()
+    const {
+  return _vector_entries.end();
+}
+
+std::unordered_map<double, LuaScript::VariantPtr>::iterator
+LuaScript::Table::numberBegin() {
+  return _number_entries.begin();
+}
+std::unordered_map<double, LuaScript::VariantPtr>::const_iterator
+LuaScript::Table::numberBegin() const {
+  return _number_entries.begin();
+}
+
+std::unordered_map<double, LuaScript::VariantPtr>::iterator
+LuaScript::Table::numberEnd() {
+  return _number_entries.end();
+}
+std::unordered_map<double, LuaScript::VariantPtr>::const_iterator
+LuaScript::Table::numberEnd() const {
+  return _number_entries.end();
+}
+
+std::unordered_map<std::string, LuaScript::VariantPtr>::iterator
+LuaScript::Table::stringBegin() {
+  return _string_entries.begin();
+}
+std::unordered_map<std::string, LuaScript::VariantPtr>::const_iterator
+LuaScript::Table::stringBegin() const {
+  return _string_entries.begin();
+}
+
+std::unordered_map<std::string, LuaScript::VariantPtr>::iterator
+LuaScript::Table::stringEnd() {
+  return _string_entries.end();
+}
+std::unordered_map<std::string, LuaScript::VariantPtr>::const_iterator
+LuaScript::Table::stringEnd() const {
+  return _string_entries.end();
+}
+
+size_t LuaScript::Table::vectorSize() const { return _vector_entries.size(); }
+
+size_t LuaScript::Table::unorderedSize() const {
+  return _string_entries.size() + _number_entries.size() +
+         (_bool_entries[0] != nullptr ? 1 : 0) +
+         (_bool_entries[1] != nullptr ? 1 : 0);
+}
+
+void LuaScript::Table::consolidateNumberEntries() {
+  auto it = _number_entries.find(double(_vector_entries.size()));
+  while (it != _number_entries.end()) {
+    _vector_entries.push_back(it->second);
+    _number_entries.erase(it);
+    it = _number_entries.find(double(_vector_entries.size()));
+  }
+}
+
 // VARIANT
 // =============================================================================
 
@@ -279,9 +416,16 @@ LuaScript::Variant::Variant(lua_State *state, int idx) {
     // iterate the table
     while (lua_next(state, idx) != 0) {
       int keytype = lua_type(state, -2);
-      if (keytype == LUA_TSTRING) {
-        VariantPtr key = std::make_shared<Variant>(state, -2);
-        _table[key] = std::make_shared<Variant>(state, -1);
+      if (keytype == LUA_TSTRING || keytype == LUA_TNUMBER ||
+          keytype == LUA_TBOOLEAN) {
+        Variant key(state, -2);
+        if (key.type() == Type::BOOLEAN) {
+          _table.insert(key.boolean(), std::make_shared<Variant>(state, -1));
+        } else if (key.type() == Type::NUMBER) {
+          _table.insert(key.number(), std::make_shared<Variant>(state, -1));
+        } else if (key.type() == Type::STRING) {
+          _table.insert(key.string(), std::make_shared<Variant>(state, -1));
+        }
       } else {
         LOG_ERROR
             << "LuaScript::Variant::Variant : Unable to load a key of type "
@@ -373,8 +517,8 @@ LuaScript::Variant::Variant(const nlohmann::json &json) {
     _type = Type::TABLE;
     new (&_table) decltype(_table)();
     for (auto it : json.items()) {
-      VariantPtr key = std::make_shared<Variant>(it.key());
-      _table[key] = std::make_shared<Variant>(it.value());
+      Variant key(it.key());
+      _table.insert(key.string(), std::make_shared<Variant>(it.value()));
     }
   } else {
     throw std::runtime_error(
@@ -392,7 +536,7 @@ LuaScript::Variant::~Variant() {
   } else if (_type == Type::CFUNCTION) {
     _c_function.~basic_string();
   } else if (_type == Type::TABLE) {
-    _table.~unordered_map();
+    _table.~Table();
   }
 }
 
@@ -412,27 +556,11 @@ nlohmann::json LuaScript::Variant::toJson() const {
       json = _string;
       break;
     case Type::TABLE:
-      for (auto it : _table) {
-        std::string key = "";
-        switch (it.first->type()) {
-          case Type::BOOLEAN:
-            key = std::to_string(it.first->boolean());
-            break;
-          case Type::NUMBER:
-            key = std::to_string(it.first->number());
-            break;
-          case Type::STRING:
-            key = it.first->string();
-            break;
-          default:
-            throw std::runtime_error(
-                "LuaScript::Variant::toJson: Unable to convert from type " +
-                std::string(TYPE_NAMES[int(it.first->type())]) +
-                " to a string for conversion to json.");
-        }
-
-        json[key] = it.second->toJson();
+      for (auto string_it = _table.stringBegin();
+           string_it != _table.stringEnd(); ++string_it) {
+        json[string_it->first] = string_it->second->toJson();
       }
+      // TODO: Support more than string keys
       break;
     default:
       throw std::runtime_error(
@@ -461,12 +589,40 @@ void LuaScript::Variant::push(lua_State *state) const {
       lua_pushlightuserdata(state, _userdata);
       break;
     case Type::TABLE:
-      lua_createtable(state, 0, _table.size());
-      for (auto it : _table) {
-        it.first->push(state);
-        it.second->push(state);
+      lua_createtable(state, _table.vectorSize(), _table.unorderedSize());
+
+      // sequence elements
+      for (size_t i = 0; i < _table.vectorSize(); ++i) {
+        lua_pushinteger(state, i);
+        (*_table[i])->push(state);
         lua_settable(state, -2);
       }
+
+      // string keys
+      for (auto string_it = _table.stringBegin();
+           string_it != _table.stringEnd(); ++string_it) {
+        lua_pushstring(state, string_it->first.c_str());
+        string_it->second->push(state);
+        lua_settable(state, -2);
+      }
+
+      // number keys
+      for (auto string_it = _table.numberBegin();
+           string_it != _table.numberBegin(); ++string_it) {
+        lua_pushnumber(state, string_it->first);
+        string_it->second->push(state);
+        lua_settable(state, -2);
+      }
+
+      // boolean keys
+      for (int b = 0; b < 2; ++b) {
+        if (_table[bool(b)]) {
+          lua_pushboolean(state, b);
+          (*_table[bool(b)])->push(state);
+          lua_settable(state, -2);
+        }
+      }
+
       break;
     default:
       LOG_WARN << "Unable to push type " << int(_type) << " onto the stack"
@@ -510,11 +666,9 @@ void *LuaScript::Variant::asUserdata() {
   return _userdata;
 }
 
-const LuaScript::Variant::Table &LuaScript::Variant::table() const {
-  return _table;
-}
-LuaScript::Variant::Table &LuaScript::Variant::table() { return _table; }
-LuaScript::Variant::Table &LuaScript::Variant::asTable() {
+const LuaScript::Table &LuaScript::Variant::table() const { return _table; }
+LuaScript::Table &LuaScript::Variant::table() { return _table; }
+LuaScript::Table &LuaScript::Variant::asTable() {
   if (_type != Type::TABLE) {
     throw std::runtime_error(
         "LuaScript::Variant::asTable: Variant is not a table");

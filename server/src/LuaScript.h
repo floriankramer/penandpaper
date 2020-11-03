@@ -3,6 +3,7 @@
 #include <functional>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -23,6 +24,60 @@ class LuaScript {
   };
 
   static const char *TYPE_NAMES[8];
+
+  class Variant;
+  typedef std::shared_ptr<Variant> VariantPtr;
+
+  class Table {
+   public:
+    Table();
+    std::optional<VariantPtr> operator[](const std::string &key) const;
+    std::optional<VariantPtr> operator[](bool key) const;
+    std::optional<VariantPtr> operator[](double key) const;
+    std::optional<VariantPtr> operator[](size_t key) const;
+
+    void insert(const std::string &key, const VariantPtr &ptr);
+    void insert(bool key, const VariantPtr &ptr);
+    void insert(double key, const VariantPtr &ptr);
+
+    void push_back(const VariantPtr &ptr);
+    void pop();
+
+    VariantPtr &front();
+    VariantPtr &back();
+
+    std::vector<VariantPtr>::iterator vectorBegin();
+    std::vector<VariantPtr>::const_iterator vectorBegin() const;
+
+    std::vector<VariantPtr>::iterator vectorEnd();
+    std::vector<VariantPtr>::const_iterator vectorEnd() const;
+
+    std::unordered_map<double, VariantPtr>::iterator numberBegin();
+    std::unordered_map<double, VariantPtr>::const_iterator numberBegin() const;
+
+    std::unordered_map<double, VariantPtr>::iterator numberEnd();
+    std::unordered_map<double, VariantPtr>::const_iterator numberEnd() const;
+
+    std::unordered_map<std::string, VariantPtr>::iterator stringBegin();
+    std::unordered_map<std::string, VariantPtr>::const_iterator stringBegin()
+        const;
+
+    std::unordered_map<std::string, VariantPtr>::iterator stringEnd();
+    std::unordered_map<std::string, VariantPtr>::const_iterator stringEnd()
+        const;
+
+    size_t vectorSize() const;
+    size_t unorderedSize() const;
+
+    void consolidateNumberEntries();
+
+   private:
+    std::unordered_map<std::string, VariantPtr> _string_entries;
+    std::array<VariantPtr, 2> _bool_entries;
+    std::unordered_map<double, VariantPtr> _number_entries;
+
+    std::vector<VariantPtr> _vector_entries;
+  };
 
   /**
    * @brief Represents a variable in lua.
@@ -71,10 +126,6 @@ class LuaScript {
         return hash;
       }
     };
-
-    typedef std::unordered_map<std::shared_ptr<Variant>,
-                               std::shared_ptr<Variant>, VariantPtrHash>
-        Table;
 
     Variant();
     Variant(double number);
