@@ -76,7 +76,7 @@ int LuaScript::stackSize() const { return lua_gettop(_lua_state); }
 
 LuaScript::Variant LuaScript::onFunctionCall(int index,
                                              std::vector<Variant> arguments) {
-  StackGuard stack_guard(this, "LuaScript::onFunctionCall");
+  StackGuard stack_guard(_lua_state, "LuaScript::onFunctionCall");
   if (index >= 0 && size_t(index) < _function_handlers.size()) {
     LuaFunction &f = _function_handlers[index];
     for (size_t i = 0; i < std::min(arguments.size(), f.arguments.size());
@@ -106,7 +106,7 @@ LuaScript::Variant LuaScript::onFunctionCall(int index,
 
 void LuaScript::registerFunction(const std::string name, ApiFunction handler,
                                  const std::vector<Type> &arguments) {
-  StackGuard stack_guard(this, "LuaScript::registerFunction");
+  StackGuard stack_guard(_lua_state, "LuaScript::registerFunction");
   // Store a reference to this script in the closure
   lua_pushlightuserdata(_lua_state, this);
 
@@ -122,7 +122,7 @@ void LuaScript::registerFunction(const std::string name, ApiFunction handler,
 void LuaScript::loadStandardLibs() { luaL_openlibs(_lua_state); }
 
 LuaScript::Variant LuaScript::global(const std::string &s) const {
-  StackGuard stack_guard(this, "LuaScript::global");
+  StackGuard stack_guard(_lua_state, "LuaScript::global");
   lua_checkstack(_lua_state, 1);
   lua_getglobal(_lua_state, s.c_str());
   Variant v(_lua_state, -1);
@@ -131,14 +131,14 @@ LuaScript::Variant LuaScript::global(const std::string &s) const {
 }
 
 void LuaScript::setGlobal(const std::string &s, Variant value) {
-  StackGuard stack_guard(this, "LuaScript::setGlobal");
+  StackGuard stack_guard(_lua_state, "LuaScript::setGlobal");
   value.push(_lua_state);
   lua_setglobal(_lua_state, s.c_str());
 }
 
 std::vector<LuaScript::Variant> LuaScript::call(
     const std::string &function, const std::vector<Variant> args) {
-  StackGuard stack_guard(this, "LuaScript::call");
+  StackGuard stack_guard(_lua_state, "LuaScript::call");
 
   std::vector<LuaScript::Variant> ret;
 
@@ -148,6 +148,13 @@ std::vector<LuaScript::Variant> LuaScript::call(
 
   // load the function
   lua_getglobal(_lua_state, function.c_str());
+  if (lua_type(_lua_state, -1) == LUA_TNIL) {
+    LOG_ERROR << "LuaScript::call: No function named " << function
+              << " exists in the global scope." << LOG_END;
+    // pop the error handler and the function
+    lua_pop(_lua_state, 2);
+    return {};
+  }
 
   // load the arguments
   for (const Variant &arg : args) {
@@ -161,6 +168,8 @@ std::vector<LuaScript::Variant> LuaScript::call(
     LOG_ERROR << "LuaScript::call : " << function << " : "
               << lua_tostring(_lua_state, -1) << LOG_END;
     lua_pop(_lua_state, 1);
+    // pop the functions and the arg
+    lua_pop(_lua_state, 1 + args.size());
     return {};
   }
   int num_results = lua_gettop(_lua_state) - error_handler;
@@ -174,7 +183,7 @@ std::vector<LuaScript::Variant> LuaScript::call(
 
 std::vector<LuaScript::Variant> LuaScript::callVarArg(
     const std::string &function, const std::vector<Variant> &args) {
-  StackGuard stack_guard(this, "LuaScript::callVarArg");
+  StackGuard stack_guard(_lua_state, "LuaScript::callVarArg");
   std::vector<LuaScript::Variant> ret;
 
   // Load the error handler
@@ -249,6 +258,11 @@ std::optional<LuaScript::VariantPtr> LuaScript::Table::operator[](
   } else {
     return std::optional<LuaScript::VariantPtr>();
   }
+}
+
+std::optional<LuaScript::VariantPtr> LuaScript::Table::operator[](
+    const char *key) const {
+  return (*this)[std::string(key)];
 }
 
 std::optional<LuaScript::VariantPtr> LuaScript::Table::operator[](
@@ -366,7 +380,14 @@ size_t LuaScript::Table::unorderedSize() const {
 }
 
 void LuaScript::Table::consolidateNumberEntries() {
-  auto it = _number_entries.find(double(_vector_entries.size()));
+  double key = double(_vector_entries.size());
+  auto it = _number_entries.find(key);
+  if (it == _number_entries.end()) {
+    it = _number_entries.find(std::nextafter(key, key + 1));
+  }
+  if (it == _number_entries.end()) {
+    it = _number_entries.find(std::nextafter(key, key - 1));
+  }
   while (it != _number_entries.end()) {
     _vector_entries.push_back(it->second);
     _number_entries.erase(it);
@@ -377,24 +398,38 @@ void LuaScript::Table::consolidateNumberEntries() {
 // VARIANT
 // =============================================================================
 
-LuaScript::Variant::Variant() : _type(Type::NIL) {}
+const uint64_t LuaScript::Variant::REGISTRY_MASTER_KEY = 0;
+
+const char *LuaScript::Variant::FUNCTION_TABLE_KEY = "functions";
+const char *LuaScript::Variant::FUNCTION_INDEX_KEY = "function_index";
+
+LuaScript::Variant::Variant()
+    : _type(Type::NIL), _function_references(nullptr) {}
 
 LuaScript::Variant::Variant(bool boolean)
-    : _type(Type::BOOLEAN), _boolean(boolean) {}
+    : _type(Type::BOOLEAN), _boolean(boolean), _function_references(nullptr) {}
 
 LuaScript::Variant::Variant(double number)
-    : _type(Type::NUMBER), _number(number) {}
+    : _type(Type::NUMBER), _number(number), _function_references(nullptr) {}
 
 LuaScript::Variant::Variant(const std::string &string)
-    : _type(Type::STRING), _string(string) {}
+    : _type(Type::STRING), _string(string), _function_references(nullptr) {}
 
 LuaScript::Variant::Variant(void *userdata)
-    : _type(Type::USERDATA), _userdata(userdata) {}
+    : _type(Type::USERDATA),
+      _userdata(userdata),
+      _function_references(nullptr) {}
 
 LuaScript::Variant::Variant(const Table table)
-    : _type(Type::TABLE), _table(table) {}
+    : _type(Type::TABLE), _table(table), _function_references(nullptr) {}
 
-LuaScript::Variant::Variant(lua_State *state, int idx) {
+LuaScript::Variant::Variant(lua_State *state, int idx)
+    : _function_references(nullptr) {
+  StackGuard guard(state, "LuaScript::Variant::Variant");
+  if (idx < 0) {
+    // Transform a relative to an absolute index
+    idx = lua_gettop(state) + (idx + 1);
+  }
   int type = lua_type(state, idx);
   if (type == LUA_TNUMBER) {
     _type = Type::NUMBER;
@@ -437,9 +472,63 @@ LuaScript::Variant::Variant(lua_State *state, int idx) {
   } else if (type == LUA_TUSERDATA || type == LUA_TLIGHTUSERDATA) {
     _type = Type::USERDATA;
     _userdata = lua_touserdata(state, idx);
+  } else if (type == LUA_TFUNCTION) {
+    _type = Type::FUNCTION;
+    // Ensure the stack is big enough
+    lua_checkstack(state, 4);
+
+    // check if the registry master key points to anything
+    lua_pushlightuserdata(state, (void *)&REGISTRY_MASTER_KEY);
+    int type = lua_gettable(state, LUA_REGISTRYINDEX);
+    if (type == LUA_TNIL) {
+      // We need to initialize the global table
+      lua_pop(state, 1);
+      lua_pushlightuserdata(state, (void *)&REGISTRY_MASTER_KEY);
+      lua_createtable(state, 0, 2);
+      lua_settable(state, LUA_REGISTRYINDEX);
+
+      // Push the master table onto the stack
+      lua_pushlightuserdata(state, (void *)&REGISTRY_MASTER_KEY);
+      lua_gettable(state, LUA_REGISTRYINDEX);
+
+      // initialize the function index counter
+      lua_pushstring(state, FUNCTION_INDEX_KEY);
+      lua_pushinteger(state, 0);
+      lua_settable(state, -3);
+
+      // initialize the function table
+      lua_pushstring(state, FUNCTION_TABLE_KEY);
+      lua_createtable(state, 0, 0);
+      lua_settable(state, -3);
+    }
+
+    // The master table is now loaded and initialized. Get the new function
+    // index.
+    lua_getfield(state, -1, FUNCTION_INDEX_KEY);
+    _function = lua_tointeger(state, -1);
+
+    // Increment the function index key
+    lua_pop(state, 1);
+    lua_pushinteger(state, _function + 1);
+    lua_setfield(state, -2, FUNCTION_INDEX_KEY);
+
+    // Write the function to the function table
+    lua_getfield(state, -1, FUNCTION_TABLE_KEY);
+    lua_pushinteger(state, _function);
+    lua_pushnil(state);
+    lua_copy(state, idx, -1);
+    lua_settable(state, -3);
+    // pop the function and the master table
+    lua_pop(state, 2);
+
+    // initialize the function reference counter
+    _function_references = new uint64_t(1);
+
+    // To access the function again and for cleanup we need the state.
+    _function_state = state;
   } else {
     LOG_WARN << "Variant::Variant : unable to represent type "
-             << lua_typename(state, idx) << LOG_END;
+             << lua_typename(state, type) << "(" << type << ")" << LOG_END;
     _type = Type::NIL;
   }
 }
@@ -465,6 +554,12 @@ LuaScript::Variant::Variant(const Variant &other) : _type(other._type) {
     case Type::TABLE:
       // Use placement new to call the copy constructor.
       new (&_table) decltype(_table)(other._table);
+      break;
+    case Type::FUNCTION:
+      _function = other._function;
+      _function_references = other._function_references;
+      (*_function_references)++;
+      _function_state = other._function_state;
       break;
     default:
       throw std::runtime_error(
@@ -494,6 +589,12 @@ LuaScript::Variant::Variant(Variant &&other) : _type(other._type) {
     case Type::TABLE:
       // Use placement new to call the copy constructor.
       new (&_table) decltype(_table)(std::move(other._table));
+      break;
+    case Type::FUNCTION:
+      _function = other._function;
+      _function_references = other._function_references;
+      (*_function_references)++;
+      _function_state = other._function_state;
       break;
     default:
       throw std::runtime_error("Unsupported variant type: " +
@@ -531,12 +632,30 @@ LuaScript::Variant::~Variant() {
   // destroy the initialized child
   if (_type == Type::STRING) {
     _string.~basic_string();
-  } else if (_type == Type::FUNCTION) {
-    _function.~basic_string();
   } else if (_type == Type::CFUNCTION) {
     _c_function.~basic_string();
   } else if (_type == Type::TABLE) {
     _table.~Table();
+  } else if (_type == Type::FUNCTION) {
+    (*_function_references)--;
+    if ((*_function_references) == 0) {
+      delete _function_references;
+    }
+
+    // Remove the entry from the function table
+    StackGuard(_function_state, "LuaScript::Variant::~Variant");
+    lua_checkstack(_function_state, 4);
+
+    lua_pushlightuserdata(_function_state, (void *)&REGISTRY_MASTER_KEY);
+    lua_gettable(_function_state, LUA_REGISTRYINDEX);
+    lua_getfield(_function_state, -1, FUNCTION_TABLE_KEY);
+
+    lua_pushinteger(_function_state, _function);
+    lua_pushnil(_function_state);
+    lua_settable(_function_state, -3);
+
+    // pop the master and the function table
+    lua_pop(_function_state, 2);
   }
 }
 
@@ -637,6 +756,13 @@ const char *LuaScript::Variant::typeName() const {
 }
 
 double LuaScript::Variant::number() const { return _number; }
+const double &LuaScript::Variant::asNumber() const {
+  if (_type != Type::NUMBER) {
+    throw std::runtime_error(
+        "LuaScript::Variant::asNumber: Variant is not a number");
+  }
+  return _number;
+}
 double &LuaScript::Variant::number() { return _number; }
 double &LuaScript::Variant::asNumber() {
   if (_type != Type::NUMBER) {
@@ -647,6 +773,13 @@ double &LuaScript::Variant::asNumber() {
 }
 
 const std::string &LuaScript::Variant::string() const { return _string; }
+const std::string &LuaScript::Variant::asString() const {
+  if (_type != Type::STRING) {
+    throw std::runtime_error(
+        "LuaScript::Variant::asString: Variant is not a string");
+  }
+  return _string;
+}
 std::string &LuaScript::Variant::string() { return _string; }
 std::string &LuaScript::Variant::asString() {
   if (_type != Type::STRING) {
@@ -657,6 +790,13 @@ std::string &LuaScript::Variant::asString() {
 }
 
 void *LuaScript::Variant::userdata() { return _userdata; }
+const void *LuaScript::Variant::asUserdata() const {
+  if (_type != Type::USERDATA) {
+    throw std::runtime_error(
+        "LuaScript::Variant::asUserdata: Variant is not userdata");
+  }
+  return _userdata;
+}
 const void *LuaScript::Variant::userdata() const { return _userdata; }
 void *LuaScript::Variant::asUserdata() {
   if (_type != Type::USERDATA) {
@@ -667,6 +807,13 @@ void *LuaScript::Variant::asUserdata() {
 }
 
 const LuaScript::Table &LuaScript::Variant::table() const { return _table; }
+const LuaScript::Table &LuaScript::Variant::asTable() const {
+  if (_type != Type::TABLE) {
+    throw std::runtime_error(
+        "LuaScript::Variant::asTable: Variant is not a table");
+  }
+  return _table;
+}
 LuaScript::Table &LuaScript::Variant::table() { return _table; }
 LuaScript::Table &LuaScript::Variant::asTable() {
   if (_type != Type::TABLE) {
@@ -679,6 +826,13 @@ LuaScript::Table &LuaScript::Variant::asTable() {
 bool &LuaScript::Variant::boolean() { return _boolean; }
 const bool &LuaScript::Variant::boolean() const { return _boolean; }
 bool &LuaScript::Variant::asBoolean() {
+  if (_type != Type::BOOLEAN) {
+    throw std::runtime_error(
+        "LuaScript::Variant::asBoolean: Variant is not a boolean");
+  }
+  return _boolean;
+}
+const bool &LuaScript::Variant::asBoolean() const {
   if (_type != Type::BOOLEAN) {
     throw std::runtime_error(
         "LuaScript::Variant::asBoolean: Variant is not a boolean");
@@ -699,14 +853,13 @@ void LuaScript::Variant::operator=(const Variant &other) {
 // StackGuard
 // =============================================================================
 
-LuaScript::StackGuard::StackGuard(const LuaScript *script,
-                                  const std::string &name)
-    : _stack_size(script->stackSize()), _script(script), _name(name) {}
+LuaScript::StackGuard::StackGuard(lua_State *lua, const std::string &name)
+    : _stack_size(lua_gettop(lua)), _lua(lua), _name(name) {}
 
 LuaScript::StackGuard::~StackGuard() noexcept(false) {
-  int current_size = _script->stackSize();
+  int current_size = lua_gettop(_lua);
   if (current_size != _stack_size) {
-    throw std::runtime_error("A LuaScript function " + _name +
+    throw std::runtime_error("A lua c function " + _name +
                              " is not stack balanced. Started at " +
                              std::to_string(_stack_size) + " but is " +
                              std::to_string(current_size));

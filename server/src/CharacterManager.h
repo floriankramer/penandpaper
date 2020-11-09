@@ -6,6 +6,8 @@
 #include "LuaScript.h"
 #include "PluginManager.h"
 
+namespace penandpaper {
+
 /**
  * @brief This class manages character sheet templates and instances. It loads
  * the templates from plugins and provides a rest api for instancing and
@@ -41,10 +43,10 @@ class CharacterManager : public HttpServer::RequestHandler {
    */
   class Attribute {
    public:
-    Attribute();
-    Attribute(const std::string &string);
-    Attribute(double number);
-    Attribute(const std::vector<Attribute> list);
+    Attribute(const std::string &name);
+    Attribute(const std::string &name, const std::string &string);
+    Attribute(const std::string &name, double number);
+    Attribute(const std::string &name, const std::vector<Attribute> list);
 
     Attribute(const Attribute &other);
     Attribute(Attribute &&other);
@@ -54,6 +56,13 @@ class CharacterManager : public HttpServer::RequestHandler {
     Attribute &operator=(Attribute other);
 
     friend void swap(Attribute &attr1, Attribute &attr2);
+
+    const std::string &name() const;
+    AttributeType type() const;
+    const std::string &string() const;
+    double number() const;
+    const AttributeList<Attribute> list() const;
+
 
    private:
     std::string name_;
@@ -94,6 +103,7 @@ class CharacterManager : public HttpServer::RequestHandler {
   };
 
   CharacterManager();
+  virtual ~CharacterManager();
 
   void registerPluginFunctions(std::shared_ptr<PluginManager> plugin_manager);
 
@@ -104,5 +114,9 @@ class CharacterManager : public HttpServer::RequestHandler {
   void addCharacterSheetFromLua(LuaScript *script,
                                 const std::vector<LuaScript::Variant> &args);
 
+  nlohmann::json characterSheetToJSON(const CharacterSheet &sheet);
+  nlohmann::json attributeToJSON(const Attribute &attr);
+
   std::vector<CharacterSheet> _character_sheet_templates;
 };
+}

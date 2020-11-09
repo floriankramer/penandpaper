@@ -32,6 +32,7 @@ class LuaScript {
    public:
     Table();
     std::optional<VariantPtr> operator[](const std::string &key) const;
+    std::optional<VariantPtr> operator[](const char *key) const;
     std::optional<VariantPtr> operator[](bool key) const;
     std::optional<VariantPtr> operator[](double key) const;
     std::optional<VariantPtr> operator[](size_t key) const;
@@ -86,47 +87,6 @@ class LuaScript {
    public:
     typedef std::shared_ptr<Variant> VariantPtr;
 
-    struct VariantPtrHash {
-      size_t operator()(const VariantPtr &v) const noexcept {
-        constexpr size_t SIZE_T_BITS = sizeof(size_t) * 8;
-        size_t hash = 0;
-        switch (v->type()) {
-          case Type::NIL:
-            hash = 0;
-            break;
-          case Type::BOOLEAN:
-            hash = v->boolean();
-            break;
-          case Type::NUMBER:
-            hash = std::hash<double>()(v->number());
-            break;
-          case Type::STRING:
-            hash = std::hash<std::string>()(v->string());
-            break;
-          case Type::FUNCTION:
-            hash = std::hash<std::string>()(v->_function);
-            break;
-          case Type::CFUNCTION:
-            hash = std::hash<std::string>()(v->_c_function);
-            break;
-          case Type::USERDATA:
-            // The userdata has no associated information, this is the best we
-            // can do
-            hash = std::hash<void *>()(v->userdata());
-            break;
-          case Type::TABLE:
-            // Tables as keys only work as idetity in lua
-            hash = std::hash<void *>()(v.get());
-            break;
-        }
-        // replace the highest three bits by the type. This way two values of
-        // different type may never have the same hash;
-        hash = (hash & (~(size_t(7) << (SIZE_T_BITS - size_t(4))))) |
-               (size_t(v->type()) << (SIZE_T_BITS - size_t(4)));
-        return hash;
-      }
-    };
-
     Variant();
     Variant(double number);
     Variant(bool boolean);
@@ -156,22 +116,27 @@ class LuaScript {
     const char *typeName() const;
 
     double number() const;
+    const double &asNumber() const;
     double &number();
     double &asNumber();
 
     const std::string &string() const;
+    const std::string &asString() const;
     std::string &string();
     std::string &asString();
 
     void *userdata();
     void *asUserdata();
     const void *userdata() const;
+    const void *asUserdata() const;
 
     bool &boolean();
     bool &asBoolean();
     const bool &boolean() const;
+    const bool &asBoolean() const;
 
     const Table &table() const;
+    const Table &asTable() const;
     Table &table();
     Table &asTable();
 
@@ -181,11 +146,20 @@ class LuaScript {
       double _number;
       bool _boolean;
       std::string _string;
-      std::string _function;
+      uint64_t _function;
       std::string _c_function;
       void *_userdata;
       Table _table;
     };
+
+    uint64_t *_function_references;
+    // For accessing a function we need a lua state. This is only defined for
+    // Type::FUNCTION objects.
+    lua_State *_function_state;
+
+    static const uint64_t REGISTRY_MASTER_KEY;
+    static const char *FUNCTION_TABLE_KEY;
+    static const char *FUNCTION_INDEX_KEY;
   };
 
   typedef std::function<Variant(LuaScript *script, std::vector<Variant>)>
@@ -200,12 +174,12 @@ class LuaScript {
 
   class StackGuard {
    public:
-    StackGuard(const LuaScript *script, const std::string &name = "");
+    StackGuard(lua_State *lua, const std::string &name = "");
     virtual ~StackGuard() noexcept(false);
 
    private:
     int _stack_size;
-    const LuaScript *_script;
+    lua_State *_lua;
     std::string _name;
   };
 

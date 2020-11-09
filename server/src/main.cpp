@@ -21,6 +21,7 @@
 #include <functional>
 #include <memory>
 
+#include "CharacterManager.h"
 #include "Database.h"
 #include "HttpServer.h"
 #include "Logger.h"
@@ -29,7 +30,6 @@
 #include "UserManager.h"
 #include "WebSocketServer.h"
 #include "Wiki.h"
-#include "CharacterManager.h"
 
 struct Settings {
   std::string base_dir = ".";
@@ -74,9 +74,11 @@ Settings parseSettings(int argc, char **argv) {
 int main(int argc, char **argv) {
   Settings settings = parseSettings(argc, argv);
 
-//  CharacterManager character_manager;
+  std::shared_ptr<penandpaper::CharacterManager> character_manager =
+      std::make_shared<penandpaper::CharacterManager>();
 
   std::shared_ptr<PluginManager> plugins = std::make_shared<PluginManager>();
+  character_manager->registerPluginFunctions(plugins);
 
   plugins->loadPlugins();
 
@@ -101,6 +103,12 @@ int main(int argc, char **argv) {
                                 wiki);
   server.registerRequestHandler("/plugin/.*", HttpServer::RequestType::GET,
                                 plugins);
+
+  server.registerRequestHandler("/character/.*", HttpServer::RequestType::GET,
+                                character_manager);
+  server.registerRequestHandler("/character/.*", HttpServer::RequestType::GET,
+                                character_manager);
+
   server.setWSSHandler(wss);
   server.run();
   return 0;
