@@ -42,13 +42,15 @@ void CharacterManager::addCharacterSheetFromLua(
   sheet.character_sheet_type = args[0].asString();
   LuaScript::Table blocks_table = args[1].asTable();
 
-  for (auto block_it = blocks_table.stringBegin();
-       block_it != blocks_table.stringEnd(); ++block_it) {
-    Variant::VariantPtr src_block = block_it->second;
+  for (auto block_it = blocks_table.vectorBegin();
+       block_it != blocks_table.vectorEnd(); ++block_it) {
+    Variant::VariantPtr src_block = *block_it;
     LuaScript::Table &block_table = src_block->asTable();
 
     AttributeBlock block;
-    block.heading = block_it->first;
+    // TODO: Use 'at' functions for Attribute tables that throw if the key
+    // doesn't exist.
+    block.heading = (*block_table["heading"])->asString();
     block.width = 12;
     if (block_table["width"]) {
       block.width = (*block_table["width"])->asNumber();
@@ -143,17 +145,27 @@ nlohmann::json CharacterManager::attributeToJSON(
       attr_j["value"] = nullptr;
       break;
     case AttributeType::NUMBER:
-      attr_j["type"] = "label";
+      attr_j["type"] = "number";
       attr_j["value"] = attr.number();
       break;
     case AttributeType::LIST: {
       attr_j["type"] = "list";
+      // Encode the types
       json types_list_j = json::array();
       for (const Attribute &type : attr.list().types) {
         types_list_j.push_back(attributeToJSON(type));
       }
       attr_j["types"] = types_list_j;
-      // TODO: encode the values
+      // Encode the values
+      json values_list_j = json::array();
+      for (const std::vector<Attribute> &inst : attr.list().values) {
+        json inst_j = json::array();
+        for (const Attribute &val : inst) {
+          inst_j.push_back(attributeToJSON(val));
+        }
+        values_list_j.push_back(inst_j);
+      }
+      attr_j["values"] = values_list_j;
     } break;
     case AttributeType::STRING:
       attr_j["type"] = "string";

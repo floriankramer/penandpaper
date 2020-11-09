@@ -301,6 +301,14 @@ void LuaScript::Table::insert(bool key, const VariantPtr &ptr) {
   _bool_entries[key] = ptr;
 }
 
+void LuaScript::Table::insert(int64_t key, const VariantPtr &ptr) {
+  if (key == int64_t(_vector_entries.size() + 1)) {
+    _vector_entries.push_back(ptr);
+  } else {
+    _number_entries[key] = ptr;
+  }
+}
+
 void LuaScript::Table::insert(double key, const VariantPtr &ptr) {
   _number_entries[key] = ptr;
   consolidateNumberEntries();
@@ -380,7 +388,7 @@ size_t LuaScript::Table::unorderedSize() const {
 }
 
 void LuaScript::Table::consolidateNumberEntries() {
-  double key = double(_vector_entries.size());
+  double key = double(_vector_entries.size() + 1);
   auto it = _number_entries.find(key);
   if (it == _number_entries.end()) {
     it = _number_entries.find(std::nextafter(key, key + 1));
@@ -407,21 +415,22 @@ LuaScript::Variant::Variant()
     : _type(Type::NIL), _function_references(nullptr) {}
 
 LuaScript::Variant::Variant(bool boolean)
-    : _type(Type::BOOLEAN), _boolean(boolean), _function_references(nullptr) {}
+    : _type(Type::BOOLEAN), _boolean(boolean) {}
 
 LuaScript::Variant::Variant(double number)
-    : _type(Type::NUMBER), _number(number), _function_references(nullptr) {}
+    : _type(Type::NUMBER), _number(number), _is_integer(false) {}
+
+LuaScript::Variant::Variant(int64_t number)
+    : _type(Type::NUMBER), _number(number), _is_integer(true) {}
 
 LuaScript::Variant::Variant(const std::string &string)
-    : _type(Type::STRING), _string(string), _function_references(nullptr) {}
+    : _type(Type::STRING), _string(string) {}
 
 LuaScript::Variant::Variant(void *userdata)
-    : _type(Type::USERDATA),
-      _userdata(userdata),
-      _function_references(nullptr) {}
+    : _type(Type::USERDATA), _userdata(userdata) {}
 
 LuaScript::Variant::Variant(const Table table)
-    : _type(Type::TABLE), _table(table), _function_references(nullptr) {}
+    : _type(Type::TABLE), _table(table) {}
 
 LuaScript::Variant::Variant(lua_State *state, int idx)
     : _function_references(nullptr) {
@@ -433,7 +442,13 @@ LuaScript::Variant::Variant(lua_State *state, int idx)
   int type = lua_type(state, idx);
   if (type == LUA_TNUMBER) {
     _type = Type::NUMBER;
-    _number = lua_tonumber(state, idx);
+    if (lua_isinteger(state, idx)) {
+      _is_integer = true;
+      _integer = lua_tointeger(state, idx);
+    } else {
+      _is_integer = false;
+      _number = lua_tonumber(state, idx);
+    }
   } else if (type == LUA_TNIL) {
     _type = Type::NIL;
   } else if (type == LUA_TBOOLEAN) {
@@ -457,7 +472,15 @@ LuaScript::Variant::Variant(lua_State *state, int idx)
         if (key.type() == Type::BOOLEAN) {
           _table.insert(key.boolean(), std::make_shared<Variant>(state, -1));
         } else if (key.type() == Type::NUMBER) {
-          _table.insert(key.number(), std::make_shared<Variant>(state, -1));
+          if (key.isInteger()) {
+            LOG_DEBUG << "Inserting table integer key at pos " << key.integer()
+                      << LOG_END;
+            _table.insert(key.integer(), std::make_shared<Variant>(state, -1));
+          } else {
+            LOG_DEBUG << "Inserting table double key at pos " << key.number()
+                      << LOG_END;
+            _table.insert(key.number(), std::make_shared<Variant>(state, -1));
+          }
         } else if (key.type() == Type::STRING) {
           _table.insert(key.string(), std::make_shared<Variant>(state, -1));
         }
@@ -542,7 +565,13 @@ LuaScript::Variant::Variant(const Variant &other) : _type(other._type) {
       _boolean = other._boolean;
       break;
     case Type::NUMBER:
-      _number = other._number;
+      if (other._is_integer) {
+        _integer = other._integer;
+        _is_integer = true;
+      } else {
+        _number = other._number;
+        _is_integer = false;
+      }
       break;
     case Type::STRING:
       // Use placement new to call the copy constructor.
@@ -577,7 +606,13 @@ LuaScript::Variant::Variant(Variant &&other) : _type(other._type) {
       _boolean = other._boolean;
       break;
     case Type::NUMBER:
-      _number = other._number;
+      if (other._is_integer) {
+        _integer = other._integer;
+        _is_integer = true;
+      } else {
+        _number = other._number;
+        _is_integer = false;
+      }
       break;
     case Type::STRING:
       // Use placement new to call the copy constructor.
@@ -603,8 +638,13 @@ LuaScript::Variant::Variant(Variant &&other) : _type(other._type) {
 }
 
 LuaScript::Variant::Variant(const nlohmann::json &json) {
-  if (json.is_number()) {
+  if (json.is_number_integer()) {
     _type = Type::NUMBER;
+    _integer = json.get<int64_t>();
+    _is_integer = true;
+  } else if (json.is_number()) {
+    _type = Type::NUMBER;
+    _is_integer = false;
     _number = json.get<double>();
   } else if (json.is_string()) {
     _type = Type::STRING;
@@ -669,7 +709,11 @@ nlohmann::json LuaScript::Variant::toJson() const {
       json = _boolean;
       break;
     case Type::NUMBER:
-      json = _number;
+      if (_is_integer) {
+        json = _integer;
+      } else {
+        json = _number;
+      }
       break;
     case Type::STRING:
       json = _string;
@@ -699,7 +743,11 @@ void LuaScript::Variant::push(lua_State *state) const {
       lua_pushboolean(state, _boolean);
       break;
     case Type::NUMBER:
-      lua_pushnumber(state, _number);
+      if (_is_integer) {
+        lua_pushinteger(state, _integer);
+      } else {
+        lua_pushnumber(state, _number);
+      }
       break;
     case Type::STRING:
       lua_pushstring(state, _string.c_str());
@@ -755,21 +803,84 @@ const char *LuaScript::Variant::typeName() const {
   return TYPE_NAMES[int(_type)];
 }
 
-double LuaScript::Variant::number() const { return _number; }
-const double &LuaScript::Variant::asNumber() const {
+double LuaScript::Variant::number() const {
+  if (!_is_integer) {
+    return _number;
+  } else {
+    return _integer;
+  }
+}
+
+double LuaScript::Variant::asNumber() const {
   if (_type != Type::NUMBER) {
     throw std::runtime_error(
         "LuaScript::Variant::asNumber: Variant is not a number");
   }
+  if (!_is_integer) {
+    return _number;
+  } else {
+    return _integer;
+  }
+}
+
+double &LuaScript::Variant::number() {
+  if (_is_integer) {
+    _number = _integer;
+    _is_integer = false;
+  }
   return _number;
 }
-double &LuaScript::Variant::number() { return _number; }
+
 double &LuaScript::Variant::asNumber() {
   if (_type != Type::NUMBER) {
     throw std::runtime_error(
         "LuaScript::Variant::asNumber: Variant is not a number");
   }
+  if (_is_integer) {
+    _number = _integer;
+    _is_integer = false;
+  }
   return _number;
+}
+
+int64_t LuaScript::Variant::integer() const {
+  if (!_is_integer) {
+    return _number;
+  } else {
+    return _integer;
+  }
+}
+
+int64_t LuaScript::Variant::asInteger() const {
+  if (_type != Type::NUMBER) {
+    throw std::runtime_error(
+        "LuaScript::Variant::asNumber: Variant is not a number");
+  }
+  if (!_is_integer) {
+    return _number;
+  } else {
+    return _integer;
+  }
+}
+
+int64_t &LuaScript::Variant::integer() {
+  if (!_is_integer) {
+    _integer = std::round(_integer);
+    _is_integer = true;
+  }
+  return _integer;
+}
+
+int64_t &LuaScript::Variant::asInteger() {
+  if (_type != Type::NUMBER) {
+    throw std::runtime_error(
+        "LuaScript::Variant::asNumber: Variant is not a number");
+  }
+  if (!_is_integer) {
+    _integer = std::round(_integer);
+    _is_integer = true;
+  }
+  return _integer;
 }
 
 const std::string &LuaScript::Variant::string() const { return _string; }
@@ -839,6 +950,8 @@ const bool &LuaScript::Variant::asBoolean() const {
   }
   return _boolean;
 }
+
+bool LuaScript::Variant::isInteger() const { return _is_integer; }
 
 void LuaScript::Variant::operator=(Variant &&other) {
   this->~Variant();

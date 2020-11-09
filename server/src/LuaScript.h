@@ -40,6 +40,7 @@ class LuaScript {
     void insert(const std::string &key, const VariantPtr &ptr);
     void insert(bool key, const VariantPtr &ptr);
     void insert(double key, const VariantPtr &ptr);
+    void insert(int64_t key, const VariantPtr &ptr);
 
     void push_back(const VariantPtr &ptr);
     void pop();
@@ -89,6 +90,7 @@ class LuaScript {
 
     Variant();
     Variant(double number);
+    Variant(int64_t number);
     Variant(bool boolean);
     Variant(const std::string &string);
     Variant(void *userdata);
@@ -116,9 +118,33 @@ class LuaScript {
     const char *typeName() const;
 
     double number() const;
-    const double &asNumber() const;
+    double asNumber() const;
+
+    /**
+     * @brief If the data is stored in an int64_t this Variant will be converted
+     * to double.
+     */
     double &number();
+
+    /**
+     * @brief If the data is stored in an int64_t this Variant will be converted
+     * to double.
+     */
     double &asNumber();
+
+    int64_t integer() const;
+    int64_t asInteger() const;
+    /**
+     * @brief If the data is stored in a double this Variant will be converted
+     * to int64_t.
+     */
+    int64_t &integer();
+
+    /**
+     * @brief If the data is stored in a double this Variant will be converted
+     * to int64_t.
+     */
+    int64_t &asInteger();
 
     const std::string &string() const;
     const std::string &asString() const;
@@ -140,10 +166,19 @@ class LuaScript {
     Table &table();
     Table &asTable();
 
+    /**
+     * @brief The return value of this function is only defined if this is a
+     * number. A number may store its data in either a double or an int64_t.
+     * The value of this boolean indicates the internal storage. Use the
+     * integer() or number() methods as appropriate.
+     */
+    bool isInteger() const;
+
    private:
     Type _type;
     union {
       double _number;
+      int64_t _integer;
       bool _boolean;
       std::string _string;
       uint64_t _function;
@@ -151,6 +186,9 @@ class LuaScript {
       void *_userdata;
       Table _table;
     };
+
+    // For number types this signifies if the number should be an integer.
+    bool _is_integer;
 
     uint64_t *_function_references;
     // For accessing a function we need a lua state. This is only defined for
