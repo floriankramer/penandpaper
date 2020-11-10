@@ -136,7 +136,9 @@ Wiki::Wiki(Database *db)
   }
 }
 
-HttpServer::HttpResponse Wiki::onRequest(const HttpServer::HttpRequest &req) {
+HttpServer::HttpResponse Wiki::onRequest(UserManager::UserPtr user,
+                                         const HttpServer::HttpRequest &req) {
+  // TODO: Validate that the user has access to the wiki
   HttpServer::HttpResponse resp;
   std::vector<std::string> parts = util::splitString(req.path, '/');
   LOG_INFO << "Wiki "

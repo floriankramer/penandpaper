@@ -30,7 +30,7 @@ class PluginManager : public HttpServer::RequestHandler {
 
   /** @brief handles the clients requests for a plugins client code. */
   HttpServer::HttpResponse onRequest(
-      const HttpServer::HttpRequest &req) override;
+      UserManager::UserPtr user, const HttpServer::HttpRequest &req) override;
 
   /**
    * @brief f should be a function that takes a string and sends it to all

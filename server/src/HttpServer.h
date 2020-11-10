@@ -86,7 +86,8 @@ class HttpServer {
 
   class RequestHandler {
    public:
-    virtual HttpResponse onRequest(const HttpRequest &req) = 0;
+    virtual HttpResponse onRequest(UserManager::UserPtr user,
+                                   const HttpRequest &req) = 0;
   };
 
   class WebSocketHandler {

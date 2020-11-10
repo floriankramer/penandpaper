@@ -139,8 +139,15 @@ class DbTable {
   virtual ~DbTable();
   void setColumns(const std::vector<DbColumn> &columns);
 
-  void insert(const std::vector<DbColumnUpdate> &data);
-  void insert(const std::vector<DbVariant> &data);
+  /**
+    @return The id of the new row
+   */
+  int64_t insert(const std::vector<DbColumnUpdate> &data);
+
+  /**
+    @return The id of the new row
+   */
+  int64_t insert(const std::vector<DbVariant> &data);
   void erase(const DbCondition &where);
   DbCursor query(const DbCondition &where = DbCondition());
   void update(const std::vector<DbColumnUpdate> &updates,

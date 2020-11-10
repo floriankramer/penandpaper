@@ -78,7 +78,7 @@ std::vector<std::string> PluginManager::pluginNames() const {
 }
 
 HttpServer::HttpResponse PluginManager::onRequest(
-    const HttpServer::HttpRequest &req) {
+    UserManager::UserPtr user, const HttpServer::HttpRequest &req) {
   HttpServer::HttpResponse resp;
 
   std::vector<std::string> parts = util::splitString(req.path, '/');

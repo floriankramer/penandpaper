@@ -199,6 +199,7 @@ class Wiki : public HttpServer::RequestHandler {
   Wiki(Database *db);
 
   virtual HttpServer::HttpResponse onRequest(
+      UserManager::UserPtr user,
       const HttpServer::HttpRequest &req);
 
  private:

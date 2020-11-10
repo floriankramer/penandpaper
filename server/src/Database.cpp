@@ -354,7 +354,7 @@ void DbTable::setColumns(const std::vector<DbColumn> &columns) {
   }
 }
 
-void DbTable::insert(const std::vector<DbColumnUpdate> &data) {
+int64_t DbTable::insert(const std::vector<DbColumnUpdate> &data) {
   DbSqlBuilder ssql;
   ssql << "INSERT INTO `" << _name << "` (";
   for (size_t i = 0; i < data.size(); ++i) {
@@ -379,7 +379,7 @@ void DbTable::insert(const std::vector<DbColumnUpdate> &data) {
     LOG_ERROR << "Unable to prepare an sqlite statement for insertion into "
               << _name << ": " << sql << "\n"
               << sqlite3_errmsg(_db) << LOG_END;
-    return;
+    return -1;
   }
 
   r = bindValues(stmt, ssql);
@@ -387,25 +387,27 @@ void DbTable::insert(const std::vector<DbColumnUpdate> &data) {
     LOG_ERROR << "Unable to bind values for insertion into " << _name << ": "
               << sql << "\n"
               << sqlite3_errmsg(_db) << LOG_END;
-    return;
+    return -1;
   }
 
   r = sqlite3_step(stmt);
   if (r != SQLITE_OK && r != SQLITE_DONE) {
     LOG_ERROR << "Unable to insert into " << _name << ": " << sql << "\n"
               << sqlite3_errmsg(_db) << LOG_END;
-    return;
+    return -1;
   }
+  int64_t id = sqlite3_last_insert_rowid(_db);
   r = sqlite3_finalize(stmt);
   if (r != SQLITE_OK) {
     LOG_ERROR << "Unable to finalize the statement for insertion into " << _name
               << ": " << sql << "\n"
               << sqlite3_errmsg(_db) << LOG_END;
-    return;
+    return -1;
   }
+  return id;
 }
 
-void DbTable::insert(const std::vector<DbVariant> &data) {
+int64_t DbTable::insert(const std::vector<DbVariant> &data) {
   DbSqlBuilder ssql;
   ssql << "INSERT INTO `" << _name << "` VALUES (";
   for (size_t i = 0; i < data.size(); ++i) {
@@ -423,7 +425,7 @@ void DbTable::insert(const std::vector<DbVariant> &data) {
     LOG_ERROR << "Unable to prepare an sqlite statement for insertion into "
               << _name << ": " << sql << "\n"
               << sqlite3_errmsg(_db) << LOG_END;
-    return;
+    return -1;
   }
 
   r = bindValues(stmt, ssql);
@@ -431,22 +433,24 @@ void DbTable::insert(const std::vector<DbVariant> &data) {
     LOG_ERROR << "Unable to bind values for insertion into " << _name << ": "
               << sql << "\n"
               << sqlite3_errmsg(_db) << LOG_END;
-    return;
+    return -1;
   }
 
   r = sqlite3_step(stmt);
   if (r != SQLITE_OK && r != SQLITE_DONE) {
     LOG_ERROR << "Unable to insert into " << _name << ": " << sql << "\n"
               << sqlite3_errmsg(_db) << LOG_END;
-    return;
+    return -1;
   }
+  int64_t id = sqlite3_last_insert_rowid(_db);
   r = sqlite3_finalize(stmt);
   if (r != SQLITE_OK) {
     LOG_ERROR << "Unable to finalize the statement for insertion into " << _name
               << ": " << sql << "\n"
               << sqlite3_errmsg(_db) << LOG_END;
-    return;
+    return -1;
   }
+  return id;
 }
 
 void DbTable::erase(const DbCondition &where) {

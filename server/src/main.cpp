@@ -74,15 +74,16 @@ Settings parseSettings(int argc, char **argv) {
 int main(int argc, char **argv) {
   Settings settings = parseSettings(argc, argv);
 
+  Database db("./database.sqlite3");
+
   std::shared_ptr<penandpaper::CharacterManager> character_manager =
-      std::make_shared<penandpaper::CharacterManager>();
+      std::make_shared<penandpaper::CharacterManager>(&db);
 
   std::shared_ptr<PluginManager> plugins = std::make_shared<PluginManager>();
   character_manager->registerPluginFunctions(plugins);
 
   plugins->loadPlugins();
 
-  Database db("./database.sqlite3");
   std::shared_ptr<UserManager> user_manager =
       std::make_shared<UserManager>(&db);
 

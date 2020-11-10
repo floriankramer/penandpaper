@@ -5,7 +5,13 @@
 
 namespace penandpaper {
 
-CharacterManager::CharacterManager() {}
+const std::string CharacterManager::COL_ID = "id";
+const std::string CharacterManager::COL_USER_ID = "userid";
+const std::string CharacterManager::COL_DATA = "data";
+
+CharacterManager::CharacterManager(Database *db) : _db(db) {
+  openDatabaseTable();
+}
 
 CharacterManager::~CharacterManager() {}
 
@@ -176,6 +182,7 @@ nlohmann::json CharacterManager::attributeToJSON(
 }
 
 HttpServer::HttpResponse CharacterManager::onRequest(
+    UserManager::UserPtr user,
     const HttpServer::HttpRequest &req) {
   using nlohmann::json;
   HttpServer::HttpResponse resp;
@@ -219,15 +226,6 @@ HttpServer::HttpResponse CharacterManager::onRequest(
           resp.setMimeType("application/json");
           sheet_exists = true;
           break;
-        } else {
-          LOG_DEBUG << "CharacterManager::onRequest: '"
-                    << c.character_sheet_type << "' == '" << parts[2]
-                    << "': " << (c.character_sheet_type == parts[2]) << LOG_END;
-          LOG_DEBUG << "CharacterManager::onRequest: '"
-                    << c.character_sheet_type.size() << "' == '"
-                    << parts[2].size() << "': "
-                    << (c.character_sheet_type.size() == parts[2].size())
-                    << LOG_END;
         }
       }
       if (!sheet_exists) {
@@ -238,6 +236,61 @@ HttpServer::HttpResponse CharacterManager::onRequest(
   }
 
   return resp;
+}
+
+void CharacterManager::openDatabaseTable() {
+  _table = _db->createTable("characters", {{COL_ID, DbDataType::AUTO_INCREMENT},
+                                           {COL_USER_ID, DbDataType::INTEGER},
+                                           {COL_DATA, DbDataType::TEXT}});
+}
+
+std::vector<CharacterManager::CharacterSheet>
+CharacterManager::listUserCharacterSheets(int64_t user_id) {
+  using nlohmann::json;
+
+  std::vector<CharacterSheet> characters;
+  DbCursor res =
+      _table.query(DbCondition(COL_USER_ID, DbCondition::Type::EQ, user_id));
+  while (!res.done()) {
+    json raw = json::parse(res.col(2).asText());
+    characters.emplace_back(characterSheetFromJSON(raw));
+    res.next();
+  }
+
+  return characters;
+}
+
+std::optional<CharacterManager::CharacterSheet>
+CharacterManager::getCharacterSheet(int64_t id) {
+  using nlohmann::json;
+
+  DbCursor res = _table.query(DbCondition(COL_ID, DbCondition::Type::EQ, id));
+  if (!res.done()) {
+    json raw = json::parse(res.col(2).asText());
+    return characterSheetFromJSON(raw);
+  } else {
+    return std::optional<CharacterSheet>();
+  }
+}
+
+void CharacterManager::saveCharacterSheet(int64_t id, int64_t user_id,
+                                          const CharacterSheet &sheet) {
+  std::string data = characterSheetToJSON(sheet).dump();
+  _table.update(
+      {DbColumnUpdate{COL_DATA, data}, DbColumnUpdate{COL_USER_ID, user_id}},
+      DbCondition(COL_ID, DbCondition::Type::EQ, id));
+}
+
+int64_t CharacterManager::createCharacterSheet(int64_t user_id,
+                                               const std::string &type) {
+  for (const CharacterSheet &c : _character_sheet_templates) {
+    if (c.character_sheet_type == type) {
+      nlohmann::json raw = characterSheetToJSON(c);
+      return _table.insert({DbColumnUpdate{COL_USER_ID, user_id},
+                            DbColumnUpdate{COL_DATA, raw.dump()}});
+    }
+  }
+  return -1;
 }
 
 // Attribute

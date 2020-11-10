@@ -1,7 +1,9 @@
 #pragma once
 
+#include <optional>
 #include <unordered_map>
 
+#include "Database.h"
 #include "HttpServer.h"
 #include "LuaScript.h"
 #include "PluginManager.h"
@@ -14,6 +16,10 @@ namespace penandpaper {
  * managing them.
  */
 class CharacterManager : public HttpServer::RequestHandler {
+  static const std::string COL_ID;
+  static const std::string COL_USER_ID;
+  static const std::string COL_DATA;
+
  public:
   /**
    * @brief The types of data a CharacterSheet can hold
@@ -63,7 +69,6 @@ class CharacterManager : public HttpServer::RequestHandler {
     double number() const;
     const AttributeList<Attribute> list() const;
 
-
    private:
     std::string name_;
     AttributeType type_;
@@ -100,15 +105,16 @@ class CharacterManager : public HttpServer::RequestHandler {
      */
     std::shared_ptr<Plugin> plugin;
     std::vector<AttributeBlock> blocks;
+    int64_t id;
   };
 
-  CharacterManager();
+  CharacterManager(Database *db);
   virtual ~CharacterManager();
 
   void registerPluginFunctions(std::shared_ptr<PluginManager> plugin_manager);
 
   virtual HttpServer::HttpResponse onRequest(
-      const HttpServer::HttpRequest &req) override;
+      UserManager::UserPtr user, const HttpServer::HttpRequest &req) override;
 
  private:
   void addCharacterSheetFromLua(LuaScript *script,
@@ -117,6 +123,23 @@ class CharacterManager : public HttpServer::RequestHandler {
   nlohmann::json characterSheetToJSON(const CharacterSheet &sheet);
   nlohmann::json attributeToJSON(const Attribute &attr);
 
+  Attribute attributeFromJSON(const nlohmann::json &j);
+  CharacterSheet characterSheetFromJSON(const nlohmann::json &j);
+
+  void openDatabaseTable();
+
+  std::vector<CharacterSheet> listUserCharacterSheets(int64_t user_id);
+  std::optional<CharacterSheet> getCharacterSheet(int64_t id);
+  void saveCharacterSheet(int64_t id, int64_t user_id,
+                          const CharacterSheet &sheet);
+  /**
+   * @brief Returns the new character sheets id on success, -1 on failure
+   */
+  int64_t createCharacterSheet(int64_t user_id, const std::string &type);
+
   std::vector<CharacterSheet> _character_sheet_templates;
+
+  Database *_db;
+  DbTable _table;
 };
-}
+}  // namespace penandpaper
