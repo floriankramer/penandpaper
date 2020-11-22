@@ -136,6 +136,9 @@ nlohmann::json CharacterManager::characterSheetToJSON(
     blocks.push_back(block_j);
   }
   data["blocks"] = blocks;
+
+  // TODO: consider actions
+
   return data;
 }
 
@@ -181,9 +184,61 @@ nlohmann::json CharacterManager::attributeToJSON(
   return attr_j;
 }
 
+CharacterManager::Attribute CharacterManager::attributeFromJSON(
+    const nlohmann::json &j) {
+  using nlohmann::json;
+  std::string type = j.at("type");
+  if (type == "label") {
+    return CharacterManager::Attribute(j.at("name"));
+  } else if (type == "number") {
+    return CharacterManager::Attribute(j.at("name"),
+                                       j.at("value").get<double>());
+  } else if (type == "string") {
+    return CharacterManager::Attribute(j.at("name"),
+                                       j.at("value").get<std::string>());
+  } else if (type == "list") {
+    AttributeList<Attribute> list;
+    for (const json &type : j.at("types")) {
+      list.types.push_back(attributeFromJSON(type));
+    }
+    for (const json &row_j : j.at("values")) {
+      std::vector<Attribute> row;
+      row.reserve(list.types.size());
+      for (const json &val : row_j) {
+        row.push_back(attributeFromJSON(val));
+      }
+      list.values.emplace_back(std::move(row));
+    }
+    return CharacterManager::Attribute(j.at("name"), list.types, list.values);
+  }
+  throw std::runtime_error(
+      "CharacterManager::attributeFromJSON: Unknown attribute type " + type);
+}
+
+CharacterManager::CharacterSheet CharacterManager::characterSheetFromJSON(
+    const nlohmann::json &j) {
+  using nlohmann::json;
+
+  CharacterSheet sheet;
+  sheet.character_name = j.at("name");
+  sheet.character_sheet_type = j.at("type");
+
+  for (const json &block_j : j.at("blocks")) {
+    AttributeBlock block;
+    block.heading = block_j.at("heading");
+    block.width = block_j.at("width");
+    for (const json &attr : block_j.at("attributes")) {
+      block.attributes.emplace_back(attributeFromJSON(attr));
+    }
+    sheet.blocks.push_back(std::move(block));
+    sheet.id = -1;
+  }
+
+  return sheet;
+}
+
 HttpServer::HttpResponse CharacterManager::onRequest(
-    UserManager::UserPtr user,
-    const HttpServer::HttpRequest &req) {
+    UserManager::UserPtr user, const HttpServer::HttpRequest &req) {
   using nlohmann::json;
   HttpServer::HttpResponse resp;
 
@@ -317,6 +372,13 @@ CharacterManager::Attribute::Attribute(const std::string &name,
   new (&list_) AttributeList<Attribute>();
 
   list_.types = list;
+}
+
+CharacterManager::Attribute::Attribute(
+    const std::string &name, const std::vector<Attribute> types,
+    const std::vector<std::vector<Attribute>> &values)
+    : Attribute(name, types) {
+  list_.values = values;
 }
 
 CharacterManager::Attribute::Attribute(const Attribute &other)

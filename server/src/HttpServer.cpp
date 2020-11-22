@@ -54,9 +54,10 @@ HttpServer::HttpResponse HttpServer::onGet(const HttpRequest &req) {
   HttpResponse resp;
   resp.setError(404, "Not Found");
   try {
+    UserManager::UserPtr user;
     std::string cookies = req.getHeader("cookie");
     if (req.path != "/auth") {
-      if (!user_manager->authenticateViaCookies(cookies)) {
+      if (!(user = user_manager->authenticateViaCookies(cookies))) {
         if (req.path == "/") {
           resp.setError(307, "Not Authenticated");
           resp.setHeader("Location", "/auth");
@@ -72,7 +73,7 @@ HttpServer::HttpResponse HttpServer::onGet(const HttpRequest &req) {
     for (std::pair<std::regex, std::shared_ptr<RequestHandler>> &r :
          _get_request_handlers) {
       if (std::regex_match(realpath, r.first)) {
-        return r.second->onRequest(req);
+        return r.second->onRequest(user, req);
       }
     }
 
@@ -185,8 +186,9 @@ HttpServer::HttpResponse HttpServer::onPost(const HttpRequest &req) {
   resp.setError(404, "Not Found");
   try {
     std::string cookies = req.getHeader("cookie");
+    UserManager::UserPtr user = user_manager->authenticateViaCookies(cookies);
     if (req.path != "/auth") {
-      if (!user_manager->authenticateViaCookies(cookies)) {
+      if (!user) {
         resp.setError(404, "Not Found");
         return resp;
       }
@@ -194,7 +196,6 @@ HttpServer::HttpResponse HttpServer::onPost(const HttpRequest &req) {
       LOG_DEBUG << "Handling an authentification attempt" << LOG_END;
       // got an authentification attempt
       json data = json::parse(req.getBodyString());
-      UserManager::UserPtr user = user_manager->authenticateViaCookies(cookies);
       if (user == nullptr &&
           (!data.contains("name") || !data.contains("password"))) {
         resp.setError(404, "Not Found");
@@ -358,7 +359,7 @@ HttpServer::HttpResponse HttpServer::onPost(const HttpRequest &req) {
     for (std::pair<std::regex, std::shared_ptr<RequestHandler>> &r :
          _post_request_handlers) {
       if (std::regex_match(realpath, r.first)) {
-        return r.second->onRequest(req);
+        return r.second->onRequest(user, req);
       }
     }
   } catch (const std::exception &e) {

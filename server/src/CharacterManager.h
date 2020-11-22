@@ -53,6 +53,8 @@ class CharacterManager : public HttpServer::RequestHandler {
     Attribute(const std::string &name, const std::string &string);
     Attribute(const std::string &name, double number);
     Attribute(const std::string &name, const std::vector<Attribute> list);
+    Attribute(const std::string &name, const std::vector<Attribute> types,
+              const std::vector<std::vector<Attribute>> &values);
 
     Attribute(const Attribute &other);
     Attribute(Attribute &&other);
