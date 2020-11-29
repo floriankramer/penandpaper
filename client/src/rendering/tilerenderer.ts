@@ -48,14 +48,14 @@ export default class TileRenderer {
       this.height = meta['height']
       this.tilesize = meta['tilesize']
 
-      for (let y = 0; y < this.width; ++y) {
-        for (let x = 0; x < this.height; ++x) {
+      for (let y = 0; y < this.height; ++y) {
+        for (let x = 0; x < this.width; ++x) {
           let a = new TileActor()
           a.setRenderCallback(this.renderCallback)
           a.setTexturePath(path + '/0/' + y.toFixed(0).toString() + '/' + x.toFixed(0).toString() + '.png')
           this.actors.push(a)
-          a.setScale((this.tilesize + 0.001) / 2, (this.tilesize + 0.001) / 2)
-          a.setPosition((x - this.width / 2.0) * this.tilesize, (y - this.height / 2.0) * this.tilesize)
+          a.setScale((this.tilesize + 0.001) / 2, -(this.tilesize + 0.001) / 2)
+          a.setPosition((x - this.width / 2.0) * this.tilesize, (this.height / 2.0 - y) * this.tilesize)
           if (this.renderer !== null) {
             this.renderer.addActor(a, RenderLayers.TILES)
           } else {
