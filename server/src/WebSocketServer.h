@@ -17,21 +17,14 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
-#define ASIO_STANDALONE
-#include <memory>
-#include <websocketpp/config/asio.hpp>
-#include <websocketpp/server.hpp>
-
+#include "HttpServer.h"
 #include "UserManager.h"
 
-class WebSocketServer {
-  typedef websocketpp::config::asio_tls ServerConfig;
-  typedef websocketpp::server<websocketpp::config::asio_tls> Server;
-  typedef std::shared_ptr<asio::ssl::context> ssl_ctx_pt;
-
+class WebSocketServer : public HttpServer::WebSocketHandler {
  public:
   enum class ResponseType {
     BROADCAST,  // send new data to all
@@ -45,7 +38,7 @@ class WebSocketServer {
     ResponseType type;
   };
 
-  typedef std::function<Response(const std::string &, UserManager::UserPtr)>
+  typedef std::function<Response(std::string_view , UserManager::UserPtr)>
       OnMsgHandler_t;
   typedef std::function<Response(UserManager::UserPtr)> OnConnectHandler_t;
 
@@ -56,21 +49,27 @@ class WebSocketServer {
 
   void broadcast(const std::string &data);
 
- private:
-  void run();
+  virtual std::optional<size_t> onClientHandshake(
+      const HttpServer::HttpRequest &req) override;
+  virtual void onClientConnected(size_t client_id,
+                                 HttpServer::WsConnection conn) override;
+  virtual void onClientDisconnected(size_t client_id) override;
+  virtual std::optional<HttpServer::WsResponse> onMessage(size_t client_id,
+                                           HttpServer::WsConnection conn,
+                                           std::string_view data) override;
 
+ private:
   void handleResponse(const Response &response,
-                      websocketpp::connection_hdl &initiator);
+                      HttpServer::WsConnection &initiator);
 
   std::shared_ptr<UserManager> user_manager;
-  std::vector<websocketpp::connection_hdl> _connections;
-
-  Server _socket;
+  std::vector<std::pair<size_t, HttpServer::WsConnection>> _connections;
 
   OnMsgHandler_t _on_msg;
   OnConnectHandler_t _on_connect;
 
   std::string _base_dir;
 
-  std::unordered_map<void*, UserManager::UserPtr> _connection_users;
+  std::unordered_map<size_t, UserManager::UserPtr> _connection_users;
+  size_t _next_connection_id;
 };

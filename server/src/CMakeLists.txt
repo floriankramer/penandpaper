@@ -1,93 +1,3 @@
-cmake_minimum_required(VERSION 3.7)
-project(penandpaper)
-
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-set(BUILD_ATLAS_MODULE OFF CACHE BOOL "Build the atlas module")
-set(BUILD_FONTRENDERER ON CACHE BOOL "Build the font renderer used to pregenerate sdf font.")
-
-set(SQLITE_SRC_FILES "")
-
-if (${CMAKE_GENERATOR} STREQUAL "Ninja")
-    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-       add_compile_options (-fdiagnostics-color=always)
-    elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-       add_compile_options (-fcolor-diagnostics)
-    endif ()
-endif ()
-
-#==============================================================================
-# threading
-#==============================================================================
-find_package(Threads REQUIRED)
-
-
-#==============================================================================
-# ssl
-#==============================================================================
-find_package(OpenSSL REQUIRED)
-include_directories(${OPENSSL_INCLUDE_DIR})
-
-#==============================================================================
-# httplib
-#==============================================================================
-include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/cpp-httplib/")
-
-#==============================================================================
-# websocket-hpp
-#==============================================================================
-include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/websocketpp/")
-if (WIN32)
- add_definitions(-D_WEBSOCKETPP_CPP11_STL_)
-endif (WIN32)
-
-#==============================================================================
-# nlohman json
-#==============================================================================
-include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/json/include/")
-
-
-#==============================================================================
-# sqlite3
-#==============================================================================
-if (WIN32)
-  include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/sqlite3/")
-  set(SQLITE_SRC_FILES "${CMAKE_CURRENT_LIST_DIR}/../depend/sqlite3/sqlite3.c")
-endif ()
-
-#==============================================================================
-# asio
-#==============================================================================
-if (WIN32)
-  include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/asio-1.16.1/include")
-endif ()
-
-#==============================================================================
-# lua
-#==============================================================================
-find_package(Lua REQUIRED)
-include_directories(SYSTEM ${LUA_INCLUDE_DIR})
-
-
-#==============================================================================
-# boost
-#==============================================================================
-if (WIN32)
-  include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/boost_1_73_0")
-endif ()
-
-if (BUILD_ATLAS_MODULE)
-  #==============================================================================
-  # simple2d
-  #==============================================================================
-  # This is used for fast 2d vector graphic rendering for the maps
-  include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/simple2d/include/")
-endif ()
-
-#==============================================================================
-# penandpaper
-#==============================================================================
 
 add_library(penandpaper-utils STATIC
   utils/File.cpp utils/File.h)
@@ -143,6 +53,7 @@ target_link_libraries(penandpaper-server
   geometry
   penandpaper-utils
   sodium
+  uWebSockets
   ${LUA_LIBRARIES}
   OpenSSL::SSL
   ${CMAKE_THREAD_LIBS_INIT})

@@ -235,7 +235,7 @@ export default class Wiki extends Vue {
     this.currentPage = CurrentPage.EDIT
     $.get('/wiki/raw/' + this.id, (body) => {
       this.initCodeMirror()
-      let msg = JSON.parse(body)
+      let msg = body
       let attributes: Attribute[] = []
       let regexWs = new RegExp('\\s')
       msg.direct.forEach((attr: any) => {
@@ -343,7 +343,7 @@ export default class Wiki extends Vue {
 
   loadContext (id : string) {
     $.get('/wiki/context/' + id, (body) => {
-      let msg = JSON.parse(body)
+      let msg = body
       let nCE : ContextEntry[] = []
       msg.forEach((e: any) => {
         let c = new ContextEntry()
@@ -614,7 +614,7 @@ export default class Wiki extends Vue {
     if (value.length !== 0) {
       $.post('/wiki/quicksearch', value, (resp: any) => {
         let nQR : QuickSearchResult[] = []
-        let raw = JSON.parse(resp)
+        let raw = resp
         raw.forEach((rqs: any) => {
           let rq = new QuickSearchResult()
           rq.id = rqs.id
@@ -650,7 +650,7 @@ export default class Wiki extends Vue {
         }
       }
 
-      let ids = JSON.parse(body)
+      let ids = body
       if (ids === null) {
         this.indexTree = new IndexTreeItem()
         return
@@ -711,7 +711,7 @@ export default class Wiki extends Vue {
   showTimeline () {
     this.currentPage = CurrentPage.TIMELINE
     $.get('/wiki/timeline', (resp: any) => {
-      let data = JSON.parse(resp)
+      let data = resp
       this.timeline = data.events as TimelineEvent[]
       let color = 2
       this.timeline.forEach((event: TimelineEvent) => {

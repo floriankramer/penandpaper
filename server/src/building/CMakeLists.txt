@@ -7,5 +7,7 @@ add_library(building
   BuildingManager.cpp BuildingManager.h
   Visible.cpp Visible.h)
 
-target_link_libraries(building geometry)
+target_link_libraries(building geometry
+  uWebSockets
+  )
 target_include_directories(building PUBLIC "${CMAKE_CURRENT_LIST_DIR}/..")

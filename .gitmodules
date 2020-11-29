@@ -1,12 +1,9 @@
-[submodule "server/cpp/depend/cpp-httplib"]
-	path = server/depend/cpp-httplib
-	url = https://github.com/yhirose/cpp-httplib
-[submodule "server/cpp/depend/websocketpp"]
-	path = server/depend/websocketpp
-	url = https://github.com/zaphoyd/websocketpp
 [submodule "server/cpp/depend/json"]
 	path = server/depend/json
 	url = https://github.com/nlohmann/json.git
 [submodule "server/cpp/depend/msdfgen"]
 	path = server/depend/msdfgen
 	url = https://github.com/Chlumsky/msdfgen.git
+[submodule "server/depend/uWebSockets/src"]
+	path = server/depend/uWebSockets/src
+	url = https://github.com/uNetworking/uWebSockets.git

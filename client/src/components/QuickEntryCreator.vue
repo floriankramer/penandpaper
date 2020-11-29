@@ -62,8 +62,7 @@ export default class QuickEntryCreator extends Vue {
   onCompleteParent (val: string) {
     $.post('/wiki/quicksearch', val, (resp: any) => {
       let nc : Completion[] = []
-      let raw = JSON.parse(resp)
-      raw.forEach((rqs: any) => {
+      resp.forEach((rqs: any) => {
         let rq = new Completion()
         rq.value = rqs.id
         rq.text = rqs.name

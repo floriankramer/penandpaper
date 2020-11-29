@@ -26,14 +26,17 @@
 #include "Logger.h"
 #include "Os.h"
 #include "Random.h"
-
 HttpServer::HttpServer(std::shared_ptr<UserManager> authenticator,
                        const std::string &base_dir)
-    : user_manager(authenticator), _base_dir(base_dir) {
-  std::string cert_path = base_dir + "/cert/certificate.pem";
-  std::string key_path = base_dir + "/cert/key.pem";
-  _server =
-      std::make_unique<httplib::SSLServer>(cert_path.c_str(), key_path.c_str());
+    : user_manager(authenticator), _base_dir(base_dir), _err(nullptr) {
+  _cert_path = base_dir + "/cert/certificate.pem";
+  _key_path = base_dir + "/cert/key.pem";
+}
+
+HttpServer::~HttpServer() {}
+
+void HttpServer::setWSSHandler(std::shared_ptr<WebSocketHandler> wss_handler) {
+  _wss_handler = wss_handler;
 }
 
 void HttpServer::registerRequestHandler(
@@ -46,395 +49,446 @@ void HttpServer::registerRequestHandler(
   }
 }
 
-void HttpServer::run() {
-  std::string basepath;
-  if (_base_dir == ".") {
-    _base_dir = os::getcwd();
-  }
-  basepath = _base_dir;
-  basepath += "/html";
-  basepath = os::realpath(basepath);
-  _server->Get(".*", [this, &basepath](const httplib::Request &req,
-                                       httplib::Response &resp) {
-    try {
-      std::string cookies = req.get_header_value("Cookie");
-      if (req.path != "/auth") {
-        if (!user_manager->authenticateViaCookies(cookies)) {
-          if (req.path == "/") {
-            resp.status = 307;
-            resp.set_header("Location", "/auth");
-            resp.body = "Not Authenticated.";
-          } else {
-            resp.status = 404;
-            resp.body = "Page not found";
-          }
-          return;
-        }
-      }
-      std::string realpath = req.path;
-
-      // Call any registered request handlers
-      for (std::pair<std::regex, std::shared_ptr<RequestHandler>> &r :
-           _get_request_handlers) {
-        if (std::regex_match(realpath, r.first)) {
-          r.second->onRequest(req, resp);
-          return;
-        }
-      }
-
-      if (realpath == "/") {
-        realpath = "/index.html";
-      }
-      // The auth page is not served from the filesystem
-      if (realpath == "/auth") {
-        if (user_manager->authenticateViaCookies(cookies)) {
-          resp.status = 307;
-          resp.set_header("Location", "/");
-          resp.body = "Authentication successfull.";
+HttpServer::HttpResponse HttpServer::onGet(const HttpRequest &req) {
+  HttpResponse resp;
+  resp.setError(404, "Not Found");
+  try {
+    std::string cookies = req.getHeader("Cookie");
+    if (req.path != "/auth") {
+      if (!user_manager->authenticateViaCookies(cookies)) {
+        if (req.path == "/") {
+          resp.setError(307, "Not Authenticated");
+          resp.setHeader("Location", "/auth");
         } else {
-          resp.status = 200;
-          resp.body = AUTH_PAGE;
-          resp.set_header("Content-Type", "text/html");
+          resp.setError(404, "Page not found");
         }
-        return;
-      } else if (realpath == "/auth/list") {
-        if (user_manager->authenticateViaCookies(cookies)) {
-          nlohmann::json data;
-          std::vector<UserManager::PublicUserInfo> users =
-              user_manager->listUsers();
-          nlohmann::json users_json = nlohmann::json::array();
-          for (const UserManager::PublicUserInfo &user : users) {
-            nlohmann::json user_json;
-            user_json["id"] = user.id;
-            user_json["name"] = user.name;
+        return resp;
+      }
+    }
+    std::string realpath = req.path;
 
-            nlohmann::json permissions = nlohmann::json::array();
-            if (user.permissions &
-                (int64_t(1)
-                 << int64_t(UserManager::Permission::MODIFY_USERS))) {
-              permissions.push_back("modify-users");
-            }
-            if (user.permissions &
-                (int64_t(1) << int64_t(UserManager::Permission::ADMIN))) {
-              permissions.push_back("admin");
-            }
-            user_json["permissions"] = permissions;
-            users_json.push_back(user_json);
-          }
-          data["users"] = users_json;
-          resp.status = 200;
-          resp.body = data.dump();
-          resp.set_header("Content-Type", "application/json");
-          return;
-        } else {
-          resp.status = 404;
-          resp.body = "Not Found";
-          return;
-        }
-      } else if (realpath == "/auth/logout") {
-        UserManager::UserPtr user;
-        if ((user = user_manager->authenticateViaCookies(cookies))) {
-          resp.status = 200;
-          resp.body = "Ok";
-          resp.set_header("Set-Cookie", user->createClearCookieHeader());
-          return;
-        } else {
-          resp.status = 404;
-          resp.body = "Not Found";
-          return;
-        }
-      } else if (realpath == "/auth/self") {
-        UserManager::UserPtr user;
-        if ((user = user_manager->authenticateViaCookies(cookies)) != nullptr) {
+    // Call any registered request handlers
+    for (std::pair<std::regex, std::shared_ptr<RequestHandler>> &r :
+         _get_request_handlers) {
+      if (std::regex_match(realpath, r.first)) {
+        return r.second->onRequest(req);
+      }
+    }
+
+    if (realpath == "/") {
+      realpath = "/index.html";
+    }
+    // The auth page is not served from the filesystem
+    if (realpath == "/auth") {
+      if (user_manager->authenticateViaCookies(cookies)) {
+        resp.status_code = 307;
+        resp.setHeader("Location", "/");
+        resp.setBody("Authentication successfull.");
+      } else {
+        resp.status_code = 200;
+        resp.setBody(AUTH_PAGE);
+        resp.setHeader("Content-Type", "text/html");
+      }
+    } else if (realpath == "/auth/list") {
+      if (user_manager->authenticateViaCookies(cookies)) {
+        nlohmann::json data;
+        std::vector<UserManager::PublicUserInfo> users =
+            user_manager->listUsers();
+        nlohmann::json users_json = nlohmann::json::array();
+        for (const UserManager::PublicUserInfo &user : users) {
           nlohmann::json user_json;
-          user_json["id"] = user->id();
-          user_json["name"] = user->name();
+          user_json["id"] = user.id;
+          user_json["name"] = user.name;
 
           nlohmann::json permissions = nlohmann::json::array();
-          if (user->hasPermission(UserManager::Permission::MODIFY_USERS)) {
+          if (user.permissions &
+              (int64_t(1) << int64_t(UserManager::Permission::MODIFY_USERS))) {
             permissions.push_back("modify-users");
           }
-          if (user->hasPermission(UserManager::Permission::ADMIN)) {
+          if (user.permissions &
+              (int64_t(1) << int64_t(UserManager::Permission::ADMIN))) {
             permissions.push_back("admin");
           }
           user_json["permissions"] = permissions;
-          resp.status = 200;
-          resp.body = user_json.dump();
-          resp.set_header("Content-Type", "application/json");
-          return;
-        } else {
-          resp.status = 404;
-          resp.body = "Not Found";
-          return;
+          users_json.push_back(user_json);
         }
+        data["users"] = users_json;
+        resp.status_code = 200;
+        resp.setBody(data.dump());
+        resp.setHeader("Content-Type", "application/json");
+      } else {
+        resp.status_code = 404;
+        resp.setBody("Not Found");
       }
+    } else if (realpath == "/auth/logout") {
+      UserManager::UserPtr user;
+      if ((user = user_manager->authenticateViaCookies(cookies))) {
+        resp.status_code = 200;
+        resp.setBody("Ok");
+        resp.setHeader("Set-Cookie", user->createClearCookieHeader());
+      } else {
+        resp.setError(404, "Not Found");
+      }
+    } else if (realpath == "/auth/self") {
+      UserManager::UserPtr user;
+      if ((user = user_manager->authenticateViaCookies(cookies)) != nullptr) {
+        nlohmann::json user_json;
+        user_json["id"] = user->id();
+        user_json["name"] = user->name();
 
+        nlohmann::json permissions = nlohmann::json::array();
+        if (user->hasPermission(UserManager::Permission::MODIFY_USERS)) {
+          permissions.push_back("modify-users");
+        }
+        if (user->hasPermission(UserManager::Permission::ADMIN)) {
+          permissions.push_back("admin");
+        }
+        user_json["permissions"] = permissions;
+        resp.status_code = 200;
+        resp.setBody(user_json.dump());
+        resp.setHeader("Content-Type", "application/json");
+      } else {
+        resp.setError(404, "Not Found");
+      }
+    } else {
       {
-        realpath = basepath + realpath;
+        realpath = _serve_dir + realpath;
         realpath = os::realpath(realpath);
       }
       LOG_DEBUG << "GET: " << realpath << LOG_END;
 
-      if (realpath.substr(0, basepath.size()) != basepath) {
+      if (realpath.substr(0, _serve_dir.size()) != _serve_dir) {
         LOG_WARN << "Got a request for a file outside the basepath " << realpath
                  << LOG_END;
-        resp.body = "403 forbidden";
-        resp.status = 403;
-        return;
+        resp.setError(403, "Forbidden");
+        return resp;
       }
 
-      std::string mimetype = guessMimeType(realpath);
-      LOG_DEBUG << realpath << " has mimetype " << mimetype << LOG_END;
-      std::ifstream in(realpath);
-      if (!in.is_open()) {
-        LOG_WARN << "HttpServer::get : Got a request for " << realpath
-                 << " but the file doesn't exist." << LOG_END;
-        resp.body = "404 not found";
-        resp.status = 404;
-        return;
-      }
-      in.seekg(0, std::ios::end);
-      size_t filesize = in.tellg();
-      in.seekg(0, std::ios::beg);
-      std::vector<char> buffer(filesize, '0');
-      in.read(buffer.data(), buffer.size());
-
-      resp.status = 200;
-      resp.set_content(buffer.data(), buffer.size(), mimetype.c_str());
-    } catch (const std::exception &e) {
-      LOG_ERROR
-          << "HttpServer::get An error occurred while handling a request for "
-          << req.path << " " << e.what() << LOG_END;
-    } catch (...) {
-      LOG_ERROR << "HttpServer::get An unkndown error occurred while handling "
-                   "a request for "
-                << req.path << LOG_END;
+      resp.fromFile(realpath);
     }
-  });
+  } catch (const std::exception &e) {
+    LOG_ERROR
+        << "HttpServer::get An error occurred while handling a request for "
+        << req.path << " " << e.what() << LOG_END;
+  } catch (...) {
+    LOG_ERROR << "HttpServer::get An unkndown error occurred while handling "
+                 "a request for "
+              << req.path << LOG_END;
+  }
+  return resp;
+}
 
-  _server->Post(".*", [this](const httplib::Request &req,
-                             httplib::Response &resp) {
-    using nlohmann::json;
-    try {
-      // Set a default response
-      resp.status = 404;
-      resp.body = "Page not found";
+HttpServer::HttpResponse HttpServer::onPost(const HttpRequest &req) {
+  using nlohmann::json;
+  HttpResponse resp;
+  resp.setError(404, "Not Found");
+  try {
+    std::string cookies = req.getHeader("Cookie");
+    if (req.path != "/auth") {
+      if (!user_manager->authenticateViaCookies(cookies)) {
+        resp.setError(404, "Not Found");
+        return resp;
+      }
+    } else {
+      LOG_DEBUG << "Handling an authentification attempt" << LOG_END;
+      // got an authentification attempt
+      json data = json::parse(req.getBodyString());
+      UserManager::UserPtr user = user_manager->authenticateViaCookies(cookies);
+      if (user == nullptr &&
+          (!data.contains("name") || !data.contains("password"))) {
+        resp.setError(404, "Not Found");
+        return resp;
+      }
+      if (user == nullptr) {
+        // attempt to authenticate the user
+        std::string name = data["name"].get<std::string>();
+        std::string password = data["password"].get<std::string>();
+        LOG_DEBUG << "Trying to authenticate " << name << LOG_END;
+        user = user_manager->authenticateViaLogin(name, password);
+        if (user != nullptr) {
+          LOG_DEBUG << "Authenticated the user" << LOG_END;
+          resp.status_code = 200;
+          resp.setBody("Ok");
+          resp.setHeader("Set-Cookie", user->createSetCookieHeader());
+        } else {
+          resp.setError(404, "Not Found");
+        }
+        return resp;
+      }
+      if (!data.contains("action")) {
+        // No action specified and the user is already logged in. Simply
+        // confirm the login
+        resp.status_code = 200;
+        resp.setBody("Ok");
+        resp.setHeader("Set-Cookie", user->createSetCookieHeader());
+        return resp;
+      }
+      std::string action = data.at("action").get<std::string>();
+      if (action == "CreateUser") {
+        if (!user->hasPermission(UserManager::Permission::MODIFY_USERS)) {
+          resp.setError(404, "Not Found");
+          return resp;
+        }
 
-      std::string cookies = req.get_header_value("Cookie");
-      if (req.path != "/auth") {
-        if (!user_manager->authenticateViaCookies(cookies)) {
-          resp.status = 404;
-          resp.body = "Page not found";
-          return;
-        }
-      } else {
-        LOG_DEBUG << "Handling an authentification attempt" << LOG_END;
-        // got an authentification attempt
-        json data = json::parse(req.body);
-        UserManager::UserPtr user =
-            user_manager->authenticateViaCookies(cookies);
-        if (user == nullptr &&
-            (!data.contains("name") || !data.contains("password"))) {
-          resp.status = 404;
-          resp.body = "Page not found";
-          return;
-        }
-        if (user == nullptr) {
-          // attempt to authenticate the user
-          std::string name = data["name"].get<std::string>();
-          std::string password = data["password"].get<std::string>();
-          LOG_DEBUG << "Trying to authenticate " << name << LOG_END;
-          user = user_manager->authenticateViaLogin(name, password);
-          if (user != nullptr) {
-            LOG_DEBUG << "Authenticated the user" << LOG_END;
-            resp.status = 200;
-            resp.body = "Ok";
-            resp.set_header("Set-Cookie", user->createSetCookieHeader());
-            return;
-          } else {
-            resp.status = 404;
-            resp.body = "Page not found";
-            return;
-          }
-        }
-        if (!data.contains("action")) {
-          // No action specified and the user is already logged in. Simply
-          // confirm the login
-          resp.status = 200;
-          resp.body = "Ok";
-          resp.set_header("Set-Cookie", user->createSetCookieHeader());
-          return;
-        }
-        std::string action = data.at("action").get<std::string>();
-        if (action == "CreateUser") {
-          if (!user->hasPermission(UserManager::Permission::MODIFY_USERS)) {
-            resp.status = 404;
-            resp.body = "Page not found";
-            return;
-          }
-
-          std::string new_name = data.at("new-name").get<std::string>();
-          std::string new_password = data.at("new-password").get<std::string>();
-          std::vector<UserManager::Permission> new_permissions;
-          for (json perm : data.at("new-permissions")) {
-            std::string perm_str = perm.get<std::string>();
-            if (perm_str == "modify-users") {
-              new_permissions.push_back(UserManager::Permission::MODIFY_USERS);
-            } else if (perm_str == "admin") {
-              if (user->hasPermission(UserManager::Permission::ADMIN)) {
-                new_permissions.push_back(UserManager::Permission::ADMIN);
-              } else {
-                LOG_WARN << "A user named " << user->name()
-                         << " tried to create an admin account without being "
-                            "an admin."
-                         << LOG_END;
-              }
+        std::string new_name = data.at("new-name").get<std::string>();
+        std::string new_password = data.at("new-password").get<std::string>();
+        std::vector<UserManager::Permission> new_permissions;
+        for (json perm : data.at("new-permissions")) {
+          std::string perm_str = perm.get<std::string>();
+          if (perm_str == "modify-users") {
+            new_permissions.push_back(UserManager::Permission::MODIFY_USERS);
+          } else if (perm_str == "admin") {
+            if (user->hasPermission(UserManager::Permission::ADMIN)) {
+              new_permissions.push_back(UserManager::Permission::ADMIN);
+            } else {
+              LOG_WARN << "A user named " << user->name()
+                       << " tried to create an admin account without being"
+                          "an admin."
+                       << LOG_END;
             }
           }
+        }
 
-          user_manager->createUser(new_name, new_password, new_permissions);
-          resp.status = 200;
-          resp.body = "ok";
-          return;
-        } else if (action == "DeleteUser") {
-          if (!user->hasPermission(UserManager::Permission::MODIFY_USERS)) {
-            resp.status = 404;
-            resp.body = "Page not found";
-            return;
-          }
-          int64_t to_delete_id = data.at("to-delete").get<int64_t>();
-          UserManager::UserPtr to_delete = user_manager->loadUser(to_delete_id);
-          if (to_delete == nullptr) {
-            resp.status = 400;
-            resp.body = "No user with id " + std::to_string(to_delete_id);
-            return;
-          }
-          if (to_delete->hasPermission(UserManager::Permission::ADMIN) &&
-              !user->hasPermission(UserManager::Permission::ADMIN)) {
-            resp.status = 400;
-            resp.body =
-                "You do not have the permissions required to delete an admin "
-                "account.";
-            return;
-          }
-          user_manager->deleteUser(to_delete->id());
-          resp.status = 200;
-          resp.body = "ok";
-          return;
-        } else if (action == "SetPermissions") {
-          if (!user->hasPermission(UserManager::Permission::MODIFY_USERS)) {
-            resp.status = 404;
-            resp.body = "Page not found";
-            return;
-          }
-          int64_t to_modify_id = data.at("to-modify").get<int64_t>();
-          UserManager::UserPtr to_modify = user_manager->loadUser(to_modify_id);
-          if (to_modify == nullptr) {
-            resp.status = 400;
-            resp.body = "No user with id " + std::to_string(to_modify_id);
-            return;
-          }
-          if (to_modify->hasPermission(UserManager::Permission::ADMIN) &&
-              !user->hasPermission(UserManager::Permission::ADMIN)) {
-            resp.status = 400;
-            resp.body =
-                "You do not have the permissions required to modify an admin "
-                "account.";
-            return;
-          }
-          std::vector<UserManager::Permission> new_permissions;
-          for (json perm : data.at("new-permissions")) {
-            std::string perm_str = perm.get<std::string>();
-            if (perm_str == "modify-users") {
-              new_permissions.push_back(UserManager::Permission::MODIFY_USERS);
-            } else if (perm_str == "admin") {
-              if (user->hasPermission(UserManager::Permission::ADMIN)) {
-                new_permissions.push_back(UserManager::Permission::ADMIN);
-              } else {
-                LOG_WARN << "A user named " << user->name()
-                         << " tried to create an admin account without being "
-                            "an admin."
-                         << LOG_END;
-              }
-            }
-          }
-          to_modify->setPermissions(new_permissions);
-          resp.status = 200;
-          resp.body = "ok";
-          return;
-        } else if (action == "SetPassword") {
-          int64_t to_modify_id = data.at("to-modify").get<int64_t>();
-          UserManager::UserPtr to_modify = user_manager->loadUser(to_modify_id);
-          if (to_modify == nullptr) {
-            resp.status = 404;
-            resp.body = "Page not found";
-            return;
-          }
-          if (!user->hasPermission(UserManager::Permission::MODIFY_USERS) &&
-              to_modify->id() != user->id()) {
-            resp.status = 404;
-            resp.body = "Page not found";
-            return;
-          }
-          std::string new_password = data.at("new-password").get<std::string>();
-          user->setPassword(new_password);
-          resp.status = 200;
-          resp.body = "Ok";
-          return;
+        user_manager->createUser(new_name, new_password, new_permissions);
+        resp.status_code = 200;
+        resp.setBody("Ok");
+        return resp;
+      } else if (action == "DeleteUser") {
+        if (!user->hasPermission(UserManager::Permission::MODIFY_USERS)) {
+          resp.setError(404, "Not Found");
+          return resp;
+        }
+        int64_t to_delete_id = data.at("to-delete").get<int64_t>();
+        UserManager::UserPtr to_delete = user_manager->loadUser(to_delete_id);
+        if (to_delete == nullptr) {
+          resp.setError(404, "Not Found");
+          return resp;
+        }
+        if (to_delete->hasPermission(UserManager::Permission::ADMIN) &&
+            !user->hasPermission(UserManager::Permission::ADMIN)) {
+          resp.setError(400,
+                        "You do not have the permissions required to delete an "
+                        "admin account.");
+          return resp;
+        }
+        user_manager->deleteUser(to_delete->id());
+        resp.status_code = 200;
+        resp.setBody("Ok");
+        return resp;
+      } else if (action == "SetPermissions") {
+        if (!user->hasPermission(UserManager::Permission::MODIFY_USERS)) {
+          resp.setError(404, "Not Found");
+          return resp;
         }
         int64_t to_modify_id = data.at("to-modify").get<int64_t>();
         UserManager::UserPtr to_modify = user_manager->loadUser(to_modify_id);
         if (to_modify == nullptr) {
-          resp.status = 400;
-          resp.body = "No user with id " + std::to_string(to_modify_id);
-          return;
+          resp.setError(400, "No user with id " + std::to_string(to_modify_id));
+          return resp;
         }
         if (to_modify->hasPermission(UserManager::Permission::ADMIN) &&
             !user->hasPermission(UserManager::Permission::ADMIN)) {
-          resp.status = 400;
-          resp.body =
-              "You do not have the permissions required to modify an admin "
-              "account.";
-          return;
+          resp.setError(400,
+                        "You do not have the permissions required to modify an "
+                        "admin account.");
+          return resp;
+        }
+        std::vector<UserManager::Permission> new_permissions;
+        for (json perm : data.at("new-permissions")) {
+          std::string perm_str = perm.get<std::string>();
+          if (perm_str == "modify-users") {
+            new_permissions.push_back(UserManager::Permission::MODIFY_USERS);
+          } else if (perm_str == "admin") {
+            if (user->hasPermission(UserManager::Permission::ADMIN)) {
+              new_permissions.push_back(UserManager::Permission::ADMIN);
+            } else {
+              LOG_WARN
+                  << "A user named " << user->name()
+                  << " tried to create an admin account without being an admin."
+                  << LOG_END;
+            }
+          }
+        }
+        to_modify->setPermissions(new_permissions);
+        resp.status_code = 200;
+        resp.setBody("Ok");
+        return resp;
+      } else if (action == "SetPassword") {
+        int64_t to_modify_id = data.at("to-modify").get<int64_t>();
+        UserManager::UserPtr to_modify = user_manager->loadUser(to_modify_id);
+        if (to_modify == nullptr) {
+          resp.setError(404, "Not Found");
+          return resp;
+        }
+        if (!user->hasPermission(UserManager::Permission::MODIFY_USERS) &&
+            to_modify->id() != user->id()) {
+          resp.setError(404, "Not Found");
+          return resp;
         }
         std::string new_password = data.at("new-password").get<std::string>();
-        to_modify->setPassword(new_password);
-        resp.status = 200;
-        resp.body = "ok";
-        return;
-        return;
+        user->setPassword(new_password);
+        resp.status_code = 200;
+        resp.setBody("Ok");
+        return resp;
       }
-
-      std::string realpath = req.path;
-      // Call any registered request handlers
-      for (std::pair<std::regex, std::shared_ptr<RequestHandler>> &r :
-           _post_request_handlers) {
-        if (std::regex_match(realpath, r.first)) {
-          r.second->onRequest(req, resp);
-          return;
-        }
+      int64_t to_modify_id = data.at("to-modify").get<int64_t>();
+      UserManager::UserPtr to_modify = user_manager->loadUser(to_modify_id);
+      if (to_modify == nullptr) {
+        resp.setError(400, "No user with id " + std::to_string(to_modify_id));
+        return resp;
       }
-    } catch (const std::exception &e) {
-      LOG_ERROR
-          << "HttpServer::post An error occurred while handling a request for "
-          << req.path << " " << e.what() << LOG_END;
-    } catch (...) {
-      LOG_ERROR << "HttpServer::post An unkndown error occurred while handling "
-                   "a request for "
-                << req.path << LOG_END;
+      if (to_modify->hasPermission(UserManager::Permission::ADMIN) &&
+          !user->hasPermission(UserManager::Permission::ADMIN)) {
+        resp.setError(
+            400,
+            "You do not have the permissions required to modify an admin "
+            "account.");
+        return resp;
+      }
+      std::string new_password = data.at("new-password").get<std::string>();
+      to_modify->setPassword(new_password);
+      resp.status_code = 200;
+      resp.setBody("Ok");
+      return resp;
     }
-  });
 
-  while (true) {
-    try {
-      LOG_INFO << "Starting the http server on 8082..." << LOG_END;
-      _server->listen("0.0.0.0", 8082);
-      std::this_thread::sleep_for(std::chrono::seconds(15));
-    } catch (const std::exception &e) {
-      LOG_ERROR << "Unable to listen on 0.0.0.0:8082 : " << e.what() << LOG_END;
-      std::this_thread::sleep_for(std::chrono::seconds(15));
+    std::string realpath = req.path;
+    // Call any registered request handlers
+    for (std::pair<std::regex, std::shared_ptr<RequestHandler>> &r :
+         _post_request_handlers) {
+      if (std::regex_match(realpath, r.first)) {
+        return r.second->onRequest(req);
+      }
     }
+  } catch (const std::exception &e) {
+    LOG_ERROR
+        << "HttpServer::post An error occurred while handling a request for "
+        << req.path << " " << e.what() << LOG_END;
+  } catch (...) {
+    LOG_ERROR << "HttpServer::post An unkndown error occurred while handling "
+                 "a request for "
+              << req.path << LOG_END;
   }
+  return resp;
+}
+
+void HttpServer::run() {
+  constexpr int PORT = 8082;
+  if (_base_dir == ".") {
+    _base_dir = os::getcwd();
+  }
+  _serve_dir = _base_dir;
+  _serve_dir += "/html";
+  _serve_dir = os::realpath(_serve_dir);
+
+  /**
+   * @brief Handles both get as well as post requests
+   */
+  auto handleRequest = [this](uWS::HttpResponse<true> *resp,
+                              uWS::HttpRequest *req) {
+    HttpRequest http_req(req);
+
+    std::ostringstream buffer;
+    resp->onData(
+        [this, &buffer, resp, &http_req](std::string_view data, bool is_last) {
+          size_t new_size = size_t(buffer.tellp()) + data.size();
+          if (new_size > (5 << 20)) {
+            resp->end("Requests over 5 MiB are not supported");
+          }
+          buffer.write(data.data(), data.size());
+          if (is_last) {
+            // Write our response
+            std::string req_body = buffer.str();
+            http_req.body = req_body.c_str();
+            http_req.body_length = req_body.size();
+
+            HttpResponse http_resp;
+            if (http_req.type == RequestType::GET) {
+              http_resp = onGet(http_req);
+            } else {
+              http_resp = onPost(http_req);
+            }
+
+            resp->writeStatus(std::to_string(http_resp.status_code));
+
+            for (const auto &header : http_resp.headers) {
+              resp->writeHeader(header.first.c_str(), header.second.c_str());
+            }
+
+            std::string_view body(http_resp.body.data(), http_resp.body.size());
+            resp->end(body);
+          }
+        });
+    resp->onAborted([]() {});
+  };
+
+  us_socket_context_options_t opt = {};
+  opt.cert_file_name = _cert_path.c_str();
+  opt.key_file_name = _key_path.c_str();
+  uWS::SSLApp(opt)
+      .get("/*", handleRequest)
+      .post("/*", handleRequest)
+      .ws<size_t>(
+          "/*",
+          {.upgrade =
+               [this](uWS::HttpResponse<true> *resp, uWS::HttpRequest *req,
+                      struct us_socket_context_t *ctx) {
+                 HttpRequest http_req(req);
+                 std::optional<size_t> client_id =
+                     _wss_handler->onClientHandshake(http_req);
+                 if (!client_id) {
+                   resp->writeStatus("404 Not Found");
+                   resp->end();
+                 } else {
+                   // This is the libraries default handler
+                   std::string_view secWebSocketKey =
+                       req->getHeader("sec-websocket-key");
+                   std::string_view secWebSocketProtocol =
+                       req->getHeader("sec-websocket-protocol");
+                   std::string_view secWebSocketExtensions =
+                       req->getHeader("sec-websocket-extensions");
+                   size_t client_id_val = *client_id;
+                   resp->upgrade<size_t>(std::move(client_id_val),
+                                         secWebSocketKey, secWebSocketProtocol,
+                                         secWebSocketExtensions, ctx);
+                 }
+               },
+           .open =
+               [this](HTTPWebSocket *ws) {
+                 size_t client_id = *((size_t *)ws->getUserData());
+                 _wss_handler->onClientConnected(client_id, WsConnection(ws));
+               },
+           .message =
+               [this](HTTPWebSocket *ws, std::string_view message,
+                      uWS::OpCode opCode) {
+                 size_t client_id = *((size_t *)ws->getUserData());
+                 std::optional<WsResponse> response =
+                     _wss_handler->onMessage(client_id, ws, message);
+                 if (response) {
+                   ws->send(response->body, (uWS::OpCode)response->op_code,
+                            true);
+                 }
+               },
+           .drain =
+               [](HTTPWebSocket *ws) {
+                 /* Check ws->getBufferedAmount() here */
+               },
+           .close =
+               [this](HTTPWebSocket *ws, int code, std::string_view message) {
+                 size_t client_id = *((size_t *)ws->getUserData());
+                 _wss_handler->onClientDisconnected(client_id);
+               }
+
+          })
+      .listen(PORT,
+              [this](auto *token) {
+                if (!token) {
+                  LOG_ERROR << "Unable to listen to web trafick on port "
+                            << PORT << "." << std::endl;
+                  exit(1);
+                }
+              })
+      .run();
 }
 
 std::string HttpServer::guessMimeType(const std::string &path,
@@ -470,6 +524,86 @@ std::string HttpServer::guessMimeType(const std::string &path,
   } else {
     return "application/octet-stream";
   }
+}
+
+// HttpRequest
+// =============================================================================
+
+HttpServer::HttpRequest::HttpRequest(uWS::HttpRequest *msg) {
+  // Read the method and headers
+  // The body may not yet be available.
+  path = std::string(msg->getUrl());
+  if (msg->getMethod() == "get") {
+    type = RequestType::GET;
+  } else if (msg->getMethod() == "post") {
+    type = RequestType::POST;
+  } else {
+    LOG_ERROR << "HttpServer::onMgEvent: Unknown message type "
+              << msg->getMethod() << LOG_END;
+  }
+
+  for (const auto &header : *msg) {
+    headers[std::string(header.first)] = std::string(header.second);
+  }
+}
+
+std::string HttpServer::HttpRequest::getHeader(const std::string &name) const {
+  auto it = headers.find(name);
+  if (it != headers.end()) {
+    return it->second;
+  }
+  return "";
+}
+
+std::string HttpServer::HttpRequest::getBodyString() const {
+  return std::string(body, body_length);
+}
+
+// HttpResponse
+// =============================================================================
+
+void HttpServer::HttpResponse::setBody(const std::string &s) {
+  body.resize(s.size());
+  std::memcpy(body.data(), s.c_str(), s.size());
+}
+
+void HttpServer::HttpResponse::setError(int error_code,
+                                        const std::string &msg) {
+  status_code = error_code;
+  setBody(msg);
+}
+
+void HttpServer::HttpResponse::setMimeType(const std::string &mime_type) {
+  headers["Content-Type"] = mime_type;
+}
+
+void HttpServer::HttpResponse::fromFile(const std::string &path) {
+  std::ifstream in(path);
+  if (!in.is_open()) {
+    setError(404, "Not Found");
+  } else {
+    status_code = 200;
+    std::string mime_type = HttpServer::guessMimeType(path);
+    setMimeType(mime_type);
+
+    in.seekg(0, std::ios::end);
+    size_t size = in.tellg();
+    in.seekg(0, std::ios::beg);
+    body.resize(size);
+    in.read(body.data(), size);
+  }
+}
+
+void HttpServer::HttpResponse::setHeader(const std::string &key,
+                                         const std::string &value) {
+  headers[key] = value;
+}
+
+HttpServer::WsConnection::WsConnection(HTTPWebSocket *socket)
+    : _socket(socket) {}
+
+void HttpServer::WsConnection::send(std::string_view data, WsOpCode opCode) {
+  _socket->send(data, (uWS::OpCode)opCode, true);
 }
 
 const std::string HttpServer::AUTH_PAGE =

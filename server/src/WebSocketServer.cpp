@@ -29,140 +29,98 @@ WebSocketServer::WebSocketServer(std::shared_ptr<UserManager> authenticator,
     : user_manager(authenticator),
       _on_msg(on_msg),
       _on_connect(on_connect),
-      _base_dir(base_dir) {
-  std::thread t(&WebSocketServer::run, this);
-  t.detach();
+      _base_dir(base_dir),
+      _next_connection_id(0) {}
+
+std::optional<size_t> WebSocketServer::onClientHandshake(
+    const HttpServer::HttpRequest &req) {
+  try {
+    // Authenticate the new user
+    std::string cookies = req.getHeader("Cookie");
+    UserManager::UserPtr user = user_manager->authenticateViaCookies(cookies);
+    if (user == nullptr) {
+      LOG_DEBUG << "WebSocketServer::onClientHandshake: An unauthorized client "
+                   "connected"
+                << LOG_END;
+      return std::nullopt;
+    }
+    _connection_users[_next_connection_id] = user;
+    LOG_DEBUG
+        << "WebSocketServer::onClientHandshake: Accepted a client handshake"
+        << LOG_END;
+    return _next_connection_id++;
+  } catch (const std::exception &e) {
+    LOG_ERROR << "Error while handling a new client: " << e.what() << LOG_END;
+  } catch (...) {
+    LOG_ERROR << "Unknown error while handling a new client." << LOG_END;
+  }
+  return std::nullopt;
 }
 
-void WebSocketServer::run() {
-  while (true) {
-    try {
-      _socket.clear_access_channels(websocketpp::log::alevel::all);
-      _socket.init_asio();
+void WebSocketServer::onClientConnected(size_t client_id,
+                                        HttpServer::WsConnection conn) {
+  try {
+    UserManager::UserPtr user = _connection_users[client_id];
+    _connections.push_back({client_id, conn});
 
-      _socket.set_open_handler([this](websocketpp::connection_hdl conn_hdl) {
-        try {
-          // Authenticate the new user
-          std::string cookies =
-              _socket.get_con_from_hdl(conn_hdl)->get_request_header("Cookie");
-          UserManager::UserPtr user =
-              user_manager->authenticateViaCookies(cookies);
-          if (user == nullptr) {
-            _socket.get_con_from_hdl(conn_hdl)->close(1000,
-                                                      "Not Authenticated.");
-            return;
-          }
-          // store the user matching the connection
-          std::shared_ptr<void> conn_ptr = conn_hdl.lock();
-          _connection_users[conn_ptr.get()] = user;
-          _connections.push_back(conn_hdl);
-          Response resp = _on_connect(user);
-          handleResponse(resp, conn_hdl);
-        } catch (const std::exception &e) {
-          LOG_ERROR << "Error while handling a new client: " << e.what()
-                    << LOG_END;
-        } catch (...) {
-          LOG_ERROR << "Unknown error while handling a new client." << LOG_END;
-        }
-      });
+    Response resp = _on_connect(user);
+    handleResponse(resp, conn);
+    LOG_DEBUG << "A new client connected " << LOG_END;
+  } catch (const std::exception &e) {
+    LOG_ERROR << "Error while handling a new client: " << e.what() << LOG_END;
+  } catch (...) {
+    LOG_ERROR << "Unknown error while handling a new client." << LOG_END;
+  }
+}
 
-      _socket.set_close_handler([this](websocketpp::connection_hdl conn_hdl) {
-        {
-          std::shared_ptr<void> conn_ptr = conn_hdl.lock();
-          _connection_users.erase(conn_ptr.get());
-        }
+void WebSocketServer::onClientDisconnected(size_t client_id) {
+  LOG_DEBUG << "A client disconnected" << LOG_END;
+  _connection_users.erase(client_id);
 
-        LOG_DEBUG << "A client disconnected" << LOG_END;
-        for (int64_t i = 0; i < _connections.size(); i++) {
-          websocketpp::connection_hdl hdl = _connections[i];
-          if (_socket.get_con_from_hdl(conn_hdl) ==
-              _socket.get_con_from_hdl(hdl)) {
-            LOG_DEBUG << "Removing a connection" << LOG_END;
-            _connections.erase(_connections.begin() + i);
-            i--;
-          }
-        }
-      });
-
-      _socket.set_message_handler([this](websocketpp::connection_hdl conn_hdl,
-                                         Server::message_ptr msg) {
-        try {
-          std::shared_ptr<void> conn_ptr = conn_hdl.lock();
-          UserManager::UserPtr user = _connection_users[conn_ptr.get()];
-          if (user->isDeleted()) {
-            // The user no longer exists
-            _socket.close(conn_hdl, 1000, "Not Authenticated.");
-            _connection_users.erase(conn_ptr.get());
-            return;
-          }
-          Response resp = _on_msg(msg->get_payload(), user);
-          if (resp.type == ResponseType::FORWARD) {
-            resp.text = msg->get_payload();
-          }
-          handleResponse(resp, conn_hdl);
-        } catch (const std::exception &e) {
-          LOG_ERROR << "Error while handling a message: " << e.what()
-                    << LOG_END;
-        } catch (...) {
-          LOG_ERROR << "Unknown error while handling a message." << LOG_END;
-        }
-      });
-
-      _socket.set_tls_init_handler([this](websocketpp::connection_hdl conn)
-                                       -> ssl_ctx_pt {
-        ssl_ctx_pt ctx =
-            std::make_shared<asio::ssl::context>(asio::ssl::context::sslv23);
-        try {
-          ctx->set_options(
-              asio::ssl::context::default_workarounds |
-              asio::ssl::context::no_sslv2 | asio::ssl::context::no_sslv3 |
-              asio::ssl::context::no_tlsv1 | asio::ssl::context::single_dh_use);
-          ctx->use_certificate_chain_file(_base_dir + "/cert/certificate.pem");
-          ctx->use_private_key_file(_base_dir + "/cert/key.pem",
-                                    asio::ssl::context::pem);
-          ctx->use_tmp_dh_file(_base_dir + "/cert/dh1024.pem");
-        } catch (const std::exception &e) {
-          LOG_ERROR << "Error during tls initializtion " << e.what() << LOG_END;
-        }
-        LOG_DEBUG << "Initialized the ssl context for the web _socket server"
-                  << LOG_END;
-        return ctx;
-      });
-
-      _socket.listen(8081);
-      _socket.start_accept();
-      LOG_INFO << "Starting the wss server on 8081" << LOG_END;
-      _socket.run();
-      std::this_thread::sleep_for(std::chrono::seconds(15));
-    } catch (const std::exception &e) {
-      LOG_ERROR << "A socket error occured in the wss server: " << e.what()
-                << LOG_END;
-      std::this_thread::sleep_for(std::chrono::seconds(15));
+  for (size_t i = 0; i < _connections.size(); ++i) {
+    if (_connections[i].first == client_id) {
+      std::iter_swap(_connections.begin() + i, _connections.end() - 1);
+      _connections.erase(_connections.end() - 1);
+      break;
     }
   }
 }
 
+std::optional<HttpServer::WsResponse> WebSocketServer::onMessage(
+    size_t client_id, HttpServer::WsConnection conn, std::string_view data) {
+  try {
+    UserManager::UserPtr user = _connection_users[client_id];
+    if (user->isDeleted()) {
+      // The user no longer exists
+      return HttpServer::WsResponse{"Your account was deleted.",
+                                    HttpServer::WsOpCode::CLOSE};
+    }
+    Response resp = _on_msg(data, user);
+    if (resp.type == ResponseType::RETURN) {
+      return HttpServer::WsResponse{resp.text, HttpServer::WsOpCode::TEXT};
+    } else {
+      if (resp.type == ResponseType::FORWARD) {
+        resp.text = std::string(data);
+      }
+      handleResponse(resp, conn);
+    }
+  } catch (const std::exception &e) {
+    LOG_ERROR << "Error while handling a message: " << e.what() << LOG_END;
+  } catch (...) {
+    LOG_ERROR << "Unknown error while handling a message." << LOG_END;
+  }
+  return std::nullopt;
+}
+
 void WebSocketServer::handleResponse(const Response &response,
-                                     websocketpp::connection_hdl &initiator) {
+                                     HttpServer::WsConnection &initiator) {
   switch (response.type) {
     case ResponseType::FORWARD:
     case ResponseType::BROADCAST: {
-      for (websocketpp::connection_hdl other : _connections) {
-        try {
-          _socket.send(other, response.text, websocketpp::frame::opcode::text);
-        } catch (const websocketpp::exception &e) {
-          LOG_WARN << "Unable to forward a message to one of the clients."
-                   << e.what() << LOG_END;
-        }
-      }
+      broadcast(response.text);
     } break;
     case ResponseType::RETURN: {
-      try {
-        _socket.send(initiator, response.text,
-                     websocketpp::frame::opcode::text);
-      } catch (const websocketpp::exception &e) {
-        LOG_WARN << "Unable to send a reply." << LOG_END;
-      }
+      initiator.send(response.text, HttpServer::WsOpCode::TEXT);
     } break;
     case ResponseType::SILENCE:
       // Do nothing
@@ -171,12 +129,7 @@ void WebSocketServer::handleResponse(const Response &response,
 }
 
 void WebSocketServer::broadcast(const std::string &data) {
-  for (websocketpp::connection_hdl other : _connections) {
-    try {
-      _socket.send(other, data, websocketpp::frame::opcode::text);
-    } catch (const websocketpp::exception &e) {
-      LOG_WARN << "Unable to forward a message to one of the clients."
-               << e.what() << LOG_END;
-    }
+  for (std::pair<size_t, HttpServer::WsConnection> &conn : _connections) {
+    conn.second.send(data, HttpServer::WsOpCode::TEXT);
   }
 }

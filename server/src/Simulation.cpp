@@ -62,7 +62,7 @@ Simulation::Simulation()
   _building_manager.registerPackets(&_msg_handlers_building);
 }
 
-void Simulation::setWebSocketServer(WebSocketServer *wss) {
+void Simulation::setWebSocketServer(std::shared_ptr<WebSocketServer> wss) {
   _web_socket_server = wss;
 }
 
@@ -152,7 +152,7 @@ void Simulation::broadcastClients() {
   _web_socket_server->broadcast(r.dump());
 }
 
-WebSocketServer::Response Simulation::onMessage(const std::string &msg,
+WebSocketServer::Response Simulation::onMessage(std::string_view msg,
                                                 UserManager::UserPtr user) {
   std::lock_guard<std::mutex> simulation_mutex_lock(_simulation_mutex);
   using nlohmann::json;

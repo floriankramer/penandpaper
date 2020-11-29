@@ -23,8 +23,8 @@
 
 #include "Database.h"
 #include "HttpServer.h"
-#include "QGramIndex.h"
 #include "MarkdownNode.h"
+#include "QGramIndex.h"
 
 class Wiki : public HttpServer::RequestHandler {
   static const std::string IDX_COL;
@@ -198,32 +198,35 @@ class Wiki : public HttpServer::RequestHandler {
  public:
   Wiki(Database *db);
 
-  virtual void onRequest(const httplib::Request &req, httplib::Response &resp);
+  virtual HttpServer::HttpResponse onRequest(
+      const HttpServer::HttpRequest &req);
 
  private:
   MdNode tryProcessMarkdown(const std::string &s);
   std::string getText(Entry *e) const;
 
-  void handleList(httplib::Response &resp);
-  void handleGet(const std::string &id, httplib::Response &resp);
-  void handleRaw(const std::string &id, httplib::Response &resp);
-  void handleSave(const std::string &id, const httplib::Request &req,
-                  httplib::Response &resp);
-  void handleDelete(const std::string &id, const httplib::Request &req,
-                    httplib::Response &resp);
-  void handleCompleteEntity(const httplib::Request &req,
-                            httplib::Response &resp);
-  void handleCompleteAttrRef(const httplib::Request &req,
-                             httplib::Response &resp);
-  void handleCompletePredicate(const httplib::Request &req,
-                             httplib::Response &resp);
-  void handleAutolink(const std::string &id, const httplib::Request &req,
-                      httplib::Response &resp);
-  void handleAutolinkAll(const httplib::Request &req, httplib::Response &resp);
-  void handleContext(const std::string &id, httplib::Response &resp);
-  void handleTimeline(const httplib::Request &req, httplib::Response &resp);
-  void handleQuicksearch(const httplib::Request &req, httplib::Response &resp);
-  void handleSearch(const httplib::Request &req, httplib::Response &resp);
+  HttpServer::HttpResponse handleList();
+  HttpServer::HttpResponse handleGet(const std::string &id);
+  HttpServer::HttpResponse handleRaw(const std::string &id);
+  HttpServer::HttpResponse handleSave(const std::string &id,
+                                      const HttpServer::HttpRequest &req);
+  HttpServer::HttpResponse handleDelete(const std::string &id,
+                                        const HttpServer::HttpRequest &req);
+  HttpServer::HttpResponse handleCompleteEntity(
+      const HttpServer::HttpRequest &req);
+  HttpServer::HttpResponse handleCompleteAttrRef(
+      const HttpServer::HttpRequest &req);
+  HttpServer::HttpResponse handleCompletePredicate(
+      const HttpServer::HttpRequest &req);
+  HttpServer::HttpResponse handleAutolink(const std::string &id,
+                                          const HttpServer::HttpRequest &req);
+  HttpServer::HttpResponse handleAutolinkAll(
+      const HttpServer::HttpRequest &req);
+  HttpServer::HttpResponse handleContext(const std::string &id);
+  HttpServer::HttpResponse handleTimeline(const HttpServer::HttpRequest &req);
+  HttpServer::HttpResponse handleQuicksearch(
+      const HttpServer::HttpRequest &req);
+  HttpServer::HttpResponse handleSearch(const HttpServer::HttpRequest &req);
 
   // This scans the given entry and automatically references other entries
   // it finds in the entries text using entry autocompletion.

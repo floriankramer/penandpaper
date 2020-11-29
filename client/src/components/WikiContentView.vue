@@ -63,10 +63,9 @@ export default class WikiContentView extends Vue {
       return
     }
     $.get('/wiki/get/' + value, (body) => {
-      let msg = JSON.parse(body)
       let nDAttr: DisplayedAttribute[] = []
-      this.entryName = msg.name
-      msg.direct.forEach((attr: Attribute) => {
+      this.entryName = body.name
+      body.direct.forEach((attr: Attribute) => {
         if (attr.predicate === 'text') {
           this.content = attr.value
         } else if (attr.predicate !== 'parent') {
@@ -75,7 +74,7 @@ export default class WikiContentView extends Vue {
       })
       this.displayedAttributes = nDAttr
       nDAttr = []
-      msg.inherited.forEach((attr: Attribute) => {
+      body.inherited.forEach((attr: Attribute) => {
         if (attr.predicate === 'text') {
           this.content = attr.value
         } else if (attr.predicate !== 'parent') {

@@ -81,13 +81,13 @@ int main(int argc, char **argv) {
 
   std::shared_ptr<Wiki> wiki = std::make_shared<Wiki>(&db);
   Simulation sim;
-  WebSocketServer wss(
+  std::shared_ptr<WebSocketServer> wss = std::make_shared<WebSocketServer>(
       user_manager,
       std::bind(&Simulation::onMessage, &sim, std::placeholders::_1,
                 std::placeholders::_2),
       std::bind(&Simulation::onNewClient, &sim, std::placeholders::_1),
       settings.base_dir);
-  sim.setWebSocketServer(&wss);
+  sim.setWebSocketServer(wss);
   sim.setPluginManager(plugins.get());
 
   HttpServer server(user_manager, settings.base_dir);
@@ -96,6 +96,7 @@ int main(int argc, char **argv) {
                                 wiki);
   server.registerRequestHandler("/plugin/.*", HttpServer::RequestType::GET,
                                 plugins);
+  server.setWSSHandler(wss);
   server.run();
   return 0;
 }

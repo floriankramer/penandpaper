@@ -1,8 +1,8 @@
 #include "PluginManager.h"
 
-#include "utils/File.h"
 #include "Logger.h"
 #include "Util.h"
+#include "utils/File.h"
 
 PluginManager::PluginManager() { loadPlugins(); }
 
@@ -63,8 +63,10 @@ std::vector<std::string> PluginManager::pluginNames() const {
   return names;
 }
 
-void PluginManager::onRequest(const httplib::Request &req,
-                              httplib::Response &resp) {
+HttpServer::HttpResponse PluginManager::onRequest(
+    const HttpServer::HttpRequest &req) {
+  HttpServer::HttpResponse resp;
+
   std::vector<std::string> parts = util::splitString(req.path, '/');
   // All requests need to be of the form '/plugin/<name>/file
   // or '/plugin/<name>/data/file'
@@ -74,45 +76,45 @@ void PluginManager::onRequest(const httplib::Request &req,
     LOG_WARN << "PluginManager::onRequest : Rejected a malformed plugin "
                 "request for path "
              << req.path << LOG_END;
-    resp.body = "404 Not Found";
-    resp.status = 404;
-    return;
+    resp.setError(404, "Not Found");
+    return resp;
   }
 
-  resp.body = "404 Not Found";
-  resp.status = 404;
+  resp.setError(404, "Not Found");
 
   std::string name = parts[1];
   for (const std::shared_ptr<Plugin> &p : _plugins) {
     if (p->name() == name) {
       if (parts[2] == "html") {
-        resp.status = 200;
-        resp.set_header("Content-Type", "text/html");
-        resp.body = p->html();
+        resp.status_code = 200;
+        resp.setMimeType("text/html");
+        resp.setBody(p->html());
       } else if (parts[2] == "css") {
-        resp.status = 200;
-        resp.set_header("Content-Type", "text/css");
-        resp.body = p->css();
+        resp.status_code = 200;
+        resp.setMimeType("text/css");
+        resp.setBody(p->css());
       } else if (parts[2] == "js") {
-        resp.status = 200;
-        resp.set_header("Content-Type", "text/javascript");
-        resp.body = p->js();
+        resp.status_code = 200;
+        resp.setMimeType("text/javascript");
+        resp.setBody(p->js());
       } else if (parts[2] == "data") {
-        resp.status = 200;
+        resp.status_code = 200;
         std::string filename = parts[3];
         std::vector<char> data = p->data(filename);
         // We need to guess the mime type to allow for proper loading of images.
         std::string mime_type =
             HttpServer::guessMimeType(filename, "application/octet-stream");
-        resp.set_content(data.data(), data.size(), mime_type.c_str());
+        resp.setMimeType(mime_type);
+        resp.body = std::move(data);
       } else {
         LOG_WARN << "PluginManager::onRequest : Got a request for " << parts[2]
                  << " in plugin " << name << " but the datatype is not known."
                  << LOG_END;
       }
-      return;
+      break;
     }
   }
+  return resp;
 }
 
 void PluginManager::setWriteToChat(std::function<void(const std::string &)> f) {

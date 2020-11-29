@@ -136,83 +136,77 @@ Wiki::Wiki(Database *db)
   }
 }
 
-void Wiki::onRequest(const httplib::Request &req, httplib::Response &resp) {
+HttpServer::HttpResponse Wiki::onRequest(const HttpServer::HttpRequest &req) {
+  HttpServer::HttpResponse resp;
   std::vector<std::string> parts = util::splitString(req.path, '/');
-  LOG_INFO << "Wiki " << req.method << " request for " << req.path << LOG_END;
+  LOG_INFO << "Wiki "
+           << (req.type == HttpServer::RequestType::GET ? "GET" : "POST")
+           << " request for " << req.path << LOG_END;
   if (parts.size() < 2) {
     LOG_ERROR << "Invalid wiki request at path " << req.path << LOG_END;
-    resp.status = 400;
-    resp.body = "Invalid wiki request.";
-    return;
+    resp.setError(400, "Invalid wiki request.");
+    return resp;
   }
   std::string action = parts[1];
   if (action == "list" && parts.size() == 2) {
-    handleList(resp);
-    return;
+    return handleList();
   }
   if (action == "complete" && parts.size() == 3) {
     if (parts[2] == "entry") {
-      handleCompleteEntity(req, resp);
-      return;
+      return handleCompleteEntity(req);
     } else if (parts[2] == "reference") {
-      handleCompleteAttrRef(req, resp);
-      return;
+      return handleCompleteAttrRef(req);
     } else if (parts[2] == "predicate") {
-      handleCompletePredicate(req, resp);
-      return;
+      return handleCompletePredicate(req);
     }
   }
 
   if (action == "autolink" && parts.size() > 1 && parts.size() < 4) {
     if (parts.size() == 3) {
-      handleAutolink(parts[2], req, resp);
+      return handleAutolink(parts[2], req);
     } else {
-      handleAutolinkAll(req, resp);
+      return handleAutolinkAll(req);
     }
-    return;
   }
 
   if (action == "timeline" && parts.size() == 2) {
-    handleTimeline(req, resp);
-    return;
+    return handleTimeline(req);
   }
-  if (action == "quicksearch" && parts.size() == 2 && req.method == "POST") {
-    handleQuicksearch(req, resp);
-    return;
+  if (action == "quicksearch" && parts.size() == 2 &&
+      req.type == HttpServer::RequestType::POST) {
+    return handleQuicksearch(req);
   }
 
-  if (action == "search" && parts.size() == 2 && req.method == "POST") {
-    handleSearch(req, resp);
-    return;
+  if (action == "search" && parts.size() == 2 &&
+      req.type == HttpServer::RequestType::POST) {
+    return handleSearch(req);
   }
 
   if (parts.size() != 3) {
     LOG_ERROR << "Invalid wiki request at path " << req.path << LOG_END;
-    resp.status = 400;
-    resp.body = "Invalid wiki request.";
-    return;
+    resp.setError(400, "Invalid wiki request.");
+    return resp;
   }
   if (action == "get") {
-    handleGet(parts[2], resp);
+    return handleGet(parts[2]);
   } else if (action == "raw") {
-    handleRaw(parts[2], resp);
+    return handleRaw(parts[2]);
   } else if (action == "save") {
-    handleSave(parts[2], req, resp);
+    return handleSave(parts[2], req);
   } else if (action == "delete") {
-    handleDelete(parts[2], req, resp);
+    return handleDelete(parts[2], req);
   } else if (action == "context") {
-    handleContext(parts[2], resp);
-  } else {
-    LOG_ERROR << "Unknown wiki action " << action << " at " << req.path
-              << LOG_END;
-    resp.status = 400;
-    resp.body = "Invalid wiki request.";
-    return;
+    return handleContext(parts[2]);
   }
+
+  LOG_ERROR << "Unknown wiki action " << action << " at " << req.path
+            << LOG_END;
+  resp.setError(400, "Invalid wiki request.");
+  return resp;
 }
 
-void Wiki::handleCompleteEntity(const httplib::Request &req,
-                                httplib::Response &resp) {
+HttpServer::HttpResponse Wiki::handleCompleteEntity(
+    const HttpServer::HttpRequest &req) {
   using nlohmann::json;
   struct Completion {
     QGramIndex::Match match;
@@ -221,8 +215,10 @@ void Wiki::handleCompleteEntity(const httplib::Request &req,
 
     bool operator<(const Completion &other) { return match < other.match; }
   };
+
+  HttpServer::HttpResponse resp;
   try {
-    json jreq = json::parse(req.body);
+    json jreq = json::parse(req.getBodyString());
     std::string context = jreq.at("context");
     std::vector<std::string> parts = util::splitStringWs(context);
     std::vector<Completion> results;
@@ -274,19 +270,19 @@ void Wiki::handleCompleteEntity(const httplib::Request &req,
       j.push_back(completion);
     }
 
-    resp.status = 200;
-    resp.set_header("Content-Type", "application/json");
-    resp.body = j.dump();
+    resp.status_code = 200;
+    resp.setHeader("Content-Type", "application/json");
+    resp.setBody(j.dump());
   } catch (const std::exception &e) {
     LOG_WARN << "Wiki: Error while handling a completion request: " << e.what()
              << LOG_END;
-    resp.status = 400;
-    resp.body = "Malformed completion request.";
+    resp.setError(400, "Malformed completion request.");
   }
+  return resp;
 }
 
-void Wiki::handleCompleteAttrRef(const httplib::Request &req,
-                                 httplib::Response &resp) {
+HttpServer::HttpResponse Wiki::handleCompleteAttrRef(
+    const HttpServer::HttpRequest &req) {
   using nlohmann::json;
   struct Completion {
     QGramIndex::Match match;
@@ -295,8 +291,9 @@ void Wiki::handleCompleteAttrRef(const httplib::Request &req,
 
     bool operator<(const Completion &other) { return match < other.match; }
   };
+  HttpServer::HttpResponse resp;
   try {
-    json jreq = json::parse(req.body);
+    json jreq = json::parse(req.getBodyString());
     std::string context = jreq.at("context");
     std::vector<QGramIndex::Match> results =
         _attr_ref_search_index.query(context);
@@ -312,19 +309,19 @@ void Wiki::handleCompleteAttrRef(const httplib::Request &req,
       j.push_back(completion);
     }
 
-    resp.status = 200;
-    resp.set_header("Content-Type", "application/json");
-    resp.body = j.dump();
+    resp.status_code = 200;
+    resp.setHeader("Content-Type", "application/json");
+    resp.setBody(j.dump());
   } catch (const std::exception &e) {
     LOG_WARN << "Wiki: Error while handling a completion request: " << e.what()
              << LOG_END;
-    resp.status = 400;
-    resp.body = "Malformed completion request.";
+    resp.setError(400, "Malformed completion request.");
   }
+  return resp;
 }
 
-void Wiki::handleCompletePredicate(const httplib::Request &req,
-                                   httplib::Response &resp) {
+HttpServer::HttpResponse Wiki::handleCompletePredicate(
+    const HttpServer::HttpRequest &req) {
   using nlohmann::json;
   struct Completion {
     QGramIndex::Match match;
@@ -333,8 +330,9 @@ void Wiki::handleCompletePredicate(const httplib::Request &req,
 
     bool operator<(const Completion &other) { return match < other.match; }
   };
+  HttpServer::HttpResponse resp;
   try {
-    json jreq = json::parse(req.body);
+    json jreq = json::parse(req.getBodyString());
     std::string context = jreq.at("context");
     std::vector<QGramIndex::Match> results = _predicate_index.query(context);
 
@@ -349,18 +347,18 @@ void Wiki::handleCompletePredicate(const httplib::Request &req,
       j.push_back(completion);
     }
 
-    resp.status = 200;
-    resp.set_header("Content-Type", "application/json");
-    resp.body = j.dump();
+    resp.status_code = 200;
+    resp.setHeader("Content-Type", "application/json");
+    resp.setBody(j.dump());
   } catch (const std::exception &e) {
     LOG_WARN << "Wiki: Error while handling a completion request: " << e.what()
              << LOG_END;
-    resp.status = 400;
-    resp.body = "Malformed completion request.";
+    resp.setError(400, "Malformed completion request.");
   }
+  return resp;
 }
 
-void Wiki::handleList(httplib::Response &resp) {
+HttpServer::HttpResponse Wiki::handleList() {
   using nlohmann::json;
 
   struct DfsLevel {
@@ -368,6 +366,7 @@ void Wiki::handleList(httplib::Response &resp) {
     size_t child_index;
     json j;
   };
+  HttpServer::HttpResponse resp;
 
   // do a dfs on the entry tree
   std::vector<DfsLevel> dfs_stack;
@@ -409,12 +408,15 @@ void Wiki::handleList(httplib::Response &resp) {
     }
   }
 
-  resp.status = 200;
-  resp.body = dfs_stack.back().j.dump();
+  resp.status_code = 200;
+  resp.setHeader("Content-Type", "application/json");
+  resp.setBody(dfs_stack.back().j.dump());
+  return resp;
 }
 
-void Wiki::handleGet(const std::string &id, httplib::Response &resp) {
+HttpServer::HttpResponse Wiki::handleGet(const std::string &id) {
   using nlohmann::json;
+  HttpServer::HttpResponse resp;
   auto it = _entry_map.find(id);
   if (it != _entry_map.end()) {
     json direct;
@@ -438,16 +440,18 @@ void Wiki::handleGet(const std::string &id, httplib::Response &resp) {
     j["name"] = it->second->name();
     j["direct"] = direct;
     j["inherited"] = inherited;
-    resp.status = 200;
-    resp.body = j.dump();
+    resp.status_code = 200;
+    resp.setHeader("Content-Type", "application/json");
+    resp.setBody(j.dump());
   } else {
-    resp.status = 404;
-    resp.body = "No such wiki entry";
+    resp.setError(404, "No such wiki entry");
   }
+  return resp;
 }
 
-void Wiki::handleRaw(const std::string &id, httplib::Response &resp) {
+HttpServer::HttpResponse Wiki::handleRaw(const std::string &id) {
   using nlohmann::json;
+  HttpServer::HttpResponse resp;
   auto it = _entry_map.find(id);
   if (it != _entry_map.end()) {
     json direct;
@@ -471,24 +475,25 @@ void Wiki::handleRaw(const std::string &id, httplib::Response &resp) {
     j["name"] = it->second->name();
     j["direct"] = direct;
     j["inherited"] = inherited;
-    resp.status = 200;
-    resp.body = j.dump();
+    resp.status_code = 200;
+    resp.setHeader("Content-Type", "application/json");
+    resp.setBody(j.dump());
   } else {
-    resp.status = 404;
-    resp.body = "No such wiki entry";
+    resp.setError(404, "No such wiki entry");
   }
+  return resp;
 }
 
-void Wiki::handleSave(const std::string &id, const httplib::Request &req,
-                      httplib::Response &resp) {
+HttpServer::HttpResponse Wiki::handleSave(const std::string &id,
+                                          const HttpServer::HttpRequest &req) {
   using nlohmann::json;
+  HttpServer::HttpResponse resp;
   if (id == "root") {
-    resp.status = 400;
-    resp.body = "`root` is not an allowed id.";
-    return;
+    resp.setError(400, "`root` is not an allowed id.");
+    return resp;
   }
   try {
-    json jreq = json::parse(req.body);
+    json jreq = json::parse(req.getBodyString());
     std::vector<Attribute> attributes;
     std::string new_parent_id = "root";
     for (const json &attr : jreq) {
@@ -542,23 +547,23 @@ void Wiki::handleSave(const std::string &id, const httplib::Request &req,
       addToDateIndex(e);
       addToPredicateIndex(e);
     }
-    resp.status = 200;
-    resp.body = "Save succesfull";
-    return;
+    resp.status_code = 200;
+    resp.setBody("Save succesfull");
+    return resp;
   } catch (const std::exception &e) {
     LOG_WARN << "Unable to process a save request: " << e.what() << LOG_END;
   }
-  resp.status = 400;
-  resp.body = "Invalid request";
+  resp.setError(400, "Invalid request");
+  return resp;
 }
 
-void Wiki::handleDelete(const std::string &id, const httplib::Request &req,
-                        httplib::Response &resp) {
+HttpServer::HttpResponse Wiki::handleDelete(
+    const std::string &id, const HttpServer::HttpRequest &req) {
+  HttpServer::HttpResponse resp;
   auto it = _entry_map.find(id);
   if (it == _entry_map.end()) {
-    resp.status = 400;
-    resp.body = "Unable to delete the entry.";
-    return;
+    resp.setError(400, "Unable to delete the entry.");
+    return resp;
   }
   // run a bfs on the nodes subtree to generate an inverse topological
   // sorting.
@@ -589,18 +594,18 @@ void Wiki::handleDelete(const std::string &id, const httplib::Request &req,
 
   // This will recursively free the memory of the children
   delete it->second;
-  resp.status = 200;
-  resp.body = "Deletion succesfull";
-  return;
+  resp.status_code = 200;
+  resp.setBody("Deletion succesfull");
+  return resp;
 }
 
-void Wiki::handleContext(const std::string &id, httplib::Response &resp) {
+HttpServer::HttpResponse Wiki::handleContext(const std::string &id) {
   using nlohmann::json;
+  HttpServer::HttpResponse resp;
   auto it = _entry_map.find(id);
   if (it == _entry_map.end()) {
-    resp.body = "No such entry";
-    resp.status = 400;
-    return;
+    resp.setError(400, "No such entry");
+    return resp;
   }
   std::unordered_set<std::string> referenced_ids;
   auto entryToContextJson = [](const Entry *e) {
@@ -652,13 +657,16 @@ void Wiki::handleContext(const std::string &id, httplib::Response &resp) {
           }
         }
       });
-  resp.body = r.dump();
-  resp.status = 200;
+  resp.status_code = 200;
+  resp.setHeader("Content-Type", "application/json");
+  resp.setBody(r.dump());
+  return resp;
 }
 
-void Wiki::handleTimeline(const httplib::Request &req,
-                          httplib::Response &resp) {
+HttpServer::HttpResponse Wiki::handleTimeline(
+    const HttpServer::HttpRequest &req) {
   using nlohmann::json;
+  HttpServer::HttpResponse resp;
   json j;
 
   json events = json::array();
@@ -679,17 +687,21 @@ void Wiki::handleTimeline(const httplib::Request &req,
     }
   }
   j["events"] = events;
-  resp.body = j.dump();
-  resp.status = 200;
+  resp.status_code = 200;
+  resp.setHeader("Content-Type", "application/json");
+  resp.setBody(j.dump());
+  return resp;
 }
 
-void Wiki::handleQuicksearch(const httplib::Request &req,
-                             httplib::Response &resp) {
+HttpServer::HttpResponse Wiki::handleQuicksearch(
+    const HttpServer::HttpRequest &req) {
   using nlohmann::json;
+  HttpServer::HttpResponse resp;
   json j = json::array();
   std::unordered_set<std::string> returned_ids;
 
-  std::string query = req.body.substr(0, 512);
+  std::string query =
+      std::string(req.body, std::min(size_t(512), req.body_length));
   std::vector<QGramIndex::Match> matches = _ids_search_index.query(query);
   size_t num = std::min(size_t(64), matches.size());
   for (size_t i = 0; i < num; ++i) {
@@ -701,20 +713,24 @@ void Wiki::handleQuicksearch(const httplib::Request &req,
       j.push_back(res);
     }
   }
-  resp.body = j.dump();
-  resp.status = 200;
+  resp.status_code = 200;
+  resp.setHeader("Content-Type", "application/json");
+  resp.setBody(j.dump());
+  return resp;
 }
 
-void Wiki::handleSearch(const httplib::Request &req, httplib::Response &resp) {
+HttpServer::HttpResponse Wiki::handleSearch(
+    const HttpServer::HttpRequest &req) {
   struct Filter {
     std::string predicate;
     std::string value;
   };
 
   using nlohmann::json;
+  HttpServer::HttpResponse resp;
   json json_res = json::array();
 
-  json query = json::parse(req.body);
+  json query = json::parse(req.getBodyString());
   std::string search_term;
   if (query.contains("search-term")) {
     search_term = query["search-term"];
@@ -792,31 +808,35 @@ void Wiki::handleSearch(const httplib::Request &req, httplib::Response &resp) {
     ++it;
   }
 
-  resp.body = json_res.dump();
-  resp.set_header("Content-Type", "application/json");
-  resp.status = 200;
+  resp.status_code = 200;
+  resp.setHeader("Content-Type", "application/json");
+  resp.setBody(json_res.dump());
+  return resp;
 }
 
-void Wiki::handleAutolink(const std::string &id, const httplib::Request &req,
-                          httplib::Response &resp) {
+HttpServer::HttpResponse Wiki::handleAutolink(
+    const std::string &id, const HttpServer::HttpRequest &req) {
+  HttpServer::HttpResponse resp;
   auto it = _entry_map.find(id);
   if (it == _entry_map.end()) {
-    resp.body = "No such entry";
-    resp.status = 400;
-    return;
+    resp.setError(400, "No such entry");
+    return resp;
   }
   autoLink(it->second, 0.9);
-  resp.body = "Ok";
-  resp.status = 200;
+  resp.status_code = 200;
+  resp.setBody("Ok");
+  return resp;
 }
 
-void Wiki::handleAutolinkAll(const httplib::Request &req,
-                             httplib::Response &resp) {
+HttpServer::HttpResponse Wiki::handleAutolinkAll(
+    const HttpServer::HttpRequest &req) {
+  HttpServer::HttpResponse resp;
   for (auto it : _entry_map) {
     autoLink(it.second, 0.9);
   }
-  resp.body = "Ok";
-  resp.status = 200;
+  resp.status_code = 200;
+  resp.setBody("Ok");
+  return resp;
 }
 
 void Wiki::autoLink(Entry *e, double score_threshold) {

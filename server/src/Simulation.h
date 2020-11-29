@@ -20,6 +20,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <string_view>
 
 #include "Doodad.h"
 #include "IdGenerator.h"
@@ -43,11 +44,11 @@ class Simulation {
  public:
   Simulation();
 
-  void setWebSocketServer(WebSocketServer *wss);
+  void setWebSocketServer( std::shared_ptr<WebSocketServer> wss);
   void setPluginManager(PluginManager *pm);
 
   WebSocketServer::Response onNewClient(UserManager::UserPtr user);
-  WebSocketServer::Response onMessage(const std::string &msg,
+  WebSocketServer::Response onMessage(std::string_view message,
                                       UserManager::UserPtr user);
 
   /**
@@ -115,7 +116,7 @@ class Simulation {
   std::unordered_map<std::string, MemberMsgHandler_t> _msg_handlers;
   std::unordered_map<std::string, MemberMsgHandler_t> _msg_handlers_building;
 
-  WebSocketServer *_web_socket_server;
+   std::shared_ptr<WebSocketServer> _web_socket_server;
 
   BuildingManager _building_manager;
   IdGenerator _id_generator;

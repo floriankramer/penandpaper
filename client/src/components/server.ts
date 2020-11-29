@@ -89,7 +89,7 @@ export default class Server implements PacketDispatcher {
 
     connect () {
       console.log('Connecting to the ws server.')
-      let port = ':8081'
+      let port = ':8082'
       this.socket = new WebSocket('wss://' + window.location.hostname + port)
 
       // Wrap the callbacks into anonymous functions to ensure they are called
