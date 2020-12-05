@@ -21,7 +21,7 @@
       <div id="chat-text" class="chat-text">
         <dl>
           <template v-for="chat in chatHistory">
-            <dt v-bind:key="'sender' + chat.id">{{chat.from}}</dt>
+            <dt v-bind:key="'sender' + chat.id" class='chat-sender'>{{chat.from}}</dt>
             <dd v-bind:key="'msg' + chat.id" v-html="chat.text"></dd>
           </template>
         </dl>
@@ -165,5 +165,13 @@ div .chat-text {
 
 div .chat-input {
   margin-bottom: 10px;
+}
+
+.chat-sender {
+  color: #468dc9;
+}
+
+dd {
+  margin-left: 13px;
 }
 </style>
