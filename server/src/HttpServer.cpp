@@ -54,7 +54,7 @@ HttpServer::HttpResponse HttpServer::onGet(const HttpRequest &req) {
   HttpResponse resp;
   resp.setError(404, "Not Found");
   try {
-    std::string cookies = req.getHeader("Cookie");
+    std::string cookies = req.getHeader("cookie");
     if (req.path != "/auth") {
       if (!user_manager->authenticateViaCookies(cookies)) {
         if (req.path == "/") {
@@ -184,7 +184,7 @@ HttpServer::HttpResponse HttpServer::onPost(const HttpRequest &req) {
   HttpResponse resp;
   resp.setError(404, "Not Found");
   try {
-    std::string cookies = req.getHeader("Cookie");
+    std::string cookies = req.getHeader("cookie");
     if (req.path != "/auth") {
       if (!user_manager->authenticateViaCookies(cookies)) {
         resp.setError(404, "Not Found");
@@ -390,12 +390,10 @@ void HttpServer::run() {
     // WE need to read req now, as it won't be available later. We then create
     // a copy for the lamda that fires once all data is available.
     HttpRequest http_req_src(req);
-    LOG_DEBUG << "Got a request for " << http_req_src.path << LOG_END;
 
     std::shared_ptr<std::ostringstream> buffer = std::make_shared<std::ostringstream>();
     resp->onData([this, buffer, resp, http_req_src](std::string_view data,
                                                   bool is_last) {
-      LOG_DEBUG << "Got data for the request. is_last: " << is_last << LOG_END;
       size_t new_size = size_t(buffer->tellp()) + data.size();
       if (new_size > (5 << 20)) {
         resp->end("Requests over 5 MiB are not supported");

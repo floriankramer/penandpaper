@@ -36,7 +36,7 @@ std::optional<size_t> WebSocketServer::onClientHandshake(
     const HttpServer::HttpRequest &req) {
   try {
     // Authenticate the new user
-    std::string cookies = req.getHeader("Cookie");
+    std::string cookies = req.getHeader("cookie");
     UserManager::UserPtr user = user_manager->authenticateViaCookies(cookies);
     if (user == nullptr) {
       LOG_DEBUG << "WebSocketServer::onClientHandshake: An unauthorized client "
@@ -65,7 +65,7 @@ void WebSocketServer::onClientConnected(size_t client_id,
 
     Response resp = _on_connect(user);
     handleResponse(resp, conn);
-    LOG_DEBUG << "A new client connected " << LOG_END;
+    LOG_DEBUG << "A new client named " << user->name() << " connected " << LOG_END;
   } catch (const std::exception &e) {
     LOG_ERROR << "Error while handling a new client: " << e.what() << LOG_END;
   } catch (...) {
