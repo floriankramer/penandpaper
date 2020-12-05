@@ -31,6 +31,7 @@ HttpServer::HttpServer(std::shared_ptr<UserManager> authenticator,
     : user_manager(authenticator), _base_dir(base_dir), _err(nullptr) {
   _cert_path = base_dir + "/cert/certificate.pem";
   _key_path = base_dir + "/cert/key.pem";
+  _dh_param_path = base_dir + "/cert/dh.pem";
 }
 
 HttpServer::~HttpServer() {}
@@ -386,45 +387,64 @@ void HttpServer::run() {
    */
   auto handleRequest = [this](uWS::HttpResponse<true> *resp,
                               uWS::HttpRequest *req) {
-    HttpRequest http_req(req);
+    // WE need to read req now, as it won't be available later. We then create
+    // a copy for the lamda that fires once all data is available.
+    HttpRequest http_req_src(req);
+    LOG_DEBUG << "Got a request for " << http_req_src.path << LOG_END;
 
-    std::ostringstream buffer;
-    resp->onData(
-        [this, &buffer, resp, &http_req](std::string_view data, bool is_last) {
-          size_t new_size = size_t(buffer.tellp()) + data.size();
-          if (new_size > (5 << 20)) {
-            resp->end("Requests over 5 MiB are not supported");
-          }
-          buffer.write(data.data(), data.size());
-          if (is_last) {
-            // Write our response
-            std::string req_body = buffer.str();
-            http_req.body = req_body.c_str();
-            http_req.body_length = req_body.size();
+    std::shared_ptr<std::ostringstream> buffer = std::make_shared<std::ostringstream>();
+    resp->onData([this, buffer, resp, http_req_src](std::string_view data,
+                                                  bool is_last) {
+      LOG_DEBUG << "Got data for the request. is_last: " << is_last << LOG_END;
+      size_t new_size = size_t(buffer->tellp()) + data.size();
+      if (new_size > (5 << 20)) {
+        resp->end("Requests over 5 MiB are not supported");
+      }
+      buffer->write(data.data(), data.size());
+      if (is_last) {
+        HttpRequest http_req(http_req_src);
+        // Write our response
+        std::string req_body = buffer->str();
+        http_req.body = req_body.c_str();
+        http_req.body_length = req_body.size();
 
-            HttpResponse http_resp;
-            if (http_req.type == RequestType::GET) {
-              http_resp = onGet(http_req);
-            } else {
-              http_resp = onPost(http_req);
-            }
+        HttpResponse http_resp;
+        if (http_req.type == RequestType::GET) {
+          http_resp = onGet(http_req);
+        } else {
+          http_resp = onPost(http_req);
+        }
 
-            resp->writeStatus(std::to_string(http_resp.status_code));
+        resp->writeStatus(std::to_string(http_resp.status_code));
 
-            for (const auto &header : http_resp.headers) {
-              resp->writeHeader(header.first.c_str(), header.second.c_str());
-            }
+        for (const auto &header : http_resp.headers) {
+          resp->writeHeader(header.first.c_str(), header.second.c_str());
+        }
 
-            std::string_view body(http_resp.body.data(), http_resp.body.size());
-            resp->end(body);
-          }
-        });
+        std::string_view body(http_resp.body.data(), http_resp.body.size());
+        resp->end(body);
+      }
+    });
     resp->onAborted([]() {});
   };
+
+  std::thread test([]() {
+    uWS::App()
+        .get("/*",
+             [](uWS::HttpResponse<false> *resp, uWS::HttpRequest *req) {
+               LOG_DEBUG << "Got a request for " << req->getUrl() << LOG_END;
+               resp->writeStatus("200 Ok");
+               resp->end("Hello World!");
+             })
+        .listen(8080, [](auto *token) {})
+        .run();
+  });
+  test.detach();
 
   us_socket_context_options_t opt = {};
   opt.cert_file_name = _cert_path.c_str();
   opt.key_file_name = _key_path.c_str();
+  opt.dh_params_file_name = _dh_param_path.c_str();
   uWS::SSLApp(opt)
       .get("/*", handleRequest)
       .post("/*", handleRequest)
@@ -481,9 +501,9 @@ void HttpServer::run() {
 
           })
       .listen(PORT,
-              [this](auto *token) {
+              [](us_listen_socket_t *token) {
                 if (!token) {
-                  LOG_ERROR << "Unable to listen to web trafick on port "
+                  LOG_ERROR << "Unable to listen to web traffic on port "
                             << PORT << "." << std::endl;
                   exit(1);
                 }

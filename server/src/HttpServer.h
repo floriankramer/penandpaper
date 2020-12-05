@@ -138,6 +138,7 @@ class HttpServer {
 
   std::string _cert_path;
   std::string _key_path;
+  std::string _dh_param_path;
   const char *_err;
 
   static const std::string AUTH_PAGE;

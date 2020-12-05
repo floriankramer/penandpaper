@@ -5,7 +5,8 @@ ExternalProject_Add(uWebSockets_EXT
 
     CONFIGURE_COMMAND ""
 
-    BUILD_COMMAND "make"
+    # BUILD_COMMAND "WITH_OPENSSL=1 make"
+    BUILD_COMMAND ${CMAKE_COMMAND} -E env WITH_OPENSSL=1 make
     BUILD_IN_SOURCE ON
 
     INSTALL_COMMAND ""
