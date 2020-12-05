@@ -18,7 +18,7 @@ cp -r client/dist ./bundle/html
 
 mkdir -p server/build
 pushd server/build
-cmake ../src
+cmake ../
 cmake --build .
 popd
 cp server/build/penandpaper-server ./bundle/
