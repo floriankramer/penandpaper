@@ -17,10 +17,10 @@
 import Actor, { ShaderInputType } from './actor'
 import DiffuseMaterial from './diffuse_material'
 
-export default class TokenActor extends Actor {
-  _r: number = 1
-  _g: number = 1
-  _b: number = 1
+export default class LineActor extends Actor {
+  _r: number = 0.68
+  _g: number = 0.60
+  _b: number = 0.53
 
   sx: number = 0
   sy: number = 0

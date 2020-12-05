@@ -16,6 +16,7 @@
 
 <template>
   <div id="map">
+    <Toolbar id="toolbar"></Toolbar>
     <canvas v-on:mousedown="onMouseDown" v-on:mouseup="onMouseUp"
             v-on:mousemove="onMouseMove" v-on:wheel="onMouseWheel"
             v-on:contextmenu.prevent v-on:keydown.prevent="onKeyDown"
@@ -54,6 +55,7 @@ import FurnitureActor from '../rendering/furnitureactor'
 import DoorActor from '../rendering/dooractor'
 import RenderLayers from './renderlayers'
 import TileRenderer from '../rendering/tilerenderer'
+import Toolbar from './Toolbar.vue'
 
 enum MouseAction {
   NONE,
@@ -71,7 +73,11 @@ class TokenActorGroup {
   }
 }
 
-@Component
+@Component({
+  components: {
+    Toolbar
+  }
+})
 export default class WorldMap extends Vue {
   tokens: Sim.Token[] = []
   movingTokens: Sim.Token[] = []
@@ -470,9 +476,10 @@ export default class WorldMap extends Vue {
     // Request the inital state from the server
     eventBus.$emit('/server/request_state')
 
-    this.canvas = this.$el.children[0] as HTMLCanvasElement
+    this.canvas = this.$el.children[1] as HTMLCanvasElement
     this.canvas.width = this.$el.scrollWidth
-    this.canvas.height = this.$el.scrollHeight
+    // The toolbar takes 40 px
+    this.canvas.height = this.$el.scrollHeight - 45
     this.pixelPerMeter = this.canvas.height / 10
 
     this.ctx = this.canvas.getContext('webgl')
@@ -847,6 +854,12 @@ export default class WorldMap extends Vue {
 <style scoped>
 canvas {
   outline-width: 0px !important;
+  top: 45px;
+}
+
+#toolbar {
+  height: 42px;
+  border-bottom: 2px solid black;
 }
 
 .map-name-input {

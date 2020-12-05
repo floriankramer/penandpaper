@@ -99,8 +99,8 @@ export default class GridMaterial extends Material {
       ctx.uniform4f(this.backgkgroundLoc, 0.102, 0.102, 0.102, 1)
       ctx.uniform4f(this.foregroundLoc, 0.2, 0.2, 0.2, 1)
     } else {
-      ctx.uniform4f(this.backgkgroundLoc, 0.2, 0.2, 0.2, 1)
-      ctx.uniform4f(this.foregroundLoc, 0.3, 0.3, 0.3, 1)
+      ctx.uniform4f(this.backgkgroundLoc, 0.16, 0.16, 0.16, 1)
+      ctx.uniform4f(this.foregroundLoc, 0.25, 0.25, 0.25, 1)
     }
 
     let pixelHeight = (cam.height * 2.0) / cam.heightPixels

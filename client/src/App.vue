@@ -20,7 +20,6 @@
     <Menu v-bind:menus="menus" v-on:selected="onMenuSelected" id="menu"/>
     <CriticalError v-if="hasCriticalError">{{criticalErrorString}}</CriticalError>
     <div id="dock-container"></div>
-    <Toolbar id="toolbar"></Toolbar>
     <Chat id="chat"></Chat>
     <WorldMap id="map" class="content-area"/>
     <PlayerList id="playerlist"/>
@@ -37,7 +36,6 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator'
 import Chat from './components/Chat.vue'
-import Toolbar from './components/Toolbar.vue'
 import WorldMap from './components/WorldMap.vue'
 import CriticalError from './components/CriticalError.vue'
 import Server, { ServerState } from './components/server'
@@ -94,7 +92,6 @@ class Plugin {
   components: {
     CriticalError,
     Chat,
-    Toolbar,
     WorldMap,
     PlayerList,
     Wiki,
@@ -115,7 +112,6 @@ export default class App extends Vue {
   dockManager?: DockManager = undefined
   dockManagerDiv : HTMLElement | null = null
 
-  toolbarPanel: PanelContainer | null = null
   wikiPanel: PanelContainer | null = null
   userManagerPanel: PanelContainer | null = null
   accountPanel: PanelContainer | null = null
@@ -187,10 +183,6 @@ export default class App extends Vue {
     {
       id: 'window-wiki',
       text: 'wiki'
-    },
-    {
-      id: 'window-toolbar',
-      text: 'toolbar'
     }
   ]
 
@@ -303,16 +295,6 @@ export default class App extends Vue {
           this.dockManager.dockUp(chatNode, this.playerListPanel, 0.2)
         } else {
           this.dockManager.dockRight(documentNode, this.playerListPanel, 0.2)
-        }
-      }
-      // The Toolbar
-      let toolbarDiv = document.getElementById('toolbar')
-      if (toolbarDiv) {
-        this.toolbarPanel = new PanelContainer(toolbarDiv, this.dockManager)
-        this.toolbarPanel.setTitle('Toolbar')
-        this.dockManager.dockUp(documentNode, this.toolbarPanel, 0.15)
-        if (!this.isGamemaster) {
-          this.toolbarPanel.close()
         }
       }
 
@@ -442,20 +424,6 @@ export default class App extends Vue {
 
   onGameMasterChange () {
     if (this.dockManager !== undefined) {
-      if (this.toolbarPanel !== null) {
-        if (this.isGamemaster) {
-          let documentNode = this.dockManager.context.model.documentManagerNode
-          if (this.mapDockNode !== null) {
-            this.dockManager.dockUp(this.mapDockNode, this.toolbarPanel, 0.15)
-          } else {
-            this.dockManager.dockUp(documentNode, this.toolbarPanel, 0.15)
-          }
-        } else {
-          if (this.toolbarPanel.state !== undefined) {
-            this.toolbarPanel.close()
-          }
-        }
-      }
       if (this.wikiPanel !== null) {
         if (this.isGamemaster) {
           let documentNode = this.dockManager.context.model.documentManagerNode
@@ -500,6 +468,7 @@ export default class App extends Vue {
         this.accountMenu
       ]
     }
+    eventbus.$emit('/client/is-gamemaster', this.isGamemaster)
   }
 
   updatePluginMenu () {
@@ -577,9 +546,6 @@ export default class App extends Vue {
     if (this.playerListPanel !== null) {
       this.playerListPanel.close()
     }
-    if (this.toolbarPanel !== null) {
-      this.toolbarPanel.close()
-    }
   }
 
   onMenuSelected (id: string) {
@@ -610,10 +576,6 @@ export default class App extends Vue {
     } else if (id === 'window-playerlist') {
       if (this.playerListPanel !== null) {
         this.togglePanel(this.playerListPanel)
-      }
-    } else if (id === 'window-toolbar') {
-      if (this.toolbarPanel !== null) {
-        this.togglePanel(this.toolbarPanel)
       }
     } else if (id === 'view-colorscheme') {
       this.toggleDarkerMode()
@@ -688,14 +650,19 @@ body.light-mode {
 }
 
 body.light-mode .panel-titlebar {
-  background-color: #333333;
+  background-color: #3e3e3e;
 }
 
 body.light-mode .panel-content {
     background-color: #333333
 }
+
 body.light-mode .dockspan-tab-handle-list-container {
-    background-color: #333333
+    background-color: #3e3e3e
+}
+
+body.light-mode .dockspan-tab-handle {
+  background-color: #3e3e3e;
 }
 
 body.light-mode .dockspan-tab-content {
@@ -810,27 +777,5 @@ body.dark-mode ::-webkit-scrollbar-thumb {
 
 body.dark-mode ::-webkit-scrollbar-corner {
   background: #111;
-}
-
-/** Image radio buttons: https://stackoverflow.com/questions/17541614/use-images-instead-of-radio-buttons*/
-/* HIDE RADIO */
-[type=radio] {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-  left: -100%;
-}
-
-/* IMAGE STYLES */
-[type=radio] + img {
-  cursor: pointer;
-  margin-right: 10px;
-}
-
-/* CHECKED STYLES */
-[type=radio]:checked + img {
-  border: 1px solid rgb(200, 200, 200);
-  border-radius: 1000px;
 }
 </style>
