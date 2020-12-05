@@ -71,6 +71,11 @@ export default class Toolbar extends Vue {
         'icon': 'images/tool_distance.svg',
         'tool': 'distance',
         'tooltip': 'Measure the distance between two points.'
+      },
+      {
+        'icon': 'images/tool_ping.svg',
+        'tool': 'ping',
+        'tooltip': 'Create pings visible to all players.'
       }
     ]
   ]

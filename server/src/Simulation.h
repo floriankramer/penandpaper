@@ -19,8 +19,8 @@
 #include <functional>
 #include <mutex>
 #include <string>
-#include <vector>
 #include <string_view>
+#include <vector>
 
 #include "Doodad.h"
 #include "IdGenerator.h"
@@ -44,7 +44,7 @@ class Simulation {
  public:
   Simulation();
 
-  void setWebSocketServer( std::shared_ptr<WebSocketServer> wss);
+  void setWebSocketServer(std::shared_ptr<WebSocketServer> wss);
   void setPluginManager(PluginManager *pm);
 
   WebSocketServer::Response onNewClient(UserManager::UserPtr user);
@@ -68,7 +68,7 @@ class Simulation {
   WebSocketServer::Response onMoveToken(const Packet &j,
                                         UserManager::UserPtr user);
   WebSocketServer::Response onRenameToken(const Packet &j,
-                                        UserManager::UserPtr user);
+                                          UserManager::UserPtr user);
   WebSocketServer::Response onDeleteToken(const Packet &j,
                                           UserManager::UserPtr user);
   WebSocketServer::Response onChat(const Packet &j, UserManager::UserPtr user);
@@ -84,6 +84,8 @@ class Simulation {
                                           UserManager::UserPtr user);
   WebSocketServer::Response onSetUsername(const Packet &j,
                                           UserManager::UserPtr user);
+  WebSocketServer::Response onPingAt(const Packet &j,
+                                     UserManager::UserPtr user);
 
   Token *tokenById(uint64_t id);
 
@@ -118,7 +120,7 @@ class Simulation {
   std::unordered_map<std::string, MemberMsgHandler_t> _msg_handlers;
   std::unordered_map<std::string, MemberMsgHandler_t> _msg_handlers_building;
 
-   std::shared_ptr<WebSocketServer> _web_socket_server;
+  std::shared_ptr<WebSocketServer> _web_socket_server;
 
   BuildingManager _building_manager;
   IdGenerator _id_generator;

@@ -79,6 +79,7 @@ export default class Server implements PacketDispatcher {
       eventBus.$on('/client/token/rename', (data: Sim.Token, newName: string) => { this.onClientRenameToken(data, newName) })
       eventBus.$on('/client/line/create', (data: Sim.Line) => { this.onClientCreateLine(data) })
       eventBus.$on('/client/line/clear', () => { this.onClientClearLines() })
+      eventBus.$on('/client/ping-at', (x: number, y: number) => { this.onClientPingAt(x, y) })
       eventBus.$on('/client/plugin/send', (name: string, data: any) => {
         this.onClientPluginSend(name, data)
       })
@@ -150,6 +151,8 @@ export default class Server implements PacketDispatcher {
         this.onServerStreamAudio(data)
       } else if (type === 'StopAudioStreams') {
         this.onServerStopAudioStreams(data)
+      } else if (type === 'PingAt') {
+        this.onServerPingAt(data)
       } else if (this.buildingServer.onmessage(type, data)) {
         // the message was handled by the buildingServer
       } else if (this.pluginListeners.has(type)) {
@@ -348,6 +351,21 @@ export default class Server implements PacketDispatcher {
         data: { }
       }
       this.send(JSON.stringify(packet))
+    }
+
+    onClientPingAt (x: number, y: number) {
+      let packet = {
+        type: 'PingAt',
+        data: {
+         'x': x,
+         'y': y
+        }
+      }
+      this.send(JSON.stringify(packet))
+    }
+
+    onServerPingAt (data: any) {
+      eventBus.$emit('/server/ping-at', data.x, data.y)
     }
 
     onClientPluginSend (name: string, data: any) {

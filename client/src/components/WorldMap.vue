@@ -42,6 +42,7 @@ import ToolDoor from '../tools/tool_door'
 import ToolFurniture from '../tools/tool_furniture'
 import ToolDistance from '../tools/tool_distance'
 import ToolReveal from '../tools/tool_reveal'
+import ToolPing from '../tools/tool_ping'
 import Renderer from '../rendering/renderer'
 import GridActor from '../rendering/gridactor'
 import TokenActor from '../rendering/token_actor'
@@ -57,6 +58,7 @@ import DoorActor from '../rendering/dooractor'
 import RenderLayers from './renderlayers'
 import TileRenderer from '../rendering/tilerenderer'
 import Toolbar from './Toolbar.vue'
+import PingManager from '../simulation/ping_manager'
 
 enum MouseAction {
   NONE,
@@ -123,6 +125,8 @@ export default class WorldMap extends Vue {
   showNameInput: boolean = false
   newName: string = ''
 
+  pingManager: PingManager = new PingManager()
+
   constructor () {
     super()
 
@@ -136,6 +140,8 @@ export default class WorldMap extends Vue {
     eventBus.$on('/server/line/clear', () => { this.onServerClearLines() })
     eventBus.$on('/server/state', (data: ServerState) => { this.onServerState(data) })
     eventBus.$on('/server/is_gm', (data: boolean) => { this.onServerIsGm(data) })
+
+    eventBus.$on('/server/ping-at', (x: number, y: number) => { this.pingManager.addPing(x, y) })
 
     eventBus.$on('/server/building/load', (data: B.Building) => { this.onServerLoadBuilding(data) })
     eventBus.$on('/server/building/clear', () => { this.onServerClearBuilding() })
@@ -160,6 +166,9 @@ export default class WorldMap extends Vue {
     eventBus.$on('/tools/select_tool', (data: string) => { this.onToolSelected(data) })
 
     eventBus.$on('/client/colorscheme/changed', () => { this.requestRedraw() })
+
+    this.pingManager.setRenderer(this.renderer)
+    this.pingManager.setRequestRedraw(() => { this.requestRedraw() })
   }
 
   requestRedraw (dontResize: boolean = false) {
@@ -757,6 +766,8 @@ export default class WorldMap extends Vue {
       this.tool = new ToolReveal(this)
     } else if (type === 'distance') {
       this.tool = new ToolDistance(this)
+    } else if (type === 'ping') {
+      this.tool = new ToolPing(this)
     }
   }
 

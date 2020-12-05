@@ -59,6 +59,7 @@ Simulation::Simulation()
        std::bind(&Simulation::onTokenToggleFoe, this, _1, _2)},
       {"InitSession", std::bind(&Simulation::onInitSession, this, _1, _2)},
       {"SetUsername", std::bind(&Simulation::onSetUsername, this, _1, _2)},
+      {"PingAt", std::bind(&Simulation::onPingAt, this, _1, _2)},
       {"RenameToken", std::bind(&Simulation::onRenameToken, this, _1, _2)}};
   _building_manager.registerPackets(&_msg_handlers_building);
 }
@@ -490,6 +491,11 @@ WebSocketServer::Response Simulation::onSetUsername(const Packet &j,
   }
   broadcastClients();
   return {"", WebSocketServer::ResponseType::SILENCE};
+}
+
+WebSocketServer::Response Simulation::onPingAt(const Packet &j,
+                                               UserManager::UserPtr user) {
+  return {"", WebSocketServer::ResponseType::FORWARD};
 }
 
 std::string Simulation::cmdRollDice(const std::string &who,

@@ -33,6 +33,8 @@ export default class Actor {
   vertexShaderInput: Map<ShaderInputType, number[]> = new Map()
   vbos: Map<ShaderInputType, WebGLBuffer> = new Map()
 
+  renderPrimitive = WebGLRenderingContext.TRIANGLES
+
   _scale: number[] = [1, 1]
   _position: number[] = [0, 0]
   _rotation: number = 0
@@ -76,7 +78,7 @@ export default class Actor {
   callDraw (ctx: WebGLRenderingContext) {
     let positions = this.vertexShaderInput.get(ShaderInputType.POSITION)
     if (positions) {
-      ctx.drawArrays(ctx.TRIANGLES, 0, positions.length / 2)
+      ctx.drawArrays(this.renderPrimitive, 0, positions.length / 2)
     }
 
     for (const input of this.vertexShaderInput) {
