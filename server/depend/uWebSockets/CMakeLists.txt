@@ -1,25 +1,21 @@
-# Use the external project module to build the library
-include(ExternalProject)
-ExternalProject_Add(uWebSockets_EXT
-    SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/src"
+add_custom_command(
+  OUTPUT "${CMAKE_CURRENT_LIST_DIR}/src/uSockets/uSockets.a"
+  COMMAND ${CMAKE_COMMAND} -E env WITH_OPENSSL=1 make
+  WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/src")
 
-    CONFIGURE_COMMAND ""
-
-    # BUILD_COMMAND "WITH_OPENSSL=1 make"
-    BUILD_COMMAND ${CMAKE_COMMAND} -E env WITH_OPENSSL=1 make
-    BUILD_IN_SOURCE ON
-
-    INSTALL_COMMAND ""
-    )
+add_custom_target(uSocketsBuild ALL
+  DEPENDS "${CMAKE_CURRENT_LIST_DIR}/src/uSockets/uSockets.a"
+  )
 
 add_library(uSockets STATIC IMPORTED)
+add_dependencies(uSockets uSocketsBuild)
 set_target_properties(uSockets PROPERTIES
-  IMPORTED_LOCATION ${CMAKE_CURRENT_LIST_DIR}/src/uSockets/uSockets.a)
+  IMPORTED_LOCATION "${CMAKE_CURRENT_LIST_DIR}/src/uSockets/uSockets.a")
 
 # Create a cmake target for using the external project
 add_library(uWebSockets INTERFACE)
 target_include_directories(uWebSockets INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/src/src
     ${CMAKE_CURRENT_LIST_DIR}/src/uSockets/src)
-  target_link_libraries(uWebSockets INTERFACE z ssl uSockets)
+target_link_libraries(uWebSockets INTERFACE z ssl uSockets)
 
