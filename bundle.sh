@@ -21,7 +21,7 @@ pushd server/build
 cmake ../
 cmake --build .
 popd
-cp server/build/penandpaper-server ./bundle/
+cp server/build/src/penandpaper-server ./bundle/
 
 
 if [ -d ./cert ] ; then
