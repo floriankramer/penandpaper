@@ -40,6 +40,7 @@ import ToolRoom from '../tools/tool_room'
 import ToolWall from '../tools/tool_wall'
 import ToolDoor from '../tools/tool_door'
 import ToolFurniture from '../tools/tool_furniture'
+import ToolDistance from '../tools/tool_distance'
 import ToolReveal from '../tools/tool_reveal'
 import Renderer from '../rendering/renderer'
 import GridActor from '../rendering/gridactor'
@@ -754,6 +755,8 @@ export default class WorldMap extends Vue {
       this.tool = new ToolFurniture(this)
     } else if (type === 'reveal') {
       this.tool = new ToolReveal(this)
+    } else if (type === 'distance') {
+      this.tool = new ToolDistance(this)
     }
   }
 

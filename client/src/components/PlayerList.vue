@@ -17,11 +17,6 @@
 <template>
   <div class="player-list">
     <table>
-      <thead>
-        <tr>
-          <td>Players</td>
-        </tr>
-      </thead>
       <tr v-for="player in players" v-bind:key="player.uid">
         <td>{{player.name}}</td>
       </tr>
@@ -63,6 +58,7 @@ export default class Login extends Vue {
 <style scoped>
 #playerlist {
   overflow-x: hidden;
+  padding-top: 7px;
 }
 
 #playerlist table thead {

@@ -66,6 +66,11 @@ export default class Toolbar extends Vue {
         'icon': 'images/tool_view.svg',
         'tool': 'view',
         'tooltip': 'Move the camera and tokens.'
+      },
+      {
+        'icon': 'images/tool_distance.svg',
+        'tool': 'distance',
+        'tooltip': 'Measure the distance between two points.'
       }
     ]
   ]

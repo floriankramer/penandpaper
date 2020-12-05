@@ -428,6 +428,7 @@ void HttpServer::run() {
   };
 
   uWS::SSLApp::WebSocketBehavior wsb{};
+  wsb.idleTimeout = 0;
   wsb.upgrade = [this](uWS::HttpResponse<true> *resp, uWS::HttpRequest *req,
                        struct us_socket_context_t *ctx) {
     HttpRequest http_req(req);
