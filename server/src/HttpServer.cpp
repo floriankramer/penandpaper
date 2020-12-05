@@ -391,9 +391,10 @@ void HttpServer::run() {
     // a copy for the lamda that fires once all data is available.
     HttpRequest http_req_src(req);
 
-    std::shared_ptr<std::ostringstream> buffer = std::make_shared<std::ostringstream>();
+    std::shared_ptr<std::ostringstream> buffer =
+        std::make_shared<std::ostringstream>();
     resp->onData([this, buffer, resp, http_req_src](std::string_view data,
-                                                  bool is_last) {
+                                                    bool is_last) {
       size_t new_size = size_t(buffer->tellp()) + data.size();
       if (new_size > (5 << 20)) {
         resp->end("Requests over 5 MiB are not supported");
@@ -426,18 +427,46 @@ void HttpServer::run() {
     resp->onAborted([]() {});
   };
 
-  std::thread test([]() {
-    uWS::App()
-        .get("/*",
-             [](uWS::HttpResponse<false> *resp, uWS::HttpRequest *req) {
-               LOG_DEBUG << "Got a request for " << req->getUrl() << LOG_END;
-               resp->writeStatus("200 Ok");
-               resp->end("Hello World!");
-             })
-        .listen(8080, [](auto *token) {})
-        .run();
-  });
-  test.detach();
+  uWS::SSLApp::WebSocketBehavior wsb{};
+  wsb.upgrade = [this](uWS::HttpResponse<true> *resp, uWS::HttpRequest *req,
+                       struct us_socket_context_t *ctx) {
+    HttpRequest http_req(req);
+    std::optional<size_t> client_id = _wss_handler->onClientHandshake(http_req);
+    if (!client_id) {
+      resp->writeStatus("404 Not Found");
+      resp->end();
+    } else {
+      // This is the libraries default handler
+      std::string_view secWebSocketKey = req->getHeader("sec-websocket-key");
+      std::string_view secWebSocketProtocol =
+          req->getHeader("sec-websocket-protocol");
+      std::string_view secWebSocketExtensions =
+          req->getHeader("sec-websocket-extensions");
+      size_t client_id_val = *client_id;
+      resp->upgrade<size_t>(std::move(client_id_val), secWebSocketKey,
+                            secWebSocketProtocol, secWebSocketExtensions, ctx);
+    }
+  };
+  wsb.open = [this](HTTPWebSocket *ws) {
+    size_t client_id = *((size_t *)ws->getUserData());
+    _wss_handler->onClientConnected(client_id, WsConnection(ws));
+  };
+  wsb.message = [this](HTTPWebSocket *ws, std::string_view message,
+                       uWS::OpCode opCode) {
+    size_t client_id = *((size_t *)ws->getUserData());
+    std::optional<WsResponse> response =
+        _wss_handler->onMessage(client_id, ws, message);
+    if (response) {
+      ws->send(response->body, (uWS::OpCode)response->op_code, true);
+    }
+  };
+  wsb.drain = [](HTTPWebSocket *ws) {
+    /* Check ws->getBufferedAmount() here */
+  };
+  wsb.close = [this](HTTPWebSocket *ws, int code, std::string_view message) {
+    size_t client_id = *((size_t *)ws->getUserData());
+    _wss_handler->onClientDisconnected(client_id);
+  };
 
   us_socket_context_options_t opt = {};
   opt.cert_file_name = _cert_path.c_str();
@@ -446,58 +475,7 @@ void HttpServer::run() {
   uWS::SSLApp(opt)
       .get("/*", handleRequest)
       .post("/*", handleRequest)
-      .ws<size_t>(
-          "/*",
-          {.upgrade =
-               [this](uWS::HttpResponse<true> *resp, uWS::HttpRequest *req,
-                      struct us_socket_context_t *ctx) {
-                 HttpRequest http_req(req);
-                 std::optional<size_t> client_id =
-                     _wss_handler->onClientHandshake(http_req);
-                 if (!client_id) {
-                   resp->writeStatus("404 Not Found");
-                   resp->end();
-                 } else {
-                   // This is the libraries default handler
-                   std::string_view secWebSocketKey =
-                       req->getHeader("sec-websocket-key");
-                   std::string_view secWebSocketProtocol =
-                       req->getHeader("sec-websocket-protocol");
-                   std::string_view secWebSocketExtensions =
-                       req->getHeader("sec-websocket-extensions");
-                   size_t client_id_val = *client_id;
-                   resp->upgrade<size_t>(std::move(client_id_val),
-                                         secWebSocketKey, secWebSocketProtocol,
-                                         secWebSocketExtensions, ctx);
-                 }
-               },
-           .open =
-               [this](HTTPWebSocket *ws) {
-                 size_t client_id = *((size_t *)ws->getUserData());
-                 _wss_handler->onClientConnected(client_id, WsConnection(ws));
-               },
-           .message =
-               [this](HTTPWebSocket *ws, std::string_view message,
-                      uWS::OpCode opCode) {
-                 size_t client_id = *((size_t *)ws->getUserData());
-                 std::optional<WsResponse> response =
-                     _wss_handler->onMessage(client_id, ws, message);
-                 if (response) {
-                   ws->send(response->body, (uWS::OpCode)response->op_code,
-                            true);
-                 }
-               },
-           .drain =
-               [](HTTPWebSocket *ws) {
-                 /* Check ws->getBufferedAmount() here */
-               },
-           .close =
-               [this](HTTPWebSocket *ws, int code, std::string_view message) {
-                 size_t client_id = *((size_t *)ws->getUserData());
-                 _wss_handler->onClientDisconnected(client_id);
-               }
-
-          })
+      .ws<size_t>("/*", std::move(wsb))
       .listen(PORT,
               [](us_listen_socket_t *token) {
                 if (!token) {
