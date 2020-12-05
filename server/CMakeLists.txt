@@ -32,15 +32,15 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 #==============================================================================
 # nlohman json
 #==============================================================================
-include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/json/include/")
+include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/depend/json/include/")
 
 
 #==============================================================================
 # sqlite3
 #==============================================================================
 if (WIN32)
-  include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/../depend/sqlite3/")
-  set(SQLITE_SRC_FILES "${CMAKE_CURRENT_LIST_DIR}/../depend/sqlite3/sqlite3.c")
+  include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/depend/sqlite3/")
+  set(SQLITE_SRC_FILES "${CMAKE_CURRENT_LIST_DIR}/depend/sqlite3/sqlite3.c")
 endif ()
 
 #==============================================================================
