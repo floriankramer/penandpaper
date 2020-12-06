@@ -357,8 +357,8 @@ export default class Server implements PacketDispatcher {
       let packet = {
         type: 'PingAt',
         data: {
-         'x': x,
-         'y': y
+          'x': x,
+          'y': y
         }
       }
       this.send(JSON.stringify(packet))
