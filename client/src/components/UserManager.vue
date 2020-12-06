@@ -130,9 +130,6 @@ export default class UserManager extends Vue {
   }
 
   commitPassword () {
-    this.showEditPassword = false
-    this.editedPassword = ''
-
     this.hashPassword(this.currentUserName, this.editedPassword).then((hashedPassword: string) => {
       let req: any = {
         'action': 'SetPassword',
@@ -148,6 +145,9 @@ export default class UserManager extends Vue {
     }).catch(() => {
       eventBus.$emit('/notification', 'Unable to change the password')
     })
+
+    this.showEditPassword = false
+    this.editedPassword = ''
   }
 
   cancelChangePassword () {

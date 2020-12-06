@@ -64,6 +64,7 @@ export default class Account extends Vue {
     }).catch(() => {
       eventBus.$emit('/notification', 'Unable to change your password')
     })
+    this.newPassword = ''
   }
 
   async hashPassword (name: string, password: string): Promise<string> {

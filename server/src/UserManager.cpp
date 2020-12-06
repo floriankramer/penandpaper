@@ -83,7 +83,7 @@ UserManager::UserPtr UserManager::authenticateViaLogin(
     std::vector<char> decoded_salt =
         util::base64Decode(salt.c_str(), salt.size());
     std::string passwd_hash =
-        hashPassword(util::base64Decode(salt.c_str(), salt.size()), password);
+        hashPassword(decoded_salt, password);
     if (passwd_hash == users.col(3).text) {
       UserPtr user = std::make_shared<User>(_db, &_users, _auth_mutex, users);
       auto user_it = _authenticated_users.find(user->oauth());
@@ -326,7 +326,7 @@ void UserManager::User::setName(const std::string &name) {
   _name = name;
 }
 
-void UserManager::User::setPassword(const std::string password) {
+void UserManager::User::setPassword(const std::string &password) {
   std::lock_guard<std::recursive_mutex> auth_lock(*_auth_mutex);
   std::vector<char> salt = UserManager::generateSalt();
   std::string password_hash = UserManager::hashPassword(salt, password);

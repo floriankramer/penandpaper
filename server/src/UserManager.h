@@ -48,7 +48,7 @@ class UserManager {
     const std::string &name() const;
     void setName(const std::string &name);
 
-    void setPassword(const std::string password_hash);
+    void setPassword(const std::string &password_hash);
 
     void setPermissions(const std::vector<Permission> &new_permissions);
     /**
