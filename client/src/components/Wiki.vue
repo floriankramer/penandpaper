@@ -954,3 +954,66 @@ table p {
   user-select: none;
 }
 </style>
+
+<!-- For the tree view the style cannot be scoped -->
+<style>
+div.tree-view-container div.tree-view-depth-1 {
+  color: #c95b46;
+}
+
+div.tree-view-container div.tree-view-depth-2 {
+  color: #46c94c;
+}
+
+div.tree-view-container div.tree-view-depth-3 {
+  color: #468dc9;
+}
+
+div.tree-view-container div.tree-view-depth-4 {
+  color: #c95b46;
+}
+
+div.tree-view-container div.tree-view-depth-5 {
+  color: #46c94c;
+}
+
+div.tree-view-container div.tree-view-depth-6 {
+  color: #468dc9;
+}
+
+div.tree-view-container div.tree-view-depth-7 {
+  color: #c95b46;
+}
+
+div.tree-view-container div.tree-view-depth-8 {
+  color: #46c94c;
+}
+
+div.tree-view-container div.tree-view-depth-9 {
+  color: #468dc9;
+}
+
+#wiki-content h1 {
+  color: #c95b46;
+}
+
+#wiki-content h2 {
+  color: #46c94c;
+}
+
+#wiki-content h3 {
+  color: #468dc9;
+}
+
+#wiki-content h4 {
+  color: #c95b46;
+}
+
+#wiki-content h5 {
+  color: #46c94c;
+}
+
+#wiki-content h6 {
+  color: #468dc9;
+}
+</style>

@@ -101,7 +101,7 @@ export default class TreeView extends Vue {
     if (this.treeStates.has(this.tree.id) && !this.treeStates.get(this.tree.id)) {
       visiblity = 'tree-view-hidden'
     }
-    rootLevel.html = '<ul class="tree-view"><li data-id="' + this.tree.id + '" class="' + visiblity + ' tree-view"><div class="tree-view-item">' + this.tree.html + '</div>'
+    rootLevel.html = '<ul class="tree-view"><li data-id="' + this.tree.id + '" class="' + visiblity + ' tree-view"><div class="tree-view-item tree-view-depth-0">' + this.tree.html + '</div>'
 
     let stack : DfsLevel[] = [rootLevel]
     while (stack.length > 0) {
@@ -139,7 +139,7 @@ export default class TreeView extends Vue {
         if (child.id === this.current) {
           highlighted = ' tree-view-active'
         }
-        let html = '<li data-id="' + child.id + '" class="tree-view ' + visiblity + highlighted + '"><div class="tree-view-item">' + child.html + '</div>'
+        let html = '<li data-id="' + child.id + '" class="tree-view ' + visiblity + highlighted + '"><div class="tree-view-item tree-view-depth-' + stack.length + '">' + child.html + '</div>'
         let cl = new DfsLevel(child)
         cl.html = html
         stack.push(cl)

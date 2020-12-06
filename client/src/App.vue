@@ -645,7 +645,7 @@ body.dark-mode .dockspan-tab-content > * {
 }
 
 body.light-mode {
-  color: #eeeeee;
+  color: #d5d5d5;
   background-color: #333333;
 }
 
